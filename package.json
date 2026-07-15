@@ -1,0 +1,24 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite",
+        "check": "tsc --noEmit -p tsconfig.json"
+    },
+    "devDependencies": {
+        "@inertiajs/svelte": "^3.6.1",
+        "@sveltejs/vite-plugin-svelte": "^7.2.0",
+        "@tsconfig/svelte": "^5.0.8",
+        "@types/node": "^26.1.1",
+        "concurrently": "^10.0.3",
+        "laravel-vite-plugin": "^3.1.3",
+        "svelte": "^5.56.4",
+        "typescript": "^7.0.2",
+        "vite": "^8.1.4"
+    },
+    "dependencies": {
+        "@lumi-ui/svelte": "file:../lumi-ui"
+    }
+}
