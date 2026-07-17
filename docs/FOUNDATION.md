@@ -11,16 +11,16 @@ Aeduca v8 reemplazará e integrará los procesos necesarios de:
 
 Aeduca Admin es el proyecto antiguo, solido para su tiempo, pero necesita una seria y extremadamente limpia, desde cero restructuracion, pero con algo muy importante capacidad de migrar algunos datos, como estudiantes, ciclos, matriculas, caja, pagos y evaluaciones. 
 
-Actualmente se encuentra en /home/qorilux/Documents/v7 aeduca main
+Actualmente se encuentra en `/Users/shaun/Documents/v7-aeduca/aeduca-main`.
 
 Aeduca Aula es una aula virtual que compartia informacion de aeduca admin, mismo alumno registrado puede acceder con su dni y password. 
-Actualmente se encuentra en /home/qorilux/Documents/v7 aeduca aula
+Actualmente se encuentra en `/Users/shaun/Documents/v7-aeduca/aeduca-aula`.
 
 Nextya es un sistema de evaluaciones con Optical mark recognition, hecho en svelte moderno, el problema es que a diferencia de aeduca aula, este no comparte la base de datos, lo que hace muy dificil migrarlo aun asi se prevee lograrlo sin parches inconsistentes sino de manera inteligente y perfecto
-Actualmente se encuentra en /home/qorilux/Documents/nextya
+Actualmente se encuentra en `/Users/shaun/Documents/nextya-main`.
 
 Coedula es un sistema que concreta en un sistema avanzado todos los aprendizajes a lo largo de muchos años creando, haciendo funcionar, manteniendo de aeduca admin y aula.
-Actualmente se encuentra en /home/qorilux/Documents/coedula
+Actualmente se encuentra en `/Users/shaun/Documents/coedula`.
 
 El sistema pertenece exclusivamente a la institución Carrión y sus sedes. No es una plataforma SaaS, no manejará empresas independientes, membresías ni aislamiento multiempresa.
 

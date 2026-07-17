@@ -63,7 +63,13 @@ If any answer is wrong, stop and redesign.
 | `resources/js/lib/` | Shared client utilities (nav, color-scheme) |
 | `@lumi-ui/svelte` | Domain-neutral UI primitives and tokens |
 
-**Planned data (next):** `users`, `students` — not implemented in this bootstrap step.
+**Implemented foundation:** employee credentials, workers, branches, semantic
+permissions, individual overrides, and session branch context.
+
+`AuthAccount` owns credentials and is Laravel's authenticated actor. `User` owns
+the employee profile; teachers remain employees and will receive academic
+assignments when that domain is implemented. Students are intentionally not part
+of this first vertical.
 
 ---
 
@@ -90,14 +96,33 @@ resources/js/
 ## Setup
 
 ```bash
+# PostgreSQL databases (create once; skip each command if it already exists)
+createdb -h 127.0.0.1 -U postgres aeduca
+createdb -h 127.0.0.1 -U postgres aeduca_test
+
 # PHP
 composer install
-cp .env.example .env   # if needed
+cp .env.example .env
 php artisan key:generate
 php artisan migrate
 
+# Isolated PostgreSQL environment for the critical test suite
+cp .env.testing.example .env.testing
+php artisan key:generate --env=testing
+
+# Optional development administrator
+AEDUCA_SEED_ADMIN_LOGIN=admin \
+AEDUCA_SEED_ADMIN_PASSWORD='use-a-local-secret' \
+php artisan db:seed
+
+# Local Lumi package (required once after a clean clone)
+cd ../lumi-ui
+pnpm install --frozen-lockfile
+pnpm run package
+
 # Frontend (pnpm)
-pnpm install
+cd ../aeduca
+pnpm install --frozen-lockfile
 pnpm run build         # production assets (works without Vite running)
 # or for HMR:
 composer run dev       # Laravel + queue + logs + Vite
@@ -133,6 +158,15 @@ cd ../aeduca && pnpm install
 | `php artisan test` | PHPUnit |
 | `composer run dev` | Full local stack |
 
+Local and test database credentials live only in `.env` and `.env.testing`.
+Both files are ignored by Git; their committed `*.example` files document the
+required variables. `phpunit.xml` contains test behavior only, never connection
+credentials.
+
+Normal commands use `aeduca`. PHPUnit and commands with `--env=testing` use
+`aeduca_test`. Never run `migrate:fresh` against `aeduca`: that command deletes
+all tables before recreating them.
+
 ---
 
 ## Docs for agents and humans
@@ -140,6 +174,9 @@ cd ../aeduca && pnpm install
 | Need | Read |
 | ---- | ---- |
 | These rules | This README |
+| Domain source of truth | `docs/FOUNDATION.md` |
+| Current vertical scope | `TASK.md` |
+| Implementation status | `STATUS.md` |
 | Lumi install / layout / theming | `~/Documents/lumi-ui/docs/GUIDE.md` |
 | Component selection | `~/Documents/lumi-ui/docs/COMPONENTS.md` |
 | Lumi agent routing | `~/Documents/lumi-ui/docs/AGENT_GUIDE.md` |

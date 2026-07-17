@@ -3,6 +3,7 @@
     import { page, router } from '@inertiajs/svelte';
     import {
         Avatar,
+        Chip,
         Dropdown,
         DropdownItem,
         Icon,
@@ -14,6 +15,7 @@
     import { ColorSchemeScript } from '@lumi-ui/svelte/color-scheme';
     import { colorScheme, colorSchemeOptions } from '@/lib/color-scheme.svelte';
     import { APP_NAVIGATION } from '@/lib/navigation';
+    import { can } from '@/lib/permissions';
 
     interface Props {
         children: Snippet;
@@ -32,16 +34,22 @@
     let sidebarCollapsed = $state(false);
     let sidebarMobileOpen = $state(false);
 
+    const auth = $derived(page.props.auth);
     const pathname = $derived(page.url.split('?')[0] ?? '/');
     const resolvedSidebarCollapsed = $derived(sidebarCollapsed && !isMobile);
     const resolvedSidebarMobileOpen = $derived(sidebarMobileOpen && isMobile);
+    const availableNavigation = $derived(
+        APP_NAVIGATION.filter((item) => !item.permission || can(item.permission)),
+    );
     const activeNavigation = $derived(
-        APP_NAVIGATION.find((item) =>
+        availableNavigation.find((item) =>
             item.href === '/' ? pathname === '/' : pathname.startsWith(item.href),
-        ) ?? APP_NAVIGATION[0],
+        ) ?? availableNavigation[0] ?? APP_NAVIGATION[0],
     );
     const activeTheme = $derived(THEME_LABELS[colorScheme.preference]);
-
+    const employeeName = $derived(
+        auth ? `${auth.employee.first_name} ${auth.employee.last_name}` : 'Aeduca',
+    );
     onMount(() => {
         const stopScheme = colorScheme.start();
         const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
@@ -60,7 +68,6 @@
         };
     });
 
-
     function toggleSidebar(): void {
         if (isMobile) {
             sidebarMobileOpen = !sidebarMobileOpen;
@@ -77,6 +84,10 @@
         event.preventDefault();
         closeMobileSidebar();
         router.visit(href);
+    }
+
+    function logout(): void {
+        router.delete('/logout');
     }
 </script>
 
@@ -110,7 +121,7 @@
             />
         {/snippet}
 
-        {#each APP_NAVIGATION as item (item.href)}
+        {#each availableNavigation as item (item.href)}
             <SidebarItem
                 href={item.href}
                 active={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
@@ -131,13 +142,27 @@
         {/snippet}
 
         {#snippet actions()}
+            {#if auth}
+                <Chip icon="building2" color="secondary" size="sm">
+                    {auth.current_branch?.name ?? 'Sin sede seleccionada'}
+                </Chip>
+            {/if}
+
             <Dropdown placement="bottom-end" aria-label="Menú de usuario">
                 {#snippet triggerContent()}
-                    <Avatar text="Aeduca" size="sm" color="primary" />
+                    <Avatar text={employeeName} size="sm" color="primary" />
                 {/snippet}
 
+                {#if auth}
+                    <DropdownItem icon="user" disabled>
+                        {employeeName} · {auth.employee.role_name}
+                    </DropdownItem>
+                {/if}
                 <DropdownItem icon={activeTheme.icon} onclick={colorScheme.cyclePreference}>
                     Tema: {activeTheme.label}
+                </DropdownItem>
+                <DropdownItem icon="logOut" color="danger" onclick={logout}>
+                    Cerrar sesión
                 </DropdownItem>
             </Dropdown>
         {/snippet}

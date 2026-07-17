@@ -2,31 +2,64 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+#[Fillable([
+    'first_name',
+    'last_name',
+    'email',
+    'phone',
+    'employee_role_code',
+    'is_active',
+    'is_super_admin',
+])]
+class User extends Model
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasUuids;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    protected $primaryKey = 'code';
+
+    public function employeeRole(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeRole::class, 'employee_role_code', 'code');
+    }
+
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Branch::class,
+            'user_branches',
+            'user_code',
+            'branch_code',
+            'code',
+            'code',
+        );
+    }
+
+    public function permissionOverrides(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Permission::class,
+            'user_permissions',
+            'user_code',
+            'permission_code',
+            'code',
+            'code',
+        )->withPivot('is_allowed');
+    }
+
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'is_active' => 'boolean',
+            'is_super_admin' => 'boolean',
         ];
     }
 }

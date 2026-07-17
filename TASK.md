@@ -327,7 +327,9 @@ Do not create tests that only confirm Laravel itself works.
 Run and fix all failures:
 
 ```bash
-php artisan migrate:fresh --seed
+AEDUCA_SEED_ADMIN_LOGIN=verification-admin \
+AEDUCA_SEED_ADMIN_PASSWORD='<local-secret>' \
+php artisan migrate:fresh --seed --env=testing
 php artisan test
 pnpm run check
 pnpm run build

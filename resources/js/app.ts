@@ -4,7 +4,12 @@ import '@lumi-ui/svelte/styles';
 import './styles/lumi-theme.css';
 import DashboardLayout from './Layouts/DashboardLayout.svelte';
 
-const pages = import.meta.glob<ResolvedComponent>('./Pages/**/*.svelte', { eager: true });
+interface PageModule {
+    default: ResolvedComponent['default'];
+    layout?: ResolvedComponent['layout'] | false;
+}
+
+const pages = import.meta.glob<PageModule>('./Pages/**/*.svelte', { eager: true });
 
 createInertiaApp({
     resolve: (name): ResolvedComponent => {
@@ -14,10 +19,11 @@ createInertiaApp({
             throw new Error(`Inertia page not found: ${name}`);
         }
 
-        return {
-            default: page.default,
-            layout: page.layout ?? DashboardLayout,
-        };
+        if (page.layout === false) {
+            return { default: page.default };
+        }
+
+        return { default: page.default, layout: page.layout ?? DashboardLayout };
     },
     setup({ el, App, props }) {
         mount(App, { target: el!, props });
