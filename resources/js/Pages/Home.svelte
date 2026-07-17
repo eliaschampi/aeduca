@@ -1,51 +1,97 @@
 <script lang="ts">
-    import { page } from '@inertiajs/svelte';
-    import { Alert, Card, InfoItem, PageHeader } from '@lumi-ui/svelte';
+    import { page, router } from '@inertiajs/svelte';
+    import {
+        Button,
+        Card,
+        EmptyState,
+        PageHeader,
+        QuickAccessCard,
+    } from '@lumi-ui/svelte';
     import { can } from '@/lib/permissions';
 
     const auth = $derived(page.props.auth);
     const employeeName = $derived(
         auth ? `${auth.employee.first_name} ${auth.employee.last_name}` : '',
     );
+    const needsBranch = $derived(
+        Boolean(auth && auth.branches.length > 0 && !auth.current_branch),
+    );
+    const noBranches = $derived(Boolean(auth && auth.branches.length === 0));
 </script>
 
 <svelte:head>
     <title>Inicio · Aeduca</title>
 </svelte:head>
 
-<div class="lumi-stack lumi-stack--lg lumi-min-width--0">
+<div class="lumi-stack lumi-stack--xl lumi-min-width--0">
     <PageHeader
         title="Inicio"
-        subtitle={employeeName ? `Bienvenido, ${employeeName}` : 'Aeduca'}
+        subtitle={employeeName
+            ? `Hola, ${employeeName}. Accesos rápidos de tu espacio de trabajo.`
+            : 'Aeduca'}
         icon="house"
         size="xl"
     />
 
-    {#if auth && auth.branches.length > 1 && !auth.current_branch}
-        <Alert color="info" title="Selecciona una sede">
-            Elige tu espacio de trabajo desde la sección Sedes.
-        </Alert>
-    {/if}
-
-    {#if auth && can('dashboard.view')}
-        <Card title="Sesión autorizada" subtitle="Contexto actual de trabajo" spaced>
-            <div class="lumi-grid lumi-grid--responsive lumi-grid--gap-md">
-                <InfoItem
-                    icon="user"
-                    label="Trabajador"
-                    value={employeeName}
-                />
-                <InfoItem
-                    icon="shield"
-                    label="Rol principal"
-                    value={auth.employee.role_name}
-                />
-                <InfoItem
-                    icon="building2"
-                    label="Sede actual"
-                    value={auth.current_branch?.name ?? 'Sin sede seleccionada'}
-                />
-            </div>
+    {#if noBranches}
+        <Card spaced>
+            <EmptyState
+                icon="building2"
+                title="Sin sede asignada"
+                description="Pide a un administrador que te asigne a una sede habilitada para operar."
+            />
         </Card>
+    {:else if needsBranch}
+        <Card spaced>
+            <EmptyState
+                icon="mapPin"
+                title="Selecciona una sede de trabajo"
+                description="Elige la sede activa de tu sesión para continuar con el trabajo diario."
+            >
+                {#snippet actions()}
+                    <Button
+                        type="button"
+                        icon="building2"
+                        onclick={() => router.visit('/branches')}
+                    >
+                        Ir a sedes
+                    </Button>
+                {/snippet}
+            </EmptyState>
+        </Card>
+    {:else}
+        <div
+            class="lumi-grid lumi-grid--columns-3 lumi-grid--gap-md lumi-width--full lumi-min-width--0"
+        >
+            <QuickAccessCard
+                href="/branches"
+                title="Sede de trabajo"
+                description={auth?.current_branch
+                    ? `Activa: ${auth.current_branch.name}`
+                    : 'Cambia la sede de tu sesión.'}
+                icon="building2"
+                color="secondary"
+            />
+
+            {#if can('employees.view')}
+                <QuickAccessCard
+                    href="/admin/employees"
+                    title="Usuarios"
+                    description="Personal, roles asignados y acceso."
+                    icon="users"
+                    color="primary"
+                />
+            {/if}
+
+            {#if can('roles.view')}
+                <QuickAccessCard
+                    href="/admin/roles"
+                    title="Roles"
+                    description="Permisos por defecto de cada cargo."
+                    icon="shield"
+                    color="success"
+                />
+            {/if}
+        </div>
     {/if}
 </div>

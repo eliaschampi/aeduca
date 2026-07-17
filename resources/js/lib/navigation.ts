@@ -7,7 +7,11 @@ export interface NavigationItem {
     permission?: string;
 }
 
-/** Single source of truth for sidebar. Add modules here as they land. */
+/**
+ * Sidebar source of truth.
+ * Keep short, no duplicate modules. Labels are end-user Spanish copy.
+ * Permission keys stay semantic (`employees.*`) — not renamed with the UI label.
+ */
 export const APP_NAVIGATION: readonly NavigationItem[] = [
     {
         label: 'Inicio',
@@ -19,5 +23,17 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         label: 'Sedes',
         href: '/branches',
         icon: 'building2',
+    },
+    {
+        label: 'Usuarios',
+        href: '/admin/employees',
+        icon: 'users',
+        permission: 'employees.view',
+    },
+    {
+        label: 'Roles',
+        href: '/admin/roles',
+        icon: 'shield',
+        permission: 'roles.view',
     },
 ];

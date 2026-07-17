@@ -46,7 +46,7 @@
                 size="lg"
                 icon="graduationCap"
                 title="Bienvenido a Aeduca"
-                subtitle="Ingresa con tu cuenta de trabajador"
+                subtitle="Ingresa con tu cuenta de usuario"
             />
         {/snippet}
 

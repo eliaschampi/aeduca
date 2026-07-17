@@ -14,6 +14,21 @@ use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Semantic permission catalog for the administrative foundation.
+     *
+     * @var array<string, string>
+     */
+    private const PERMISSION_CATALOG = [
+        'dashboard.view' => 'Acceder a la página de inicio.',
+        'branches.view' => 'Ver las sedes.',
+        'branches.manage' => 'Crear, editar y activar sedes.',
+        'employees.view' => 'Ver los usuarios del personal.',
+        'employees.manage' => 'Crear, editar y activar usuarios del personal.',
+        'roles.view' => 'Ver los roles y sus permisos.',
+        'roles.manage' => 'Crear, editar roles y asignar permisos.',
+    ];
+
     public function run(): void
     {
         $login = Str::lower(trim((string) config('aeduca.seed_admin.login')));
@@ -37,12 +52,14 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ]);
 
-            $permission = Permission::query()->create([
-                'name' => 'dashboard.view',
-                'description' => 'Acceder a la página de inicio.',
-            ]);
+            $permissions = collect(self::PERMISSION_CATALOG)->map(
+                fn (string $description, string $name): Permission => Permission::query()->create([
+                    'name' => $name,
+                    'description' => $description,
+                ]),
+            );
 
-            $role->permissions()->attach($permission);
+            $role->permissions()->attach($permissions->pluck('code'));
 
             $employee = User::query()->create([
                 'first_name' => 'Administrador',

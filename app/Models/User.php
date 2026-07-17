@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'first_name',
@@ -29,6 +30,11 @@ class User extends Model
     public function employeeRole(): BelongsTo
     {
         return $this->belongsTo(EmployeeRole::class, 'employee_role_code', 'code');
+    }
+
+    public function authAccount(): HasOne
+    {
+        return $this->hasOne(AuthAccount::class, 'user_code', 'code');
     }
 
     public function branches(): BelongsToMany

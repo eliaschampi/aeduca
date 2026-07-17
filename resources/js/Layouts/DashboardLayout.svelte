@@ -41,11 +41,18 @@
     const availableNavigation = $derived(
         APP_NAVIGATION.filter((item) => !item.permission || can(item.permission)),
     );
-    const activeNavigation = $derived(
-        availableNavigation.find((item) =>
+    // Prefer the longest matching path so /admin/employees wins over /.
+    const activeNavigation = $derived.by(() => {
+        const matches = availableNavigation.filter((item) =>
             item.href === '/' ? pathname === '/' : pathname.startsWith(item.href),
-        ) ?? availableNavigation[0] ?? APP_NAVIGATION[0],
-    );
+        );
+        if (matches.length === 0) {
+            return availableNavigation[0] ?? APP_NAVIGATION[0];
+        }
+        return matches.reduce((best, item) =>
+            item.href.length > best.href.length ? item : best,
+        );
+    });
     const activeTheme = $derived(THEME_LABELS[colorScheme.preference]);
     const employeeName = $derived(
         auth ? `${auth.employee.first_name} ${auth.employee.last_name}` : 'Aeduca',
@@ -116,7 +123,7 @@
             <SidebarHeader
                 collapsed={resolvedSidebarCollapsed}
                 userName="Aeduca"
-                userMeta="Sistema educativo"
+                userMeta={auth?.employee.role_name ?? 'Carrión'}
                 avatarText="AE"
             />
         {/snippet}

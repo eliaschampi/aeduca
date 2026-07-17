@@ -78,4 +78,19 @@ abstract class TestCase extends BaseTestCase
 
         return $permission;
     }
+
+    /**
+     * @param  list<string>  $names
+     * @return list<Permission>
+     */
+    protected function grantPermissions(AuthAccount $account, array $names): array
+    {
+        $permissions = collect($names)->map(
+            fn (string $name): Permission => Permission::factory()->create(['name' => $name]),
+        );
+
+        $account->user->employeeRole->permissions()->attach($permissions->pluck('code'));
+
+        return $permissions->all();
+    }
 }

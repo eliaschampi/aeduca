@@ -22,10 +22,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define(
-            'dashboard.view',
-            fn (AuthAccount $account): bool => app(PermissionResolver::class)
-                ->can($account, 'dashboard.view'),
+        // Every semantic permission is authorized through the single resolver.
+        // Returning null when denied lets Laravel deny without a per-ability Gate.
+        Gate::before(
+            fn (AuthAccount $account, string $ability): ?bool => app(PermissionResolver::class)
+                ->can($account, $ability) ? true : null,
         );
     }
 }
