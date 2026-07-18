@@ -15,14 +15,10 @@ class BranchController extends Controller
     {
         Gate::authorize('branches.manage');
 
-        $saveBranch->handle(
-            null,
-            [
-                'name' => $request->string('name')->toString(),
-                'is_active' => $request->boolean('is_active'),
-            ],
-            $request->collect('user_codes')->all(),
-        );
+        $saveBranch->handle(null, [
+            'name' => $request->string('name')->toString(),
+            'is_active' => $request->boolean('is_active'),
+        ]);
 
         return to_route('branches.index');
     }
@@ -31,14 +27,10 @@ class BranchController extends Controller
     {
         Gate::authorize('branches.manage');
 
-        $saveBranch->handle(
-            $branch,
-            [
-                'name' => $request->string('name')->toString(),
-                'is_active' => $request->boolean('is_active'),
-            ],
-            $request->collect('user_codes')->all(),
-        );
+        $saveBranch->handle($branch, [
+            'name' => $request->string('name')->toString(),
+            'is_active' => $request->boolean('is_active'),
+        ]);
 
         return to_route('branches.index');
     }

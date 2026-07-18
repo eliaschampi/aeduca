@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class BranchRequest extends FormRequest
 {
@@ -20,8 +19,6 @@ class BranchRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120'],
             'is_active' => ['required', 'boolean'],
-            'user_codes' => ['required', 'array', 'min:1'],
-            'user_codes.*' => ['uuid', Rule::exists('users', 'code')],
         ];
     }
 
@@ -32,10 +29,6 @@ class BranchRequest extends FormRequest
             'name.max' => 'El nombre no puede superar los 120 caracteres.',
             'is_active.required' => 'Indica si la sede está activa.',
             'is_active.boolean' => 'El estado de la sede no es válido.',
-            'user_codes.required' => 'Asigna al menos un usuario a la sede.',
-            'user_codes.min' => 'Asigna al menos un usuario a la sede.',
-            'user_codes.*.exists' => 'Uno de los usuarios seleccionados no existe.',
-            'user_codes.*.uuid' => 'El identificador de usuario no es válido.',
         ];
     }
 }

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\CreateEmployee;
-use App\Actions\SyncUserPermissionOverrides;
+use App\Actions\SyncUserPermissions;
 use App\Actions\UpdateEmployee;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangeEmployeePasswordRequest;
 use App\Http\Requests\StoreEmployeeRequest;
-use App\Http\Requests\SyncUserPermissionOverridesRequest;
+use App\Http\Requests\SyncUserPermissionsRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\Branch;
 use App\Models\EmployeeRole;
@@ -29,7 +29,7 @@ class EmployeeController extends Controller
             ->with(['employeeRole:code,name', 'authAccount:code,user_code,login,is_active'])
             ->orderBy('first_name')
             ->orderBy('last_name')
-            ->get(['code', 'first_name', 'last_name', 'email', 'employee_role_code', 'is_active']);
+            ->get(['code', 'first_name', 'last_name', 'email', 'employee_role_code', 'is_active', 'is_super_admin']);
 
         return Inertia::render('Admin/Employees/Index', [
             'employees' => $employees->map(fn (User $employee): array => [
@@ -80,11 +80,20 @@ class EmployeeController extends Controller
         $canManage = Gate::check('employees.manage');
 
         $employee->load([
-            'employeeRole:code,name',
+            'employeeRole.permissionScopes:code,name,description',
             'branches:code,name',
             'authAccount:code,user_code,login,is_active,last_login_at',
-            'permissionOverrides:code,name,description',
+            'permissions:code,name,description',
         ]);
+
+        $scopePermissions = $employee->employeeRole?->permissionScopes
+            ->map(fn (Permission $permission): array => [
+                'code' => $permission->code,
+                'name' => $permission->name,
+                'description' => $permission->description,
+            ])
+            ->values()
+            ->all() ?? [];
 
         return Inertia::render('Admin/Employees/Show', [
             'employee' => [
@@ -96,6 +105,7 @@ class EmployeeController extends Controller
                 'employee_role_code' => $employee->employee_role_code,
                 'role_name' => $employee->employeeRole?->name,
                 'is_active' => $employee->is_active,
+                'is_super_admin' => $employee->is_super_admin,
                 'branch_codes' => $employee->branches->pluck('code')->all(),
                 'branches' => $employee->branches
                     ->map(fn (Branch $branch): array => ['code' => $branch->code, 'name' => $branch->name])
@@ -104,30 +114,14 @@ class EmployeeController extends Controller
                 'access_active' => (bool) $employee->authAccount?->is_active,
                 'last_login_at' => $employee->authAccount?->last_login_at?->toIso8601String(),
             ],
-            // Catalog only when the viewer can add exceptions (keeps payload small for read-only).
-            'permission_catalog' => $canManage
-                ? Permission::query()
-                    ->orderBy('name')
-                    ->get(['code', 'name', 'description'])
-                    ->map(fn (Permission $permission): array => [
-                        'code' => $permission->code,
-                        'name' => $permission->name,
-                        'description' => $permission->description,
-                    ])
-                    ->all()
-                : [],
-            // Sparse rows; label included so viewers need no full catalog.
-            'permission_overrides' => $employee->permissionOverrides
-                ->map(fn (Permission $permission): array => [
-                    'permission_code' => $permission->code,
-                    'label' => filled($permission->description)
-                        ? $permission->description
-                        : $permission->name,
-                    'is_allowed' => (bool) $permission->pivot->is_allowed,
-                ])
-                ->values()
-                ->all(),
+            // Role scope = assignable boundary (not automatic access).
+            'role_permission_scope' => $scopePermissions,
+            // Direct grants only (empty for super_admin UI messaging).
+            'permission_codes' => $employee->is_super_admin
+                ? []
+                : $employee->permissions->pluck('code')->values()->all(),
             ...$this->formOptions(),
+            'can_manage' => $canManage,
         ]);
     }
 
@@ -158,7 +152,6 @@ class EmployeeController extends Controller
         $account = $employee->authAccount;
 
         if ($account) {
-            // Model update so the `hashed` cast applies (query builder skips casts).
             $account->update([
                 'password' => $request->string('password')->toString(),
             ]);
@@ -180,22 +173,20 @@ class EmployeeController extends Controller
         return to_route('admin.employees.show', $employee);
     }
 
-    public function syncPermissionOverrides(
-        SyncUserPermissionOverridesRequest $request,
+    public function syncPermissions(
+        SyncUserPermissionsRequest $request,
         User $employee,
-        SyncUserPermissionOverrides $syncUserPermissionOverrides,
+        SyncUserPermissions $syncUserPermissions,
     ): RedirectResponse {
         Gate::authorize('employees.manage');
 
-        $syncUserPermissionOverrides->handle(
+        if ($employee->is_super_admin) {
+            return to_route('admin.employees.show', $employee);
+        }
+
+        $syncUserPermissions->handle(
             $employee,
-            $request->collect('overrides')
-                ->map(fn (array $row): array => [
-                    'permission_code' => $row['permission_code'],
-                    'is_allowed' => (bool) $row['is_allowed'],
-                ])
-                ->values()
-                ->all(),
+            $request->collect('permission_codes')->all(),
         );
 
         return to_route('admin.employees.show', $employee);

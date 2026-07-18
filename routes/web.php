@@ -43,8 +43,8 @@ Route::middleware(['auth', 'employee.active'])->group(function () {
             ->name('employees.password');
         Route::put('/employees/{employee}/access', [AdminEmployeeController::class, 'toggleAccess'])
             ->name('employees.access');
-        Route::put('/employees/{employee}/permission-overrides', [AdminEmployeeController::class, 'syncPermissionOverrides'])
-            ->name('employees.permission-overrides');
+        Route::put('/employees/{employee}/permissions', [AdminEmployeeController::class, 'syncPermissions'])
+            ->name('employees.permissions');
 
         Route::get('/roles', [AdminRoleController::class, 'index'])
             ->name('roles.index');

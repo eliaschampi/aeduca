@@ -8,10 +8,21 @@ use Tests\TestCase;
 
 class PermissionAuthorizationTest extends TestCase
 {
-    public function test_role_permission_is_granted(): void
+    public function test_role_scope_alone_does_not_grant_access(): void
     {
         $account = $this->createEmployeeAccount();
-        $this->grantDashboardPermission($account);
+        $this->scopeRolePermissions($account->user->employeeRole, ['dashboard.view']);
+
+        $resolver = app(PermissionResolver::class);
+
+        $this->assertFalse($resolver->can($account, 'dashboard.view'));
+        $this->assertSame([], $resolver->effectiveNames($account));
+    }
+
+    public function test_direct_user_permission_within_scope_grants_access(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['dashboard.view']);
 
         $resolver = app(PermissionResolver::class);
 
@@ -19,26 +30,12 @@ class PermissionAuthorizationTest extends TestCase
         $this->assertSame(['dashboard.view'], $resolver->effectiveNames($account));
     }
 
-    public function test_individual_override_can_grant_a_permission(): void
+    public function test_direct_permission_outside_role_scope_is_not_effective(): void
     {
         $account = $this->createEmployeeAccount();
         $permission = Permission::factory()->create(['name' => 'dashboard.view']);
-        $account->user->permissionOverrides()->attach($permission, [
-            'is_allowed' => true,
-        ]);
-
-        $this->assertTrue(
-            app(PermissionResolver::class)->can($account, 'dashboard.view'),
-        );
-    }
-
-    public function test_individual_denial_overrides_a_role_grant(): void
-    {
-        $account = $this->createEmployeeAccount();
-        $permission = $this->grantDashboardPermission($account);
-        $account->user->permissionOverrides()->attach($permission, [
-            'is_allowed' => false,
-        ]);
+        // Direct grant without putting it in the role scope.
+        $account->user->permissions()->attach($permission);
 
         $this->assertFalse(
             app(PermissionResolver::class)->can($account, 'dashboard.view'),
@@ -50,14 +47,13 @@ class PermissionAuthorizationTest extends TestCase
         $account = $this->createEmployeeAccount(
             userAttributes: ['is_super_admin' => true],
         );
-        $permission = Permission::factory()->create(['name' => 'dashboard.view']);
-        $account->user->permissionOverrides()->attach($permission, [
-            'is_allowed' => false,
-        ]);
+        Permission::factory()->create(['name' => 'dashboard.view']);
+        Permission::factory()->create(['name' => 'branches.view']);
 
         $resolver = app(PermissionResolver::class);
 
         $this->assertTrue($resolver->can($account, 'dashboard.view'));
+        $this->assertTrue($resolver->can($account, 'branches.view'));
         $this->assertFalse($resolver->can($account, 'unknown.permission'));
     }
 
@@ -71,8 +67,26 @@ class PermissionAuthorizationTest extends TestCase
     public function test_home_allows_employee_with_dashboard_permission(): void
     {
         $account = $this->createEmployeeAccount();
-        $this->grantDashboardPermission($account);
+        $this->grantPermissions($account, ['dashboard.view']);
 
         $this->actingAs($account)->get('/')->assertOk();
+    }
+
+    public function test_manage_grant_includes_view_for_navigation(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['employees.manage']);
+
+        $resolver = app(PermissionResolver::class);
+
+        $this->assertTrue($resolver->can($account, 'employees.manage'));
+        $this->assertTrue($resolver->can($account, 'employees.view'));
+
+        $this->actingAs($account)
+            ->get(route('admin.employees.index'))
+            ->assertOk();
+        $this->actingAs($account)
+            ->get(route('admin.employees.create'))
+            ->assertOk();
     }
 }

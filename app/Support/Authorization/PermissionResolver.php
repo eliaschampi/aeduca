@@ -52,26 +52,17 @@ final class PermissionResolver
                 ->all();
         }
 
-        $permissionNames = array_fill_keys(
-            $employee->employeeRole->permissions()
-                ->pluck('permissions.name')
-                ->all(),
-            true,
-        );
+        $employee->loadMissing(['employeeRole.permissionScopes', 'permissions']);
 
-        $overrides = $employee->permissionOverrides()
-            ->orderBy('permissions.name')
-            ->get(['permissions.name']);
+        $scopeNames = $employee->employeeRole->permissionScopes
+            ->pluck('name')
+            ->all();
+        $directNames = $employee->permissions
+            ->pluck('name')
+            ->all();
 
-        foreach ($overrides as $permission) {
-            if ((bool) $permission->pivot->is_allowed) {
-                $permissionNames[$permission->name] = true;
-            } else {
-                unset($permissionNames[$permission->name]);
-            }
-        }
-
-        $names = array_keys($permissionNames);
+        // Actual grants ∩ role assignable scope.
+        $names = array_values(array_intersect($directNames, $scopeNames));
         sort($names);
 
         return $names;

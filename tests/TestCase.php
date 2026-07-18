@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\EmployeeRole;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\Authorization\PermissionDependency;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Str;
@@ -73,23 +74,56 @@ abstract class TestCase extends BaseTestCase
 
     protected function grantDashboardPermission(AuthAccount $account): Permission
     {
-        $permission = Permission::factory()->create(['name' => 'dashboard.view']);
-        $account->user->employeeRole->permissions()->attach($permission);
-
-        return $permission;
+        return $this->grantPermissions($account, ['dashboard.view'])[0];
     }
 
     /**
+     * Put names in the role scope and as direct grants (effective access).
+     * Expands manage → view.
+     *
      * @param  list<string>  $names
      * @return list<Permission>
      */
     protected function grantPermissions(AuthAccount $account, array $names): array
     {
-        $permissions = collect($names)->map(
-            fn (string $name): Permission => Permission::factory()->create(['name' => $name]),
+        $expanded = PermissionDependency::expandNames($names);
+
+        $permissions = collect($expanded)->map(
+            function (string $name): Permission {
+                return Permission::query()->firstOrCreate(
+                    ['name' => $name],
+                    ['description' => null],
+                );
+            },
         );
 
-        $account->user->employeeRole->permissions()->attach($permissions->pluck('code'));
+        $codes = $permissions->pluck('code')->all();
+        $account->user->employeeRole->permissionScopes()->syncWithoutDetaching($codes);
+        $account->user->permissions()->syncWithoutDetaching($codes);
+
+        return $permissions->all();
+    }
+
+    /**
+     * Add permissions to a role's assignable scope only (no direct grants).
+     *
+     * @param  list<string>  $names
+     * @return list<Permission>
+     */
+    protected function scopeRolePermissions(EmployeeRole $role, array $names): array
+    {
+        $expanded = PermissionDependency::expandNames($names);
+
+        $permissions = collect($expanded)->map(
+            function (string $name): Permission {
+                return Permission::query()->firstOrCreate(
+                    ['name' => $name],
+                    ['description' => null],
+                );
+            },
+        );
+
+        $role->permissionScopes()->syncWithoutDetaching($permissions->pluck('code'));
 
         return $permissions->all();
     }

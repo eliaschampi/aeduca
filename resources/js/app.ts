@@ -3,6 +3,7 @@ import { mount } from 'svelte';
 import '@lumi-ui/svelte/styles';
 import './styles/lumi-theme.css';
 import DashboardLayout from './Layouts/DashboardLayout.svelte';
+import { installInertiaLinkDelegation } from '@/lib/inertia-links';
 
 interface PageModule {
     default: ResolvedComponent['default'];
@@ -10,6 +11,9 @@ interface PageModule {
 }
 
 const pages = import.meta.glob<PageModule>('./Pages/**/*.svelte', { eager: true });
+
+/** Dispose previous click delegate if setup re-runs (keeps one listener, O(1) cost). */
+let disposeLinkDelegation: (() => void) | undefined;
 
 createInertiaApp({
     resolve: (name): ResolvedComponent => {
@@ -27,6 +31,9 @@ createInertiaApp({
     },
     setup({ el, App, props }) {
         mount(App, { target: el!, props });
+        // SvelteKit-like: plain same-origin <a href> → Inertia visit (QuickAccessCard, etc.)
+        disposeLinkDelegation?.();
+        disposeLinkDelegation = installInertiaLinkDelegation();
     },
     progress: {
         color: 'var(--lumi-color-primary)',

@@ -3,7 +3,8 @@
 > **Role.** What exists in code **now**. Domain rules: [`SPEC.md`](SPEC.md).
 > If this disagrees with code, **code wins**.
 >
-> **Module status:** Access foundation + administration vertical — **closed**.
+> **Module status:** Access foundation + administration vertical — **corrected**
+> (permission scope model, single branch ownership, manage→view).
 
 ---
 
@@ -12,9 +13,9 @@
 | Module | Scope | Status |
 | ------ | ----- | ------ |
 | Access foundation | Auth, session branch, PermissionResolver, shared Inertia props | **Done** |
-| Sedes | Unified `/branches` picker + catalog + members (`user_branches`) | **Done** |
-| Usuarios | List/create/profile, password, access, sparse exceptions | **Done** |
-| Roles | List/create/edit, permission groups, `role_permissions` | **Done** |
+| Sedes | Unified `/branches` picker + catalog attributes (no membership writes) | **Done** |
+| Usuarios | List/create/profile panels, password, access, **direct** permissions | **Done** |
+| Roles | List/create/edit, **permission scope** (assignable boundary) | **Done** |
 | Academic / finance / OMR | Students, cycles, payments, … | **Not started** |
 
 ---
@@ -25,23 +26,15 @@
 app/
   Actions/     AuthenticateEmployee, LogoutEmployee, SelectBranch,
                SaveBranch, CreateEmployee, UpdateEmployee,
-               SaveRole, SyncUserPermissionOverrides
-  Http/Controllers/
-               Auth, Home, Branch (session+catalog)
-               Admin/{Branch,Employee,Role}Controller
-  Support/     Authorization/PermissionResolver, Branches/BranchContext
+               SaveRole, SyncUserPermissions
+  Support/     Authorization/{PermissionResolver, PermissionDependency}
+               Branches/BranchContext
 
 resources/js/
-  Pages/Auth/Login
-  Pages/Home
-  Pages/Branches/Index          session + admin catalog
-  Pages/Admin/Employees/{Index,Create,Show}
+  Pages/Branches/Index
+  Pages/Admin/Employees/{Index,Create,Show + panels/*}
   Pages/Admin/Roles/{Index,Form}
-  lib/navigation.ts             Inicio · Sedes · Usuarios · Roles
 ```
-
-**No dead parallels:** no `Admin/Branches` page, no dual “gestión de sedes” nav, no
-user-level full permission matrix UI.
 
 ---
 
@@ -49,58 +42,42 @@ user-level full permission matrix UI.
 
 ```text
 branches, employee_roles, permissions
-role_permissions          role → default grants
-users                     profile + employee_role_code + is_super_admin
-user_branches             membership
-user_permissions          sparse allow/deny exceptions
-auth_accounts             credentials
+employee_role_permission_scopes   role → assignable permissions
+users                             profile + role + is_super_admin
+user_branches                     membership (employee admin owns writes)
+user_permissions                  direct grants (presence = allowed)
+auth_accounts                     credentials
 ```
 
-**Effective permission:** super_admin → all; else role grants ± `user_permissions`.
+**Effective permission:** super_admin → all; else `user_permissions ∩ role scope`.
+
+**manage → view** expanded on persist (role scope + user grants).
 
 ---
 
-## 4. HTTP surface (admin + access)
+## 4. HTTP surface
 
 | Method | URI | Purpose |
 | ------ | --- | ------- |
 | * | login / logout / `/` / branches / current-branch | Foundation |
-| POST/PUT | `/admin/branches` | Create/update sede + members |
-| * | `/admin/employees/*` | Usuarios CRUD + password + access + overrides |
-| * | `/admin/roles/*` | Roles + permission package |
-
-All admin writes gated by semantic permissions (`employees.*`, `branches.*`, `roles.*`).
+| POST/PUT | `/admin/branches` | Create/update sede **attributes only** |
+| * | `/admin/employees/*` | Usuarios CRUD + password + access + permissions |
+| PUT | `/admin/employees/{id}/permissions` | Direct grants |
+| * | `/admin/roles/*` | Roles + permission scope |
 
 ---
 
-## 5. UX contract (finished)
+## 5. UX contract
 
 | Screen | Pattern |
 | ------ | ------- |
-| User show | Hero + **2 tabs** (Perfil \| Seguridad). Password/access **only** in header ⋮ |
-| User create | Stepped tabs: Persona → Puesto → Acceso |
-| Roles form | Tabs: Identidad \| Permisos (collapsible groups) |
-| Sedes | One page: cards + dialog with members |
-| Home | Quick access: Sedes, Usuarios, Roles (no duplicate sede cards) |
+| Branches | Session pick + catalog; dialog name/active only; employee count read-only |
+| User create | One form: basic / role+sedes / credentials |
+| User show | Panels: General, Access, Permissions (+ password dialog) |
+| Role form | “Permissions available for this role” (not automatic grants) |
 
 ---
 
-## 6. Tests
+## 6. Not done
 
-Feature coverage: auth, branch selection, branch management, employee management,
-role management, permission overrides, integrity, Inertia shared props.
-
-```bash
-php artisan test
-pnpm run check
-pnpm run build
-```
-
----
-
-## 7. Next product work (outside this module)
-
-1. Academic groundwork (niveles, modalidades, ciclos, grados, grupos)
-2. Students / enrollments (when product prioritizes)
-
-Do not reopen access/admin for speculative layers.
+Academic cycles, students, finance, OMR, student portal.

@@ -2,47 +2,33 @@
     import { page, router } from '@inertiajs/svelte';
     import {
         Alert,
-        Avatar,
-        AvatarGroup,
         Button,
         Card,
         Chip,
         Dialog,
         EmptyState,
-        Fieldset,
         InfoItem,
         Input,
-        List,
-        ListHeader,
-        ListItem,
         PageHeader,
-        Select,
         Switch,
         Title,
     } from '@lumi-ui/svelte';
-
-    interface Member {
-        code: string;
-        name: string;
-    }
 
     interface CatalogBranch {
         code: string;
         name: string;
         is_active: boolean;
-        members: Member[];
+        employees_count: number;
     }
 
     interface Props {
         catalog?: CatalogBranch[];
-        employees?: Member[];
         can_view_catalog?: boolean;
         can_manage?: boolean;
     }
 
     const {
         catalog = [],
-        employees = [],
         can_view_catalog = false,
         can_manage = false,
     }: Props = $props();
@@ -56,16 +42,12 @@
     let editing = $state<CatalogBranch | null>(null);
     let formName = $state('');
     let formActive = $state(true);
-    let selectedUsers = $state<string[]>([]);
-    let selectedUserCode = $state<string | null>(null);
     let processing = $state(false);
     let formError = $state<string | null>(null);
     let nameError = $state<string | null>(null);
-    let membersError = $state<string | null>(null);
 
     const normalizedFilter = $derived(branchFilter.trim().toLowerCase());
 
-    /** Cards: full catalog for managers/viewers; otherwise only session branches. */
     const cards = $derived.by(() => {
         if (can_view_catalog) {
             const source =
@@ -79,7 +61,7 @@
                 code: branch.code,
                 name: branch.name,
                 is_active: branch.is_active as boolean | null,
-                members: branch.members,
+                employees_count: branch.employees_count,
                 canUse: workspaceCodes.has(branch.code),
                 editable: can_manage,
                 source: branch as CatalogBranch | null,
@@ -90,31 +72,20 @@
             code: branch.code,
             name: branch.name,
             is_active: null as boolean | null,
-            members: [] as Member[],
+            employees_count: null as number | null,
             canUse: true,
             editable: false,
             source: null as CatalogBranch | null,
         }));
     });
 
-    const employeeByCode = $derived(new Map(employees.map((e) => [e.code, e])));
-
-    const availableEmployeeOptions = $derived(
-        employees
-            .filter((employee) => !selectedUsers.includes(employee.code))
-            .map((employee) => ({ value: employee.code, label: employee.name })),
-    );
-
     function openCreate(): void {
         if (!can_manage) return;
         editing = null;
         formName = '';
         formActive = true;
-        selectedUsers = [];
-        selectedUserCode = null;
         formError = null;
         nameError = null;
-        membersError = null;
         dialogOpen = true;
     }
 
@@ -123,27 +94,13 @@
         editing = branch;
         formName = branch.name;
         formActive = branch.is_active;
-        selectedUsers = branch.members.map((member) => member.code);
-        selectedUserCode = null;
         formError = null;
         nameError = null;
-        membersError = null;
         dialogOpen = true;
     }
 
     function closeDialog(): void {
         dialogOpen = false;
-    }
-
-    function addUser(): void {
-        if (!selectedUserCode || selectedUsers.includes(selectedUserCode)) return;
-        selectedUsers = [...selectedUsers, selectedUserCode];
-        selectedUserCode = null;
-        membersError = null;
-    }
-
-    function removeUser(code: string): void {
-        selectedUsers = selectedUsers.filter((current) => current !== code);
     }
 
     function selectBranch(branchCode: string): void {
@@ -163,15 +120,9 @@
     function submit(): void {
         if (processing) return;
 
-        if (selectedUsers.length === 0) {
-            membersError = 'Asigna al menos un usuario a la sede.';
-            return;
-        }
-
         const payload = {
             name: formName,
             is_active: formActive,
-            user_codes: selectedUsers,
         };
 
         const options = {
@@ -180,14 +131,12 @@
                 processing = true;
                 formError = null;
                 nameError = null;
-                membersError = null;
             },
             onError: (errors: Record<string, string>) => {
                 nameError = errors.name ?? null;
-                membersError = errors.user_codes ?? errors['user_codes.0'] ?? null;
                 formError =
                     errors.message ??
-                    (nameError || membersError ? null : 'No se pudo guardar la sede.');
+                    (nameError ? null : 'No se pudo guardar la sede.');
             },
             onSuccess: () => {
                 dialogOpen = false;
@@ -248,7 +197,7 @@
             <EmptyState
                 icon="building2"
                 title="Sin sedes registradas"
-                description="Crea la primera sede y asigna usuarios para comenzar a operar."
+                description="Crea la primera sede. Los usuarios se asignan desde su ficha."
             >
                 {#snippet actions()}
                     {#if can_manage}
@@ -297,31 +246,19 @@
                                 {/if}
                             </div>
 
-                            {#if branch.members.length > 0}
+                            {#if branch.employees_count !== null}
                                 <InfoItem
                                     icon="users"
                                     iconColor="info"
-                                    label={`Usuarios (${branch.members.length})`}
-                                >
-                                    <AvatarGroup
-                                        items={branch.members.map((member) => ({
-                                            text: member.name,
-                                            alt: member.name,
-                                        }))}
-                                        size="sm"
-                                    />
-                                </InfoItem>
-                            {:else if can_view_catalog}
-                                <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
-                                    Sin usuarios asignados
-                                </p>
+                                    label="Usuarios asignados"
+                                    value={`${branch.employees_count}`}
+                                />
                             {/if}
 
                             <div
                                 class="lumi-flex lumi-justify--end lumi-align-items--center lumi-flex--gap-xs"
                             >
                                 {#if isCurrent}
-                                    <!-- Session selection only here (no extra "Sede activa" chip). -->
                                     <Button
                                         type="button"
                                         size="sm"
@@ -394,68 +331,9 @@
 
             <Switch bind:checked={formActive} label="Sede habilitada" />
 
-            <Fieldset legend="Usuarios asignados">
-                <div class="lumi-stack lumi-stack--sm">
-                    <div class="lumi-flex lumi-flex--gap-sm lumi-align-items--end">
-                        <div class="lumi-flex-item--grow">
-                            <Select
-                                label="Agregar usuario"
-                                placeholder="Selecciona un usuario"
-                                options={availableEmployeeOptions}
-                                bind:value={selectedUserCode}
-                                clearable
-                            />
-                        </div>
-                        <Button
-                            type="button"
-                            variant="border"
-                            icon="plus"
-                            disabled={!selectedUserCode}
-                            onclick={addUser}
-                        >
-                            Agregar
-                        </Button>
-                    </div>
-
-                    <InfoItem
-                        icon="users"
-                        label="Asignados"
-                        value={`${selectedUsers.length} usuario${selectedUsers.length === 1 ? '' : 's'}`}
-                    />
-
-                    {#if membersError}
-                        <span class="lumi-text--sm lumi-text--danger">{membersError}</span>
-                    {/if}
-
-                    {#if selectedUsers.length > 0}
-                        <List size="sm" maxHeight="md">
-                            <ListHeader title="Seleccionados" icon="users" />
-                            {#each selectedUsers as userCode (userCode)}
-                                {@const member = employeeByCode.get(userCode)}
-                                {@const displayName = member?.name ?? 'Usuario'}
-                                <ListItem title={displayName}>
-                                    {#snippet avatar()}
-                                        <Avatar text={displayName} size="sm" color="info" />
-                                    {/snippet}
-                                    <Button
-                                        type="button"
-                                        variant="flat"
-                                        size="sm"
-                                        icon="x"
-                                        color="danger"
-                                        aria-label={`Quitar ${displayName}`}
-                                        onclick={() => removeUser(userCode)}
-                                    />
-                                </ListItem>
-                            {/each}
-                        </List>
-                    {:else}
-                        <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
-                            Aún no hay usuarios en esta sede.
-                        </p>
-                    {/if}
-                </div>
-            </Fieldset>
+            <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
+                Los usuarios se asignan a sedes desde su ficha de personal, no aquí.
+            </p>
 
             <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
                 <Button type="button" variant="border" onclick={closeDialog}>

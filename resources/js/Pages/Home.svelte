@@ -63,6 +63,7 @@
         <div
             class="lumi-grid lumi-grid--columns-3 lumi-grid--gap-md lumi-width--full lumi-min-width--0"
         >
+            <!-- Same API as Coedula: plain href. App-level Inertia link delegation handles SPA visit. -->
             <QuickAccessCard
                 href="/branches"
                 title="Sede de trabajo"

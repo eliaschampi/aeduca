@@ -38,82 +38,53 @@ class BranchManagementTest extends TestCase
                 ->where('catalog', []));
     }
 
-    public function test_a_manager_can_create_a_branch_with_members(): void
+    public function test_a_manager_can_create_a_branch_without_employees(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['branches.manage']);
-        $member = User::factory()->create([
-            'employee_role_code' => $account->user->employee_role_code,
-        ]);
 
         $this->actingAs($account)
             ->post(route('admin.branches.store'), [
                 'name' => 'Sede Central',
                 'is_active' => true,
-                'user_codes' => [$member->code],
             ])
             ->assertRedirect(route('branches.index'));
 
         $branch = Branch::query()->where('name', 'Sede Central')->first();
         $this->assertNotNull($branch);
         $this->assertTrue($branch->is_active);
-        $this->assertDatabaseHas('user_branches', [
-            'user_code' => $member->code,
-            'branch_code' => $branch->code,
-        ]);
-    }
-
-    public function test_creating_a_branch_requires_at_least_one_member(): void
-    {
-        $account = $this->createEmployeeAccount();
-        $this->grantPermissions($account, ['branches.manage']);
-
-        $this->actingAs($account)
-            ->post(route('admin.branches.store'), [
-                'name' => 'Sede Vacía',
-                'is_active' => true,
-                'user_codes' => [],
-            ])
-            ->assertSessionHasErrors('user_codes');
-
-        $this->assertDatabaseMissing('branches', ['name' => 'Sede Vacía']);
+        $this->assertSame(0, DB::table('user_branches')->where('branch_code', $branch->code)->count());
     }
 
     public function test_creating_a_branch_is_forbidden_without_the_manage_permission(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['branches.view']);
-        $member = $account->user;
 
         $this->actingAs($account)
             ->post(route('admin.branches.store'), [
                 'name' => 'Sede Sur',
                 'is_active' => true,
-                'user_codes' => [$member->code],
             ])
             ->assertForbidden();
 
         $this->assertDatabaseMissing('branches', ['name' => 'Sede Sur']);
     }
 
-    public function test_a_manager_can_update_a_branch_and_sync_members(): void
+    public function test_a_manager_can_update_branch_attributes_without_membership_sync(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['branches.manage']);
         $branch = Branch::factory()->create(['name' => 'Antiguo', 'is_active' => true]);
-        $oldMember = User::factory()->create([
+        $member = User::factory()->create([
             'employee_role_code' => $account->user->employee_role_code,
         ]);
-        $newMember = User::factory()->create([
-            'employee_role_code' => $account->user->employee_role_code,
-        ]);
-        $branch->users()->attach($oldMember);
+        $branch->users()->attach($member);
 
         $this->actingAs($account)
             ->put(route('admin.branches.update', $branch), [
                 'name' => 'Renombrado',
                 'is_active' => false,
-                'user_codes' => [$newMember->code],
             ])
             ->assertRedirect(route('branches.index'));
 
@@ -122,12 +93,30 @@ class BranchManagementTest extends TestCase
             'name' => 'Renombrado',
             'is_active' => false,
         ]);
+        // Membership untouched by branch edit.
         $this->assertDatabaseHas('user_branches', [
-            'user_code' => $newMember->code,
+            'user_code' => $member->code,
             'branch_code' => $branch->code,
         ]);
+    }
+
+    public function test_branch_edit_rejects_user_codes_payload(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['branches.manage']);
+        $branch = Branch::factory()->create(['name' => 'Sede X']);
+
+        $this->actingAs($account)
+            ->put(route('admin.branches.update', $branch), [
+                'name' => 'Sede Y',
+                'is_active' => true,
+                'user_codes' => [$account->user->code],
+            ])
+            ->assertRedirect(route('branches.index'));
+
+        // Extra user_codes are ignored; membership not owned here.
         $this->assertDatabaseMissing('user_branches', [
-            'user_code' => $oldMember->code,
+            'user_code' => $account->user->code,
             'branch_code' => $branch->code,
         ]);
     }
@@ -141,7 +130,6 @@ class BranchManagementTest extends TestCase
             ->post(route('admin.branches.store'), [
                 'name' => '',
                 'is_active' => true,
-                'user_codes' => [$account->user->code],
             ])
             ->assertSessionHasErrors('name');
     }
@@ -155,24 +143,23 @@ class BranchManagementTest extends TestCase
             ->post(route('admin.branches.store'), [
                 'name' => str_repeat('a', 121),
                 'is_active' => true,
-                'user_codes' => [$account->user->code],
             ])
             ->assertSessionHasErrors('name');
     }
 
-    public function test_create_rejects_unknown_member_codes(): void
+    public function test_manager_with_manage_can_view_catalog_results(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['branches.manage']);
+        Branch::factory()->create(['name' => 'Visible por manage→view']);
 
         $this->actingAs($account)
-            ->post(route('admin.branches.store'), [
-                'name' => 'Sede X',
-                'is_active' => true,
-                'user_codes' => ['00000000-0000-4000-8000-000000000099'],
-            ])
-            ->assertSessionHasErrors('user_codes.0');
-
-        $this->assertSame(0, DB::table('branches')->where('name', 'Sede X')->count());
+            ->get(route('branches.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('can_view_catalog', true)
+                ->where('can_manage', true)
+                ->has('catalog')
+                ->where('catalog.1.name', 'Visible por manage→view'));
     }
 }

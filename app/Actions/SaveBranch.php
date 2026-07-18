@@ -5,24 +5,23 @@ namespace App\Actions;
 use App\Models\Branch;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Create or update branch attributes only.
+ * Membership (user_branches) is owned exclusively by employee administration.
+ */
 final class SaveBranch
 {
     /**
-     * Create or update a branch and sync assigned workers through user_branches.
-     *
      * @param  array{name: string, is_active: bool}  $attributes
-     * @param  list<string>  $userCodes
      */
-    public function handle(?Branch $branch, array $attributes, array $userCodes): Branch
+    public function handle(?Branch $branch, array $attributes): Branch
     {
-        return DB::transaction(function () use ($branch, $attributes, $userCodes): Branch {
+        return DB::transaction(function () use ($branch, $attributes): Branch {
             if ($branch === null) {
-                $branch = Branch::query()->create($attributes);
-            } else {
-                $branch->update($attributes);
+                return Branch::query()->create($attributes);
             }
 
-            $branch->users()->sync($userCodes);
+            $branch->update($attributes);
 
             return $branch->refresh();
         });

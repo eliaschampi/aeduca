@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\EmployeeRole;
 use App\Models\Permission;
+use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -32,7 +33,7 @@ class RoleManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_a_manager_can_create_a_role_with_permissions(): void
+    public function test_a_manager_can_create_a_role_with_permission_scope(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['roles.manage']);
@@ -41,7 +42,7 @@ class RoleManagementTest extends TestCase
         $this->actingAs($account)
             ->post(route('admin.roles.store'), [
                 'name' => 'Operaciones',
-                'description' => 'Acceso operativo',
+                'description' => 'Alcance operativo',
                 'is_active' => true,
                 'permission_codes' => [$permission->code],
             ])
@@ -49,7 +50,7 @@ class RoleManagementTest extends TestCase
 
         $role = EmployeeRole::query()->where('name', 'Operaciones')->first();
         $this->assertNotNull($role);
-        $this->assertDatabaseHas('role_permissions', [
+        $this->assertDatabaseHas('employee_role_permission_scopes', [
             'employee_role_code' => $role->code,
             'permission_code' => $permission->code,
         ]);
@@ -72,7 +73,7 @@ class RoleManagementTest extends TestCase
         $this->assertDatabaseMissing('employee_roles', ['name' => 'Bloqueado']);
     }
 
-    public function test_a_manager_can_update_role_permissions(): void
+    public function test_a_manager_can_update_role_permission_scope(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['roles.manage']);
@@ -80,7 +81,7 @@ class RoleManagementTest extends TestCase
         $keep = Permission::factory()->create(['name' => 'dashboard.view']);
         $drop = Permission::factory()->create(['name' => 'branches.view']);
         $add = Permission::factory()->create(['name' => 'employees.view']);
-        $role->permissions()->attach([$keep->code, $drop->code]);
+        $role->permissionScopes()->attach([$keep->code, $drop->code]);
 
         $this->actingAs($account)
             ->put(route('admin.roles.update', $role), [
@@ -95,17 +96,105 @@ class RoleManagementTest extends TestCase
             'code' => $role->code,
             'name' => 'Base actualizado',
         ]);
-        $this->assertDatabaseHas('role_permissions', [
+        $this->assertDatabaseHas('employee_role_permission_scopes', [
             'employee_role_code' => $role->code,
             'permission_code' => $keep->code,
         ]);
-        $this->assertDatabaseHas('role_permissions', [
+        $this->assertDatabaseHas('employee_role_permission_scopes', [
             'employee_role_code' => $role->code,
             'permission_code' => $add->code,
         ]);
-        $this->assertDatabaseMissing('role_permissions', [
+        $this->assertDatabaseMissing('employee_role_permission_scopes', [
             'employee_role_code' => $role->code,
             'permission_code' => $drop->code,
+        ]);
+    }
+
+    public function test_expanding_role_scope_does_not_auto_grant_users(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['roles.manage']);
+
+        $role = EmployeeRole::factory()->create();
+        $employee = User::factory()->create(['employee_role_code' => $role->code]);
+        $permission = Permission::factory()->create(['name' => 'branches.view']);
+
+        $this->actingAs($account)
+            ->put(route('admin.roles.update', $role), [
+                'name' => $role->name,
+                'description' => null,
+                'is_active' => true,
+                'permission_codes' => [$permission->code],
+            ])
+            ->assertRedirect(route('admin.roles.show', $role));
+
+        $this->assertDatabaseHas('employee_role_permission_scopes', [
+            'employee_role_code' => $role->code,
+            'permission_code' => $permission->code,
+        ]);
+        $this->assertDatabaseMissing('user_permissions', [
+            'user_code' => $employee->code,
+            'permission_code' => $permission->code,
+        ]);
+    }
+
+    public function test_reducing_role_scope_prunes_incompatible_user_grants(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['roles.manage']);
+
+        $role = EmployeeRole::factory()->create();
+        $keep = Permission::factory()->create(['name' => 'dashboard.view']);
+        $drop = Permission::factory()->create(['name' => 'branches.view']);
+        $role->permissionScopes()->attach([$keep->code, $drop->code]);
+
+        $employee = User::factory()->create(['employee_role_code' => $role->code]);
+        $employee->permissions()->attach([$keep->code, $drop->code]);
+
+        $this->actingAs($account)
+            ->put(route('admin.roles.update', $role), [
+                'name' => $role->name,
+                'description' => null,
+                'is_active' => true,
+                'permission_codes' => [$keep->code],
+            ])
+            ->assertRedirect(route('admin.roles.show', $role));
+
+        $this->assertDatabaseHas('user_permissions', [
+            'user_code' => $employee->code,
+            'permission_code' => $keep->code,
+        ]);
+        $this->assertDatabaseMissing('user_permissions', [
+            'user_code' => $employee->code,
+            'permission_code' => $drop->code,
+        ]);
+    }
+
+    public function test_saving_manage_scope_persists_matching_view(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['roles.manage']);
+        $view = Permission::factory()->create(['name' => 'employees.view']);
+        $manage = Permission::factory()->create(['name' => 'employees.manage']);
+
+        $this->actingAs($account)
+            ->post(route('admin.roles.store'), [
+                'name' => 'RRHH',
+                'description' => null,
+                'is_active' => true,
+                'permission_codes' => [$manage->code],
+            ])
+            ->assertRedirect();
+
+        $role = EmployeeRole::query()->where('name', 'RRHH')->first();
+        $this->assertNotNull($role);
+        $this->assertDatabaseHas('employee_role_permission_scopes', [
+            'employee_role_code' => $role->code,
+            'permission_code' => $manage->code,
+        ]);
+        $this->assertDatabaseHas('employee_role_permission_scopes', [
+            'employee_role_code' => $role->code,
+            'permission_code' => $view->code,
         ]);
     }
 
@@ -117,6 +206,7 @@ class RoleManagementTest extends TestCase
         $this->actingAs($account)
             ->post(route('admin.roles.store'), [
                 'name' => '',
+                'description' => null,
                 'is_active' => true,
                 'permission_codes' => [],
             ])

@@ -49,7 +49,8 @@ class User extends Model
         );
     }
 
-    public function permissionOverrides(): BelongsToMany
+    /** Direct permission grants (presence = allowed). */
+    public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(
             Permission::class,
@@ -58,7 +59,7 @@ class User extends Model
             'permission_code',
             'code',
             'code',
-        )->withPivot('is_allowed');
+        );
     }
 
     protected function casts(): array

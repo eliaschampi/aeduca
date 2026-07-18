@@ -245,13 +245,22 @@ Forbidden for FKs, permissions, authorized sedes, turnos, enrollments, participa
 | Concept | Model / table | Meaning |
 | ------- | ------------- | ------- |
 | Sede | `branches` | Physical/operational branch of Carrión |
-| Rol | `employee_roles` | Default **permission bundle** only — never authorize by role name |
+| Rol | `employee_roles` | Employee **category** — never authorize by role name |
 | Permiso | `permissions` | Semantic capability `domain.action` |
-| Rol→permiso | `role_permissions` | Default grants |
+| Alcance de rol | `employee_role_permission_scopes` | Permissions **assignable** to employees with that role (not automatic grants) |
 | Usuario (personal) | `users` | Employee **profile** (not credentials). UI label: **Usuarios** |
-| Usuario↔sede | `user_branches` | Membership; required for session branch |
-| Override | `user_permissions` | Per-worker allow/deny (`is_allowed`) |
+| Usuario↔sede | `user_branches` | Membership; owned by employee administration; required for session branch |
+| Permiso directo | `user_permissions` | Actual grant (presence = allowed; no deny rows) |
 | Credencial | `auth_accounts` | Laravel `Authenticatable` (login/password) |
+
+```text
+role = employee category
+role permission scope = assignable boundary
+user permission = actual grant
+superadministrator = full access
+manage requires view
+employee workflow owns branch assignments
+```
 
 Teachers are the same worker entity; academic assignments come later.  
 Students are a **separate** future identity — do not mix into `users`/`auth_accounts` now.
@@ -261,10 +270,10 @@ Students are a **separate** future identity — do not mix into `users`/`auth_ac
 **`branches`:** `code`, `name`, `is_active`, timestamps  
 **`employee_roles`:** `code`, `name`, `description?`, `is_active`, timestamps  
 **`permissions`:** `code`, `name` unique (lowercase dot notation), `description?`, timestamps  
-**`role_permissions`:** (`employee_role_code`, `permission_code`) composite PK  
+**`employee_role_permission_scopes`:** (`employee_role_code`, `permission_code`) composite PK  
 **`users`:** `code`, `first_name`, `last_name`, `email?`, `phone?`, `employee_role_code`, `is_active`, `is_super_admin`, timestamps  
 **`user_branches`:** (`user_code`, `branch_code`) composite PK  
-**`user_permissions`:** (`user_code`, `permission_code`, `is_allowed`) composite PK  
+**`user_permissions`:** (`user_code`, `permission_code`) composite PK — presence = allowed  
 **`auth_accounts`:** `code`, `login` unique (normalized lower), `password` hashed, `user_code` unique, `is_active`, `last_login_at?`, timestamps  
 
 ### Permission catalog (current names — code is authority)
@@ -281,23 +290,36 @@ roles.manage
 
 Historical docs sometimes wrote `users.view` / `users.create`. **Do not reintroduce those names.** The implemented vocabulary is `employees.*` and `branches.*`.
 
+### View / manage dependency
+
+```text
+*.manage requires the corresponding *.view
+branches.manage → branches.view
+employees.manage → employees.view
+roles.manage → roles.view
+```
+
+Enforced when persisting role scopes and direct user grants (`PermissionDependency`).  
+Do not scatter `view || manage` checks in controllers or Svelte.
+
 ### Permission resolution (single algorithm)
 
 Implemented in `app/Support/Authorization/PermissionResolver.php`:
 
 1. Inactive account, worker, or role → no permissions.
 2. `users.is_super_admin` → every known permission name.
-3. Start from role grants (`role_permissions`).
-4. Apply individual overrides (`user_permissions`): allow adds, deny removes.
-5. Otherwise denied.
+3. Otherwise: **direct `user_permissions` ∩ role `employee_role_permission_scopes`**.
+4. Role scope alone does **not** grant access.
+5. Expanding a role scope does **not** auto-grant users.
+6. Changing role or reducing scope prunes incompatible direct grants transactionally.
 
 **Backend is always authoritative.** Controllers use `Gate::authorize('employees.manage')` etc.  
 `Gate::before` returns `true` when the resolver allows, else `null` (Laravel denies).
 
-Frontend: **one** helper `can('employees.create')` style — presentation only.  
+Frontend: **one** helper `can('employees.view')` style — presentation only.  
 Lumi components must never contain role/permission logic.
 
-`is_super_admin` is **seed/escalation only** — never expose it in admin forms.
+`is_super_admin` is **seed/escalation only** — never expose it in admin forms as an editable flag for arbitrary users.
 
 ### Branch / session context
 
@@ -335,22 +357,22 @@ auth: {
 
 ### 7.1 Sede management (unified `/branches`)
 
-One page serves **session selection** and **catalog administration** (Coedula-style UX):
+One page serves **session selection** and **catalog administration**:
 
 - Everyone with membership: pick current session sede.
-- `branches.view`: see full catalog with members.
-- `branches.manage`: create/update name, active flag, and members.
+- `branches.view`: see full catalog (name, active state, **read-only** employee count).
+- `branches.manage`: create/update name and active flag only.
 - Writes: `POST/PUT /admin/branches` (authorization on manage).
 - No physical delete, no stats, no settings JSON, no bulk import.
 - No second sidebar item for “gestión de sedes”.
 
-**Membership (required, pivot model):**
+**Membership ownership (single write owner):**
 
-- Creating or updating a sede **must** assign usuarios through `user_branches`.
-- Coedula stores members as an array on the branch row — **forbidden in v8**.
-- Require ≥1 member on create/update.
-- UI shows assigned people (`AvatarGroup` / list), not only a bare name table.
-- Session “Sede activa” = **selected card + button only** (no duplicate chip).
+- `user_branches` is written only by **employee** create/update.
+- Branch admin must **not** accept `user_codes` or sync memberships.
+- A branch may exist with zero employees.
+- Deactivating a branch does not delete memberships; it only blocks operational selection until reactivated.
+- Session “Sede activa” = **selected card + button only**.
 - Catalog state chips: **Habilitada / Deshabilitada** (`is_active`).
 
 ### 7.2 User management (`/admin/employees`) — UI: **Usuarios**
@@ -358,10 +380,13 @@ One page serves **session selection** and **catalog administration** (Coedula-st
 Minimum:
 
 - List, create (profile + role + sedes + credentials in one transaction),
-  show/edit profile, reassign role/sedes, change password, toggle access.
+  show/edit profile, reassign role/sedes, change password, toggle access,
+  assign **direct permissions** within the role scope.
 - Permission keys stay `employees.view` / `employees.manage` (stable).
 - End-user Spanish copy says **Usuarios**, never “Trabajadores”.
 - Preserve profile (`User`) vs credential (`AuthAccount`) separation.
+- Profile composition: General / Access / Permissions panels (+ password dialog).
+- Superadministrator: full access message; no misleading editable grant form.
 - Do not implement physical employee deletion until impact on attendance/payments/history is defined.
 - Do not add empty future tabs (attendance, cards, reports) on the profile.
 
@@ -369,18 +394,16 @@ Minimum:
 
 **Philosophy**
 
-- **Role = default package** for a job. Day-to-day: assign role, not tick boxes per person.
-- **User exceptions = sparse** (add/remove force allow|deny) for special cases only.
-- Not Coedula’s user-only ACL; not dual “effective chip walls” on the user page.
+- **Role = employee category** + **assignable permission scope** (not automatic access).
+- **User permissions = explicit grants** only (presence allowed; no deny overrides).
+- Effective = grants ∩ role scope; superadministrator = all permissions.
 
 **UI**
 
-- Roles: only place that edits the full permission set (tabs + collapsible groups).
-- User: hero + tabs **Perfil | Seguridad**; password/access only in header ⋮.
-- Payload: `permission_overrides` (with labels) always; `permission_catalog` only if
-  `employees.manage` (for the add-exception select).
+- Roles: edit assignable scope (“permisos disponibles para este rol”).
+- User: General / Access / Permissions; password via dialog.
 
-**Gates / actions:** `roles.*`, `SaveRole`, `SyncUserPermissionOverrides`.  
+**Gates / actions:** `roles.*`, `SaveRole`, `SyncUserPermissions`.  
 Never authorize by role name.
 
 ### 7.4 Out of scope until foundation is solid
@@ -417,14 +440,14 @@ Drive, attentions, dashboard metrics, full Aula social features.
 
 ### Inspiration from Coedula (allowed)
 
-- Branch cards with member preview + clear “use this sede / active” states.
-- Create/edit sede dialog that includes member assignment.
-- User list with role, access chips, and focused create/edit dialogs.
+- Branch cards with clear “use this sede / active” states.
+- Calm admin lists with role and access chips.
 
 ### Must not copy from Coedula
 
 - Array columns for membership.
 - Storing current branch on the user row.
+- Membership edits from the branch form (v8: employee workflow owns `user_branches`).
 - Permission string format `resource:action` if v8 already uses `resource.action`.
 - Mechanical CRUD of every Coedula field (photo, slug roles, etc.) without need.
 
@@ -462,9 +485,9 @@ These are **business rules** already decided for Carrión; implement only when t
 ### Prefer Feature tests at critical borders
 
 - Auth success/failure, inactive states, throttling where relevant.
-- Permission grant / override allow / override deny / super admin.
-- Branch membership selection and rejection.
-- Admin authorization and multitable creates (employee, branch+members).
+- Permission: scope alone does not grant; direct grant within scope; out-of-scope ignored; manage→view; role change prune; super admin.
+- Branch session selection and rejection; branch create without employees.
+- Admin authorization and multitable creates (employee + branches).
 - DB integrity: UNIQUE, CHECK, FK cascade/restrict.
 
 Avoid snapshot spam and unit tests that only restate Eloquent.

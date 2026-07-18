@@ -1,5 +1,48 @@
-/* Aeduca brand seeds — Lumi derives the rest. Keep this file minimal. */
+/**
+ * Aeduca theme seeds (v8) — identity + surfaces only.
+ * Lumi derives fills, glass, borders, and shell. No component overrides.
+ *
+ * Dark: re-seed canvas/neutral under [data-theme='dark'] so light :root
+ * values cannot win the cascade (muddy “vintage” dark).
+ */
 :root {
-    /*--lumi-brand-primary: #0d962e;
-    --lumi-brand-secondary: #2563eb;*/
+    /* Brand — v7 trust blue + refined coral */
+    --lumi-brand-primary: #1557b0;
+    --lumi-brand-secondary: #c44732;
+
+    /* Status — distinct roles, AA on white text */
+    --lumi-status-success: #137a55;
+    --lumi-status-warning: #a85b0a;
+    --lumi-status-danger: #b8325c;
+    --lumi-status-info: #147a9e;
+
+    /* Light surfaces — cool admin paper */
+    --lumi-color-canvas: #f3f6fb;
+    --lumi-color-neutral: #172033;
+
+    --lumi-app-background-accent: radial-gradient(
+        ellipse 80% 55% at 12% -10%,
+        color-mix(in oklch, var(--lumi-brand-primary) 14%, transparent),
+        transparent 62%
+    );
+    --lumi-app-pattern-line-color: color-mix(
+        in oklch,
+        var(--lumi-brand-primary) 6%,
+        transparent
+    );
+}
+
+[data-theme='dark'] {
+    --lumi-color-canvas: #0b1322;
+    --lumi-color-neutral: #e7edf6;
+
+    --lumi-app-background-accent: radial-gradient(
+        ellipse 70% 50% at 10% -8%,
+        color-mix(in oklch, var(--lumi-brand-primary) 22%, transparent),
+        transparent 58%
+    );
+    --lumi-app-pattern-line-color: color-mix(in oklch, white 4.5%, transparent);
+
+    --lumi-brand-primary-dark: color-mix(in oklch, var(--lumi-brand-primary) 62%, white);
+    --lumi-brand-secondary-dark: color-mix(in oklch, var(--lumi-brand-secondary) 58%, white);
 }

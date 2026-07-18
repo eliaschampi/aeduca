@@ -31,7 +31,7 @@
 <div class="lumi-stack lumi-stack--lg lumi-min-width--0">
     <PageHeader
         title="Roles"
-        subtitle="Cada rol es un paquete de permisos por defecto. Asigna el rol al usuario; las excepciones son raras."
+        subtitle="Cada rol categoriza al personal y define qué permisos se le pueden asignar. No otorga acceso por sí solo."
         icon="shield"
         size="xl"
     >

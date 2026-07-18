@@ -19,7 +19,7 @@ class RoleController extends Controller
         Gate::authorize('roles.view');
 
         $roles = EmployeeRole::query()
-            ->withCount(['permissions', 'users'])
+            ->withCount(['permissionScopes', 'users'])
             ->orderBy('name')
             ->get(['code', 'name', 'description', 'is_active']);
 
@@ -29,7 +29,7 @@ class RoleController extends Controller
                 'name' => $role->name,
                 'description' => $role->description,
                 'is_active' => $role->is_active,
-                'permissions_count' => $role->permissions_count,
+                'permissions_count' => $role->permission_scopes_count,
                 'users_count' => $role->users_count,
             ])->all(),
         ]);
@@ -67,9 +67,7 @@ class RoleController extends Controller
     {
         Gate::authorize('roles.view');
 
-        $role->load(['permissions:code,name']);
-
-        $granted = $role->permissions->pluck('code')->all();
+        $role->load(['permissionScopes:code,name']);
 
         return Inertia::render('Admin/Roles/Form', [
             'role' => [
@@ -77,7 +75,7 @@ class RoleController extends Controller
                 'name' => $role->name,
                 'description' => $role->description,
                 'is_active' => $role->is_active,
-                'permission_codes' => $granted,
+                'permission_codes' => $role->permissionScopes->pluck('code')->all(),
             ],
             'permission_groups' => $this->permissionGroups(),
             'can_manage' => Gate::check('roles.manage'),
@@ -102,8 +100,6 @@ class RoleController extends Controller
     }
 
     /**
-     * Permissions grouped by domain prefix for a calm matrix UI.
-     *
      * @return list<array{group: string, permissions: list<array{code: string, name: string, description: ?string}>}>
      */
     private function permissionGroups(): array

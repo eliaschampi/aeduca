@@ -6,6 +6,10 @@ use App\Models\AuthAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Create employee profile, credentials, and branch membership.
+ * Direct permissions start empty; assign via SyncUserPermissions on the profile.
+ */
 final class CreateEmployee
 {
     /**

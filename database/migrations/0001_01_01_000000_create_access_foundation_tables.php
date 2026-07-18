@@ -5,6 +5,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Access foundation — single clean baseline (disposable dev data).
+ *
+ * Permission model:
+ * - employee_role_permission_scopes = permissions assignable to that role
+ * - user_permissions = actual grants (presence = allowed)
+ * - effective = user grants ∩ role scope (super_admin → all)
+ */
 return new class extends Migration
 {
     public function up(): void
@@ -37,7 +45,7 @@ return new class extends Migration
             CHECK (name ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$')
             SQL);
 
-        Schema::create('role_permissions', function (Blueprint $table) {
+        Schema::create('employee_role_permission_scopes', function (Blueprint $table) {
             $table->uuid('employee_role_code');
             $table->uuid('permission_code');
 
@@ -87,10 +95,10 @@ return new class extends Migration
                 ->cascadeOnDelete();
         });
 
+        // Presence = allowed. No is_allowed / deny rows.
         Schema::create('user_permissions', function (Blueprint $table) {
             $table->uuid('user_code');
             $table->uuid('permission_code');
-            $table->boolean('is_allowed');
 
             $table->primary(['user_code', 'permission_code']);
             $table->index('permission_code');
@@ -147,7 +155,7 @@ return new class extends Migration
         Schema::dropIfExists('user_permissions');
         Schema::dropIfExists('user_branches');
         Schema::dropIfExists('users');
-        Schema::dropIfExists('role_permissions');
+        Schema::dropIfExists('employee_role_permission_scopes');
         Schema::dropIfExists('permissions');
         Schema::dropIfExists('employee_roles');
         Schema::dropIfExists('branches');

@@ -25,8 +25,8 @@ class DatabaseSeeder extends Seeder
         'branches.manage' => 'Crear, editar y activar sedes.',
         'employees.view' => 'Ver los usuarios del personal.',
         'employees.manage' => 'Crear, editar y activar usuarios del personal.',
-        'roles.view' => 'Ver los roles y sus permisos.',
-        'roles.manage' => 'Crear, editar roles y asignar permisos.',
+        'roles.view' => 'Ver los roles y el alcance de permisos.',
+        'roles.manage' => 'Crear y editar roles y su alcance de permisos.',
     ];
 
     public function run(): void
@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
 
             $role = EmployeeRole::query()->create([
                 'name' => 'Administración',
-                'description' => 'Acceso administrativo inicial.',
+                'description' => 'Categoría administrativa. El alcance define permisos asignables, no grants automáticos.',
                 'is_active' => true,
             ]);
 
@@ -59,7 +59,8 @@ class DatabaseSeeder extends Seeder
                 ]),
             );
 
-            $role->permissions()->attach($permissions->pluck('code'));
+            // Full catalog as assignable scope for this role (not auto-granted).
+            $role->permissionScopes()->attach($permissions->pluck('code'));
 
             $employee = User::query()->create([
                 'first_name' => 'Administrador',
@@ -70,6 +71,7 @@ class DatabaseSeeder extends Seeder
             ]);
 
             $employee->branches()->attach($branch);
+            // Superadministrator: no user_permissions rows required.
 
             AuthAccount::query()->create([
                 'login' => $login,

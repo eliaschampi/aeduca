@@ -19,11 +19,15 @@ class EmployeeRole extends Model
 
     protected $primaryKey = 'code';
 
-    public function permissions(): BelongsToMany
+    /**
+     * Permissions that may be assigned to employees with this role.
+     * Not automatic grants.
+     */
+    public function permissionScopes(): BelongsToMany
     {
         return $this->belongsToMany(
             Permission::class,
-            'role_permissions',
+            'employee_role_permission_scopes',
             'employee_role_code',
             'permission_code',
             'code',

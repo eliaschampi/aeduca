@@ -104,16 +104,54 @@
         return form.permission_codes.includes(code);
     }
 
+    function findByName(name: string): PermissionItem | undefined {
+        for (const group of permission_groups) {
+            const hit = group.permissions.find((p) => p.name === name);
+            if (hit) return hit;
+        }
+        return undefined;
+    }
+
     function togglePermission(code: string, checked: boolean): void {
-        form.permission_codes = checked
+        const permission = permission_groups
+            .flatMap((g) => g.permissions)
+            .find((p) => p.code === code);
+        let next = checked
             ? [...form.permission_codes, code]
             : form.permission_codes.filter((current) => current !== code);
+
+        // manage requires view in the assignable scope.
+        if (permission?.name.endsWith('.manage')) {
+            const view = findByName(permission.name.replace(/\.manage$/, '.view'));
+            if (checked && view && !next.includes(view.code)) {
+                next = [...next, view.code];
+            }
+            if (!checked) {
+                // unchecking manage does not auto-remove view
+            }
+        }
+
+        if (permission?.name.endsWith('.view') && !checked) {
+            const manage = findByName(permission.name.replace(/\.view$/, '.manage'));
+            if (manage) {
+                next = next.filter((c) => c !== manage.code);
+            }
+        }
+
+        form.permission_codes = next;
     }
 
     function toggleGroup(group: PermissionGroup, checked: boolean): void {
         const codes = group.permissions.map((p) => p.code);
         if (checked) {
-            form.permission_codes = [...new Set([...form.permission_codes, ...codes])];
+            let next = [...new Set([...form.permission_codes, ...codes])];
+            for (const permission of group.permissions) {
+                if (permission.name.endsWith('.manage')) {
+                    const view = findByName(permission.name.replace(/\.manage$/, '.view'));
+                    if (view) next = [...new Set([...next, view.code])];
+                }
+            }
+            form.permission_codes = next;
             return;
         }
         form.permission_codes = form.permission_codes.filter((code) => !codes.includes(code));
@@ -161,7 +199,7 @@
 <div class="lumi-stack lumi-stack--lg lumi-min-width--0">
     <PageHeader
         title={isCreate ? 'Nuevo rol' : form.name || 'Rol'}
-        subtitle="Identidad del cargo y paquete de permisos por defecto."
+        subtitle="Identidad del cargo y permisos disponibles para este rol (no se otorgan solos)."
         icon="shield"
         size="xl"
     >
@@ -229,7 +267,7 @@
             </Card>
         {:else}
             <Card
-                title="Permisos por defecto"
+                title="Permisos disponibles para este rol"
                 subtitle="Lo que este cargo puede hacer. Los casos especiales van en cada usuario."
                 spaced
             >

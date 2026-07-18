@@ -57,9 +57,7 @@ class DatabaseIntegrityTest extends TestCase
     {
         $account = $this->createEmployeeAccount();
         $permission = Permission::factory()->create();
-        $account->user->permissionOverrides()->attach($permission, [
-            'is_allowed' => true,
-        ]);
+        $account->user->permissions()->attach($permission);
         $employeeCode = $account->user->code;
 
         $account->user->delete();
