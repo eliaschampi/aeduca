@@ -401,7 +401,12 @@ Minimum:
 **UI**
 
 - Roles: edit assignable scope (“permisos disponibles para este rol”).
+- Scope picker (`RolePermissionScope`): **search + one domain at a time** + optional
+  “solo seleccionados”. Explicit per-permission toggles only.
+- **No “select all” / “mark all” bulk actions** — full system access is
+  `is_super_admin`, not a role that checks every permission.
 - User: General / Access / Permissions; password via dialog.
+- Every `Input` / `Select` has a Spanish placeholder.
 
 **Gates / actions:** `roles.*`, `SaveRole`, `SyncUserPermissions`.  
 Never authorize by role name.
@@ -420,7 +425,7 @@ Drive, attentions, dashboard metrics, full Aula social features.
 - Authenticated pages: `DashboardLayout` (`.lumi-dashboard-layout` + Sidebar + Navbar).
 - Login: no dashboard shell (`layout = false` pattern if needed).
 - Sidebar items: single source `resources/js/lib/navigation.ts`, filtered by `can()`.
-  Current set: **Inicio · Sedes · Usuarios**.
+  Current set: **Inicio · Sedes · Usuarios · Roles**.
 - Navbar shows current sede chip once; sidebar header shows role (not a second sede dump).
 - Unified `/branches` for session + catalog (no parallel admin list page).
 
@@ -428,7 +433,9 @@ Drive, attentions, dashboard metrics, full Aula social features.
 
 - **Every `Input` must have a `placeholder`** (Spanish, short, realistic examples).
 - `Select` always has a meaningful `placeholder`.
-- Group fields in `Card` / `Fieldset`; use `lumi-grid--responsive` — no inline styles.
+- Group fields in `Card` / `Fieldset`; use public Lumi layout utilities — no inline styles.
+- Large multi-select catalogs use search + progressive disclosure, never a full-page
+  checkbox wall or “select all catalog” (superadmin is the full-access escape hatch).
 
 ### Page structure (admin screens)
 

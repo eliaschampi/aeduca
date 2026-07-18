@@ -101,6 +101,7 @@
                     <div class="lumi-grid lumi-grid--columns-2 lumi-grid--gap-md">
                         <Input
                             label="Nombres"
+                            placeholder="Ej. María Elena"
                             bind:value={form.first_name}
                             required
                             danger={Boolean(errors.first_name)}
@@ -108,6 +109,7 @@
                         />
                         <Input
                             label="Apellidos"
+                            placeholder="Ej. Quispe Rojas"
                             bind:value={form.last_name}
                             required
                             danger={Boolean(errors.last_name)}
@@ -118,12 +120,14 @@
                         <Input
                             label="Correo"
                             type="email"
+                            placeholder="Ej. maria.quispe@carrion.edu.pe"
                             bind:value={form.email}
                             danger={Boolean(errors.email)}
                             dangerText={errors.email}
                         />
                         <Input
                             label="Teléfono"
+                            placeholder="Ej. 999 111 222"
                             bind:value={form.phone}
                             danger={Boolean(errors.phone)}
                             dangerText={errors.phone}
@@ -153,11 +157,7 @@
                             <Checkbox
                                 label={branch.name}
                                 checked={form.branch_codes.includes(branch.code)}
-                                onchange={(event) =>
-                                    toggleBranch(
-                                        branch.code,
-                                        (event.currentTarget as HTMLInputElement).checked,
-                                    )}
+                                onchange={(checked) => toggleBranch(branch.code, checked)}
                             />
                         {/each}
                         {#if errors.branch_codes}
@@ -173,6 +173,7 @@
                 <div class="lumi-grid lumi-grid--columns-2 lumi-grid--gap-md">
                     <Input
                         label="Usuario (login)"
+                        placeholder="Ej. mquispe"
                         bind:value={form.login}
                         required
                         danger={Boolean(errors.login)}
@@ -181,6 +182,7 @@
                     <Input
                         label="Contraseña"
                         type="password"
+                        placeholder="Mínimo 8 caracteres"
                         bind:value={form.password}
                         required
                         danger={Boolean(errors.password)}

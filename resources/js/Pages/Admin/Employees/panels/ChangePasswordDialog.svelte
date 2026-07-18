@@ -58,12 +58,14 @@
         <Input
             label="Nueva contraseña"
             type="password"
+            placeholder="Mínimo 8 caracteres"
             bind:value={password}
             required
         />
         <Input
             label="Confirmar contraseña"
             type="password"
+            placeholder="Repite la contraseña"
             bind:value={passwordConfirmation}
             required
         />

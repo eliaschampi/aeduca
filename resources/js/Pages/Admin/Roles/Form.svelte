@@ -4,15 +4,14 @@
     import {
         Button,
         Card,
-        Checkbox,
         Chip,
-        Collapse,
         Input,
         PageHeader,
         Switch,
         Tabs,
         Textarea,
     } from '@lumi-ui/svelte';
+    import RolePermissionScope from './RolePermissionScope.svelte';
 
     interface PermissionItem {
         code: string;
@@ -38,7 +37,6 @@
     interface Props {
         role?: RolePayload | null;
         permission_groups: PermissionGroup[];
-        /** From backend Gate; create always true. */
         can_manage?: boolean;
     }
 
@@ -50,13 +48,6 @@
 
     const isCreate = $derived(role === null);
     const canEdit = $derived(can_manage);
-
-    const groupLabels: Record<string, string> = {
-        dashboard: 'Inicio',
-        branches: 'Sedes',
-        employees: 'Usuarios',
-        roles: 'Roles',
-    };
 
     function seedForm(): {
         name: string;
@@ -73,7 +64,6 @@
     }
 
     let form = $state(untrack(() => seedForm()));
-    // Seed tab once from create vs edit; do not rebind to reactive isCreate.
     let activeTab = $state<RoleTab>(untrack(() => (role === null ? 'identity' : 'permissions')));
     let processing = $state(false);
     let errors = $state<Record<string, string>>({});
@@ -88,82 +78,6 @@
         { value: 'permissions', label: 'Permisos', icon: 'shield' },
     ];
 
-    function groupTitle(group: string): string {
-        return groupLabels[group] ?? group.charAt(0).toUpperCase() + group.slice(1);
-    }
-
-    function permissionLabel(permission: PermissionItem): string {
-        return permission.description?.trim() || permission.name;
-    }
-
-    function selectedInGroup(group: PermissionGroup): number {
-        return group.permissions.filter((p) => form.permission_codes.includes(p.code)).length;
-    }
-
-    function isChecked(code: string): boolean {
-        return form.permission_codes.includes(code);
-    }
-
-    function findByName(name: string): PermissionItem | undefined {
-        for (const group of permission_groups) {
-            const hit = group.permissions.find((p) => p.name === name);
-            if (hit) return hit;
-        }
-        return undefined;
-    }
-
-    function togglePermission(code: string, checked: boolean): void {
-        const permission = permission_groups
-            .flatMap((g) => g.permissions)
-            .find((p) => p.code === code);
-        let next = checked
-            ? [...form.permission_codes, code]
-            : form.permission_codes.filter((current) => current !== code);
-
-        // manage requires view in the assignable scope.
-        if (permission?.name.endsWith('.manage')) {
-            const view = findByName(permission.name.replace(/\.manage$/, '.view'));
-            if (checked && view && !next.includes(view.code)) {
-                next = [...next, view.code];
-            }
-            if (!checked) {
-                // unchecking manage does not auto-remove view
-            }
-        }
-
-        if (permission?.name.endsWith('.view') && !checked) {
-            const manage = findByName(permission.name.replace(/\.view$/, '.manage'));
-            if (manage) {
-                next = next.filter((c) => c !== manage.code);
-            }
-        }
-
-        form.permission_codes = next;
-    }
-
-    function toggleGroup(group: PermissionGroup, checked: boolean): void {
-        const codes = group.permissions.map((p) => p.code);
-        if (checked) {
-            let next = [...new Set([...form.permission_codes, ...codes])];
-            for (const permission of group.permissions) {
-                if (permission.name.endsWith('.manage')) {
-                    const view = findByName(permission.name.replace(/\.manage$/, '.view'));
-                    if (view) next = [...new Set([...next, view.code])];
-                }
-            }
-            form.permission_codes = next;
-            return;
-        }
-        form.permission_codes = form.permission_codes.filter((code) => !codes.includes(code));
-    }
-
-    function groupFullySelected(group: PermissionGroup): boolean {
-        return (
-            group.permissions.length > 0 &&
-            group.permissions.every((p) => form.permission_codes.includes(p.code))
-        );
-    }
-
     function submit(): void {
         if (processing || !canEdit) return;
 
@@ -177,6 +91,8 @@
                 errors = formErrors;
                 if (errors.name || errors.description || errors.is_active) {
                     activeTab = 'identity';
+                } else if (errors.permission_codes) {
+                    activeTab = 'permissions';
                 }
             },
             onFinish: () => {
@@ -268,77 +184,15 @@
         {:else}
             <Card
                 title="Permisos disponibles para este rol"
-                subtitle="Lo que este cargo puede hacer. Los casos especiales van en cada usuario."
+                subtitle="Elige por área o busca. No es un listado infinito de casillas."
                 spaced
             >
-                <div class="lumi-stack lumi-stack--md">
-                    {#if canEdit && catalogCount > 0}
-                        <div class="lumi-flex lumi-flex--wrap lumi-flex--gap-sm">
-                            <Button
-                                type="button"
-                                variant="border"
-                                size="sm"
-                                onclick={() => {
-                                    form.permission_codes = permission_groups.flatMap((g) =>
-                                        g.permissions.map((p) => p.code),
-                                    );
-                                }}
-                            >
-                                Marcar todos
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="border"
-                                size="sm"
-                                onclick={() => {
-                                    form.permission_codes = [];
-                                }}
-                            >
-                                Limpiar
-                            </Button>
-                        </div>
-                    {/if}
-
-                    <div class="lumi-stack lumi-stack--sm">
-                        {#each permission_groups as group (group.group)}
-                            {@const selected = selectedInGroup(group)}
-                            {@const total = group.permissions.length}
-                            <Collapse
-                                title={`${groupTitle(group.group)} · ${selected}/${total}`}
-                                size="sm"
-                            >
-                                <div class="lumi-stack lumi-stack--sm">
-                                    {#if canEdit}
-                                        <Checkbox
-                                            label="Todo el grupo"
-                                            checked={groupFullySelected(group)}
-                                            onchange={(checked) => toggleGroup(group, checked)}
-                                        />
-                                    {/if}
-                                    <div class="lumi-grid lumi-grid--responsive lumi-grid--gap-sm">
-                                        {#each group.permissions as permission (permission.code)}
-                                            <Checkbox
-                                                label={permissionLabel(permission)}
-                                                checked={isChecked(permission.code)}
-                                                disabled={!canEdit}
-                                                onchange={(checked) =>
-                                                    togglePermission(permission.code, checked)}
-                                            />
-                                        {/each}
-                                    </div>
-                                </div>
-                            </Collapse>
-                        {:else}
-                            <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
-                                No hay permisos en el catálogo.
-                            </p>
-                        {/each}
-                    </div>
-
-                    {#if errors.permission_codes}
-                        <span class="lumi-text--sm lumi-text--danger">{errors.permission_codes}</span>
-                    {/if}
-                </div>
+                <RolePermissionScope
+                    {permission_groups}
+                    bind:selectedCodes={form.permission_codes}
+                    {canEdit}
+                    error={errors.permission_codes ?? null}
+                />
             </Card>
         {/if}
 

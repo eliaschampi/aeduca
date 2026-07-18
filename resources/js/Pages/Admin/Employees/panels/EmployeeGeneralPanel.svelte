@@ -70,6 +70,7 @@
                 <div class="lumi-grid lumi-grid--columns-2 lumi-grid--gap-md">
                     <Input
                         label="Nombres"
+                        placeholder="Ej. María Elena"
                         bind:value={form.first_name}
                         disabled={!canManage}
                         required
@@ -78,6 +79,7 @@
                     />
                     <Input
                         label="Apellidos"
+                        placeholder="Ej. Quispe Rojas"
                         bind:value={form.last_name}
                         disabled={!canManage}
                         required
@@ -89,6 +91,7 @@
                     <Input
                         label="Correo"
                         type="email"
+                        placeholder="Ej. maria.quispe@carrion.edu.pe"
                         bind:value={form.email}
                         disabled={!canManage}
                         danger={Boolean(errors.email)}
@@ -96,6 +99,7 @@
                     />
                     <Input
                         label="Teléfono"
+                        placeholder="Ej. 999 111 222"
                         bind:value={form.phone}
                         disabled={!canManage}
                         danger={Boolean(errors.phone)}
@@ -116,6 +120,7 @@
             <div class="lumi-stack lumi-stack--md">
                 <Select
                     label="Rol"
+                    placeholder="Selecciona un rol"
                     options={roleOptions}
                     bind:value={form.employee_role_code}
                     disabled={!canManage}
@@ -133,11 +138,7 @@
                             label={branch.name}
                             checked={form.branch_codes.includes(branch.code)}
                             disabled={!canManage}
-                            onchange={(event) =>
-                                toggleBranch(
-                                    branch.code,
-                                    (event.currentTarget as HTMLInputElement).checked,
-                                )}
+                            onchange={(checked) => toggleBranch(branch.code, checked)}
                         />
                     {/each}
                     {#if errors.branch_codes}

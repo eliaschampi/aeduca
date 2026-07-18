@@ -72,12 +72,21 @@ auth_accounts                     credentials
 | Screen | Pattern |
 | ------ | ------- |
 | Branches | Session pick + catalog; dialog name/active only; employee count read-only |
-| User create | One form: basic / role+sedes / credentials |
+| User create | One form: basic / role+sedes / credentials; all fields with placeholders |
 | User show | Panels: General, Access, Permissions (+ password dialog) |
-| Role form | “Permissions available for this role” (not automatic grants) |
+| Role form | Assignable scope only — search + domain rail + list rows; **no select-all** |
+| Superadmin | Full access without permission matrix editing |
 
 ---
 
-## 6. Not done
+## 6. Permission UI notes
+
+- Full catalog access is **`users.is_super_admin`**, not “check every permission on a role”.
+- Role scope picker is intentionally explicit (performance + intent).
+- Component: `resources/js/Pages/Admin/Roles/RolePermissionScope.svelte`.
+
+---
+
+## 7. Not done
 
 Academic cycles, students, finance, OMR, student portal.
