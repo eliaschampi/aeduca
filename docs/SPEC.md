@@ -403,8 +403,8 @@ Minimum:
 **UI**
 
 - Roles: edit assignable scope (“permisos disponibles para este rol”).
-- Scope picker (`RolePermissionScope`): **search + one domain at a time** + optional
-  “solo seleccionados”. Explicit per-permission toggles only.
+- Scope picker (`RolePermissionScope`): **search + one domain at a time** through a vertical
+  segmented control + optional “solo seleccionados”. Explicit per-permission toggles only.
 - **No “select all” / “mark all” bulk actions** — full system access is
   `is_super_admin`, not a role that checks every permission.
 - User: General / Access / Permissions; password via dialog.
@@ -429,6 +429,7 @@ Drive, attentions, dashboard metrics, full Aula social features.
 - Sidebar items: single source `resources/js/lib/navigation.ts`, filtered by `can()`.
   Current set: **Inicio · Sedes · Usuarios · Roles**.
 - Navbar shows current sede chip once; sidebar header shows role (not a second sede dump).
+- Navbar user dropdown keeps name and role on separate, width-bounded ellipsis lines.
 - Unified `/branches` for session + catalog (no parallel admin list page).
 
 ### Forms
@@ -438,6 +439,13 @@ Drive, attentions, dashboard metrics, full Aula social features.
 - Group fields in `Card` / `Fieldset`; use public Lumi layout utilities — no inline styles.
 - Large multi-select catalogs use search + progressive disclosure, never a full-page
   checkbox wall or “select all catalog” (superadmin is the full-access escape hatch).
+- Successful mutations use native Inertia one-time flash data. `DashboardLayout` is the
+  single owner of Lumi transient notifications.
+- Controllers publish success through `Inertia::flash('success', '…')`; the UI reads
+  `page.flash.success`. Do not duplicate it in shared props, remembered state, or page-local
+  notification queues.
+- Standalone create forms return to their resource list after success. Detail edits remain
+  in context unless the workflow has a clearer next destination.
 
 ### Page structure (admin screens)
 
@@ -445,7 +453,8 @@ Drive, attentions, dashboard metrics, full Aula social features.
 2. Optional toolbar / filters (search) when lists grow.
 3. Content in `Card` / `Table` with clear density.
 4. Destructive or secondary flows in `Dialog`.
-5. Feedback via Lumi `Alert` / validation `dangerText` — Spanish messages.
+5. Validation via Lumi `Alert` / `dangerText`; successful mutations via the global Lumi
+   `Notification` surface — Spanish messages.
 
 ### Inspiration from Coedula (allowed)
 

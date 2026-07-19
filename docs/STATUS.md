@@ -80,13 +80,14 @@ auth_accounts                     credentials
 
 ## 5. UX contract
 
-| Screen      | Pattern                                                                     |
-| ----------- | --------------------------------------------------------------------------- |
-| Branches    | Session pick + catalog; dialog name/active only; employee count read-only   |
-| User create | One form: basic / role+sedes / credentials; all fields with placeholders    |
-| User show   | Panels: General, Access, Permissions (+ password dialog)                    |
-| Role form   | Assignable scope only — search + domain rail + list rows; **no select-all** |
-| Superadmin  | Full access without permission matrix editing                               |
+| Screen      | Pattern                                                                          |
+| ----------- | -------------------------------------------------------------------------------- |
+| Branches    | Session pick + catalog; dialog name/active only; employee count read-only        |
+| User create | One form: basic / role+sedes / credentials; all fields with placeholders         |
+| User show   | Panels: General, Access, Permissions (+ password dialog)                         |
+| Role form   | Assignable scope — search + vertical domain segments + rows; **no select-all**   |
+| CRUD result | Native Inertia flash → global Lumi notification; create → list, update → context |
+| Superadmin  | Full access without permission matrix editing                                    |
 
 ---
 

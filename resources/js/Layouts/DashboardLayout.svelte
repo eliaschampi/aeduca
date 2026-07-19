@@ -8,6 +8,7 @@
         DropdownItem,
         Icon,
         Navbar,
+        Notification,
         Sidebar,
         SidebarHeader,
         SidebarItem,
@@ -22,6 +23,7 @@
     }
 
     const MOBILE_MEDIA_QUERY = '(max-width: 64rem)';
+    const NOTIFICATION_DURATION_MS = 5000;
     const THEME_LABELS = {
         system: { label: 'Sistema', icon: 'monitor' },
         light: { label: 'Claro', icon: 'sun' },
@@ -55,6 +57,7 @@
     const employeeName = $derived(
         auth ? `${auth.employee.first_name} ${auth.employee.last_name}` : 'Aeduca',
     );
+
     onMount(() => {
         const stopScheme = colorScheme.start();
         const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
@@ -158,17 +161,34 @@
                     <Avatar text={employeeName} size="sm" color="primary" />
                 {/snippet}
 
-                {#if auth}
-                    <DropdownItem icon="user" disabled>
-                        {employeeName} · {auth.employee.role_name}
-                    </DropdownItem>
-                {/if}
-                <DropdownItem icon={activeTheme.icon} onclick={colorScheme.cyclePreference}>
-                    Tema: {activeTheme.label}
-                </DropdownItem>
-                <DropdownItem icon="logOut" color="danger" onclick={logout}>
-                    Cerrar sesión
-                </DropdownItem>
+                {#snippet content()}
+                    <div class="lumi-padding--sm lumi-navbar-user-dropdown">
+                        {#if auth}
+                            <div
+                                class="lumi-stack lumi-stack--2xs lumi-padding--sm lumi-border lumi-border--light lumi-min-width--0"
+                            >
+                                <p
+                                    class="lumi-font--medium lumi-margin--none lumi-text-ellipsis"
+                                    title={employeeName}
+                                >
+                                    {employeeName}
+                                </p>
+                                <p
+                                    class="lumi-text--xs lumi-text--muted lumi-margin--none lumi-text-ellipsis"
+                                    title={auth.employee.role_name}
+                                >
+                                    {auth.employee.role_name}
+                                </p>
+                            </div>
+                        {/if}
+                        <DropdownItem icon={activeTheme.icon} onclick={colorScheme.cyclePreference}>
+                            Tema: {activeTheme.label}
+                        </DropdownItem>
+                        <DropdownItem icon="logOut" color="danger" onclick={logout}>
+                            Cerrar sesión
+                        </DropdownItem>
+                    </div>
+                {/snippet}
             </Dropdown>
         {/snippet}
     </Navbar>
@@ -181,3 +201,15 @@
         </div>
     </main>
 </div>
+
+{#key page.flash}
+    {#if page.flash.success}
+        <div class="lumi-toast-portal">
+            <Notification
+                color="success"
+                title={page.flash.success}
+                duration={NOTIFICATION_DURATION_MS}
+            />
+        </div>
+    {/if}
+{/key}

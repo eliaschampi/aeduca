@@ -44,7 +44,7 @@ class RoleController extends Controller
 
     public function store(RoleRequest $request, SaveRole $saveRole): RedirectResponse
     {
-        $role = $saveRole->handle(
+        $saveRole->handle(
             null,
             [
                 'name' => $request->string('name')->toString(),
@@ -54,7 +54,9 @@ class RoleController extends Controller
             $request->collect('permission_codes')->all(),
         );
 
-        return to_route('admin.roles.show', $role);
+        Inertia::flash('success', 'Rol creado');
+
+        return to_route('admin.roles.index');
     }
 
     public function show(EmployeeRole $role): Response
@@ -85,6 +87,8 @@ class RoleController extends Controller
             ],
             $request->collect('permission_codes')->all(),
         );
+
+        Inertia::flash('success', 'Rol actualizado');
 
         return to_route('admin.roles.show', $role);
     }

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BranchRequest;
 use App\Models\Branch;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
 
 class BranchController extends Controller
 {
@@ -17,6 +18,8 @@ class BranchController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
 
+        Inertia::flash('success', 'Sede creada');
+
         return to_route('branches.index');
     }
 
@@ -26,6 +29,8 @@ class BranchController extends Controller
             'name' => $request->string('name')->toString(),
             'is_active' => $request->boolean('is_active'),
         ]);
+
+        Inertia::flash('success', 'Sede actualizada');
 
         return to_route('branches.index');
     }

@@ -6,13 +6,13 @@
      */
     import { untrack } from 'svelte';
     import {
-        Button,
         Checkbox,
         EmptyState,
         Input,
         List,
         ListHeader,
         ListItem,
+        SegmentedControl,
     } from '@lumi-ui/svelte';
 
     interface PermissionItem {
@@ -83,12 +83,10 @@
         return hay.includes(normalizedQuery);
     }
 
-    const domainNav = $derived(
+    const domainOptions = $derived(
         permission_groups.map((group) => ({
-            key: group.group,
-            title: groupTitle(group.group),
-            selected: selectedInGroup(group),
-            total: group.permissions.length,
+            value: group.group,
+            label: `${groupTitle(group.group)} · ${selectedInGroup(group)}/${group.permissions.length}`,
         })),
     );
 
@@ -176,25 +174,18 @@
         />
     {:else}
         <div class="lumi-layout--two-columns lumi-layout--sidebar-left">
-            <aside
-                class="lumi-stack lumi-stack--xs lumi-min-width--0"
-                aria-label="Áreas de permisos"
-            >
-                {#each domainNav as domain (domain.key)}
-                    <Button
-                        type="button"
-                        variant={activeGroup === domain.key && !isSearching ? 'filled' : 'border'}
-                        size="sm"
-                        class="lumi-width--full lumi-justify--between"
-                        onclick={() => {
-                            activeGroup = domain.key;
-                            query = '';
-                        }}
-                    >
-                        <span>{domain.title}</span>
-                        <span class="lumi-text--xs">{domain.selected}/{domain.total}</span>
-                    </Button>
-                {/each}
+            <aside class="lumi-min-width--0">
+                <SegmentedControl
+                    value={isSearching ? '' : activeGroup}
+                    options={domainOptions}
+                    orientation="vertical"
+                    fullWidth
+                    aria-label="Áreas de permisos"
+                    onchange={(value) => {
+                        activeGroup = String(value);
+                        query = '';
+                    }}
+                />
             </aside>
 
             <div class="lumi-min-width--0">

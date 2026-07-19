@@ -51,7 +51,7 @@ class EmployeeController extends Controller
 
     public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee): RedirectResponse
     {
-        $employee = $createEmployee->handle(
+        $createEmployee->handle(
             [
                 'first_name' => $request->string('first_name')->toString(),
                 'last_name' => $request->string('last_name')->toString(),
@@ -65,7 +65,9 @@ class EmployeeController extends Controller
             $request->string('password')->toString(),
         );
 
-        return to_route('admin.employees.show', $employee);
+        Inertia::flash('success', 'Usuario creado');
+
+        return to_route('admin.employees.index');
     }
 
     public function show(User $employee): Response
@@ -133,29 +135,32 @@ class EmployeeController extends Controller
             $request->collect('branch_codes')->all(),
         );
 
+        Inertia::flash('success', 'Usuario actualizado');
+
         return to_route('admin.employees.show', $employee);
     }
 
     public function changePassword(ChangeEmployeePasswordRequest $request, User $employee): RedirectResponse
     {
-        $account = $employee->authAccount;
+        $employee->authAccount()->firstOrFail()->update([
+            'password' => $request->string('password')->toString(),
+        ]);
 
-        if ($account) {
-            $account->update([
-                'password' => $request->string('password')->toString(),
-            ]);
-        }
+        Inertia::flash('success', 'Contraseña actualizada');
 
         return to_route('admin.employees.show', $employee);
     }
 
     public function updateAccess(UpdateEmployeeAccessRequest $request, User $employee): RedirectResponse
     {
-        $account = $employee->authAccount;
+        $isActive = $request->boolean('is_active');
 
-        if ($account) {
-            $account->update(['is_active' => $request->boolean('is_active')]);
-        }
+        $employee->authAccount()->firstOrFail()->update(['is_active' => $isActive]);
+
+        Inertia::flash(
+            'success',
+            $isActive ? 'Acceso habilitado' : 'Acceso deshabilitado',
+        );
 
         return to_route('admin.employees.show', $employee);
     }
@@ -173,6 +178,8 @@ class EmployeeController extends Controller
             $employee,
             $request->collect('permission_codes')->all(),
         );
+
+        Inertia::flash('success', 'Permisos actualizados');
 
         return to_route('admin.employees.show', $employee);
     }
