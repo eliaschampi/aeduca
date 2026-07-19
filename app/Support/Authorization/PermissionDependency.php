@@ -4,19 +4,13 @@ namespace App\Support\Authorization;
 
 use App\Models\Permission;
 use Illuminate\Support\Collection;
+use LogicException;
 
 /**
  * Domain invariant: *.manage requires the matching *.view.
  */
 final class PermissionDependency
 {
-    /** @var list<string> */
-    private const MANAGE_VIEW_PAIRS = [
-        'branches.manage' => 'branches.view',
-        'employees.manage' => 'employees.view',
-        'roles.manage' => 'roles.view',
-    ];
-
     /**
      * Expand permission names so every manage includes its view.
      *
@@ -27,10 +21,12 @@ final class PermissionDependency
     {
         $set = array_fill_keys($names, true);
 
-        foreach (self::MANAGE_VIEW_PAIRS as $manage => $view) {
-            if (isset($set[$manage])) {
-                $set[$view] = true;
+        foreach ($names as $name) {
+            if (! str_ends_with($name, '.manage')) {
+                continue;
             }
+
+            $set[substr($name, 0, -strlen('.manage')).'.view'] = true;
         }
 
         $expanded = array_keys($set);
@@ -67,6 +63,18 @@ final class PermissionDependency
             ->whereIn('name', $expandedNames)
             ->pluck('code', 'name');
 
-        return $codeByName->values()->unique()->values()->all();
+        $missingNames = array_values(array_diff($expandedNames, $codeByName->keys()->all()));
+
+        if ($missingNames !== []) {
+            throw new LogicException(
+                'Missing permission dependencies: '.implode(', ', $missingNames),
+            );
+        }
+
+        return collect($expandedNames)
+            ->map(fn (string $name): string => $codeByName->get($name))
+            ->unique()
+            ->values()
+            ->all();
     }
 }

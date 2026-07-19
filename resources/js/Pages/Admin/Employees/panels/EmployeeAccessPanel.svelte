@@ -7,7 +7,7 @@
         lastLoginAt: string | null;
         canManage: boolean;
         onChangePassword: () => void;
-        onToggleAccess: () => void;
+        onUpdateAccess: (isActive: boolean) => void;
         togglingAccess: boolean;
     }
 
@@ -17,14 +17,12 @@
         lastLoginAt,
         canManage,
         onChangePassword,
-        onToggleAccess,
+        onUpdateAccess,
         togglingAccess,
     }: Props = $props();
 
     const lastLoginLabel = $derived(
-        lastLoginAt
-            ? new Date(lastLoginAt).toLocaleString('es-PE')
-            : 'Sin ingresos registrados',
+        lastLoginAt ? new Date(lastLoginAt).toLocaleString('es-PE') : 'Sin ingresos registrados',
     );
 </script>
 
@@ -50,7 +48,7 @@
                     color={accessActive ? 'danger' : 'success'}
                     icon="lock"
                     loading={togglingAccess}
-                    onclick={onToggleAccess}
+                    onclick={() => onUpdateAccess(!accessActive)}
                 >
                     {accessActive ? 'Deshabilitar acceso' : 'Habilitar acceso'}
                 </Button>

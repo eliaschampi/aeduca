@@ -3,7 +3,11 @@
     "name": "eliaschampi/aeduca",
     "type": "project",
     "description": "Aeduca v8 education management system.",
-    "keywords": ["aeduca", "education", "laravel"],
+    "keywords": [
+        "aeduca",
+        "education",
+        "laravel"
+    ],
     "license": "proprietary",
     "require": {
         "php": "^8.5",
@@ -38,6 +42,7 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
+            "@php artisan db:seed --force",
             "pnpm --dir ../lumi-ui install --frozen-lockfile",
             "pnpm --dir ../lumi-ui run package",
             "pnpm install --frozen-lockfile",
@@ -50,6 +55,15 @@
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
+        ],
+        "check": [
+            "@php ./vendor/bin/pint --test",
+            "@test",
+            "pnpm run check"
+        ],
+        "format": [
+            "@php ./vendor/bin/pint",
+            "pnpm run format"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

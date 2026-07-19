@@ -10,18 +10,20 @@ interface PageModule {
     layout?: ResolvedComponent['layout'] | false;
 }
 
-const pages = import.meta.glob<PageModule>('./Pages/**/*.svelte', { eager: true });
+const pages = import.meta.glob<PageModule>('./Pages/**/*.svelte');
 
 /** Dispose previous click delegate if setup re-runs (keeps one listener, O(1) cost). */
 let disposeLinkDelegation: (() => void) | undefined;
 
 createInertiaApp({
-    resolve: (name): ResolvedComponent => {
-        const page = pages[`./Pages/${name}.svelte`];
+    resolve: async (name): Promise<ResolvedComponent> => {
+        const loadPage = pages[`./Pages/${name}.svelte`];
 
-        if (!page?.default) {
+        if (!loadPage) {
             throw new Error(`Inertia page not found: ${name}`);
         }
+
+        const page = await loadPage();
 
         if (page.layout === false) {
             return { default: page.default };

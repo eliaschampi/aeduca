@@ -13,6 +13,7 @@
         Switch,
         Title,
     } from '@lumi-ui/svelte';
+    import type { AuthenticatedContext, BranchSummary } from '@/types/auth';
 
     interface CatalogBranch {
         code: string;
@@ -27,13 +28,9 @@
         can_manage?: boolean;
     }
 
-    const {
-        catalog = [],
-        can_view_catalog = false,
-        can_manage = false,
-    }: Props = $props();
+    const { catalog = [], can_view_catalog = false, can_manage = false }: Props = $props();
 
-    const auth = $derived(page.props.auth);
+    const auth = $derived(page.props.auth as AuthenticatedContext | null);
     const workspaceCodes = $derived(new Set(auth?.branches.map((b) => b.code) ?? []));
 
     let switchingBranchCode = $state<string | null>(null);
@@ -68,7 +65,7 @@
             }));
         }
 
-        return (auth?.branches ?? []).map((branch) => ({
+        return (auth?.branches ?? []).map((branch: BranchSummary) => ({
             code: branch.code,
             name: branch.name,
             is_active: null as boolean | null,
@@ -134,9 +131,7 @@
             },
             onError: (errors: Record<string, string>) => {
                 nameError = errors.name ?? null;
-                formError =
-                    errors.message ??
-                    (nameError ? null : 'No se pudo guardar la sede.');
+                formError = errors.message ?? (nameError ? null : 'No se pudo guardar la sede.');
             },
             onSuccess: () => {
                 dialogOpen = false;
@@ -169,9 +164,7 @@
     >
         {#snippet actions()}
             {#if can_manage}
-                <Button type="button" icon="plus" onclick={openCreate}>
-                    Nueva sede
-                </Button>
+                <Button type="button" icon="plus" onclick={openCreate}>Nueva sede</Button>
             {/if}
         {/snippet}
     </PageHeader>
@@ -201,9 +194,7 @@
             >
                 {#snippet actions()}
                     {#if can_manage}
-                        <Button type="button" icon="plus" onclick={openCreate}>
-                            Crear sede
-                        </Button>
+                        <Button type="button" icon="plus" onclick={openCreate}>Crear sede</Button>
                     {/if}
                 {/snippet}
             </EmptyState>
@@ -259,12 +250,7 @@
                                 class="lumi-flex lumi-justify--end lumi-align-items--center lumi-flex--gap-xs"
                             >
                                 {#if isCurrent}
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        icon="checkCircle"
-                                        disabled
-                                    >
+                                    <Button type="button" size="sm" icon="checkCircle" disabled>
                                         Sede activa
                                     </Button>
                                 {:else}
@@ -336,12 +322,8 @@
             </p>
 
             <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
-                <Button type="button" variant="border" onclick={closeDialog}>
-                    Cancelar
-                </Button>
-                <Button type="submit" icon="check" loading={processing}>
-                    Guardar
-                </Button>
+                <Button type="button" variant="border" onclick={closeDialog}>Cancelar</Button>
+                <Button type="submit" icon="check" loading={processing}>Guardar</Button>
             </div>
         </form>
     </Dialog>

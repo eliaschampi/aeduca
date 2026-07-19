@@ -10,13 +10,13 @@
 
 ## 1. Closed modules
 
-| Module | Scope | Status |
-| ------ | ----- | ------ |
-| Access foundation | Auth, session branch, PermissionResolver, shared Inertia props | **Done** |
-| Sedes | Unified `/branches` picker + catalog attributes (no membership writes) | **Done** |
-| Usuarios | List/create/profile panels, password, access, **direct** permissions | **Done** |
-| Roles | List/create/edit, **permission scope** (assignable boundary) | **Done** |
-| Academic / finance / OMR | Students, cycles, payments, … | **Not started** |
+| Module                   | Scope                                                                  | Status          |
+| ------------------------ | ---------------------------------------------------------------------- | --------------- |
+| Access foundation        | Auth, session branch, PermissionResolver, shared Inertia props         | **Done**        |
+| Sedes                    | Unified `/branches` picker + catalog attributes (no membership writes) | **Done**        |
+| Usuarios                 | List/create/profile panels, password, access, **direct** permissions   | **Done**        |
+| Roles                    | List/create/edit, **permission scope** (assignable boundary)           | **Done**        |
+| Academic / finance / OMR | Students, cycles, payments, …                                          | **Not started** |
 
 ---
 
@@ -29,11 +29,22 @@ app/
                SaveRole, SyncUserPermissions
   Support/     Authorization/{PermissionResolver, PermissionDependency}
                Branches/BranchContext
+  Routes/      semantic can:* authorization before validation
+
+database/seeders/
+  PermissionSeeder          idempotent permission catalog
+  DatabaseSeeder            optional idempotent administrator bootstrap
 
 resources/js/
   Pages/Branches/Index
   Pages/Admin/Employees/{Index,Create,Show + panels/*}
   Pages/Admin/Roles/{Index,Form}
+
+quality/
+  Laravel Pint             PHP formatting
+  Prettier + Svelte plugin frontend/config/docs formatting
+  Oxlint                   fast zero-config frontend linting
+  TypeScript 7             frontend type checking
 ```
 
 ---
@@ -57,25 +68,25 @@ auth_accounts                     credentials
 
 ## 4. HTTP surface
 
-| Method | URI | Purpose |
-| ------ | --- | ------- |
-| * | login / logout / `/` / branches / current-branch | Foundation |
-| POST/PUT | `/admin/branches` | Create/update sede **attributes only** |
-| * | `/admin/employees/*` | Usuarios CRUD + password + access + permissions |
-| PUT | `/admin/employees/{id}/permissions` | Direct grants |
-| * | `/admin/roles/*` | Roles + permission scope |
+| Method   | URI                                              | Purpose                                                        |
+| -------- | ------------------------------------------------ | -------------------------------------------------------------- |
+| *        | login / logout / `/` / branches / current-branch | Foundation                                                     |
+| POST/PUT | `/admin/branches`                                | Create/update sede **attributes only**                         |
+| *        | `/admin/employees/*`                             | Usuarios CRUD + password + explicit access state + permissions |
+| PUT      | `/admin/employees/{id}/permissions`              | Direct grants                                                  |
+| *        | `/admin/roles/*`                                 | Roles + permission scope                                       |
 
 ---
 
 ## 5. UX contract
 
-| Screen | Pattern |
-| ------ | ------- |
-| Branches | Session pick + catalog; dialog name/active only; employee count read-only |
-| User create | One form: basic / role+sedes / credentials; all fields with placeholders |
-| User show | Panels: General, Access, Permissions (+ password dialog) |
-| Role form | Assignable scope only — search + domain rail + list rows; **no select-all** |
-| Superadmin | Full access without permission matrix editing |
+| Screen      | Pattern                                                                     |
+| ----------- | --------------------------------------------------------------------------- |
+| Branches    | Session pick + catalog; dialog name/active only; employee count read-only   |
+| User create | One form: basic / role+sedes / credentials; all fields with placeholders    |
+| User show   | Panels: General, Access, Permissions (+ password dialog)                    |
+| Role form   | Assignable scope only — search + domain rail + list rows; **no select-all** |
+| Superadmin  | Full access without permission matrix editing                               |
 
 ---
 

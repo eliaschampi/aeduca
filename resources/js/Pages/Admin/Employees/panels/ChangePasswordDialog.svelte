@@ -9,13 +9,7 @@
         onsubmit: (password: string) => void;
     }
 
-    let {
-        open,
-        processing,
-        error = null,
-        onclose,
-        onsubmit,
-    }: Props = $props();
+    let { open, processing, error = null, onclose, onsubmit }: Props = $props();
 
     let password = $state('');
     let passwordConfirmation = $state('');
@@ -43,7 +37,7 @@
     }
 </script>
 
-<Dialog open={open} title="Cambiar contraseña" size="sm" onclose={onclose}>
+<Dialog {open} title="Cambiar contraseña" size="sm" {onclose}>
     <form
         class="lumi-stack lumi-stack--md"
         onsubmit={(event) => {
@@ -71,12 +65,8 @@
         />
 
         <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
-            <Button type="button" variant="border" onclick={onclose}>
-                Cancelar
-            </Button>
-            <Button type="submit" icon="check" loading={processing}>
-                Actualizar
-            </Button>
+            <Button type="button" variant="border" onclick={onclose}>Cancelar</Button>
+            <Button type="submit" icon="check" loading={processing}>Actualizar</Button>
         </div>
     </form>
 </Dialog>

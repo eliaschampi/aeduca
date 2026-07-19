@@ -25,11 +25,7 @@
         color-mix(in oklch, var(--lumi-brand-primary) 14%, transparent),
         transparent 62%
     );
-    --lumi-app-pattern-line-color: color-mix(
-        in oklch,
-        var(--lumi-brand-primary) 6%,
-        transparent
-    );
+    --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-brand-primary) 6%, transparent);
 }
 
 [data-theme='dark'] {

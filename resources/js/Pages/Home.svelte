@@ -1,21 +1,13 @@
 <script lang="ts">
     import { page, router } from '@inertiajs/svelte';
-    import {
-        Button,
-        Card,
-        EmptyState,
-        PageHeader,
-        QuickAccessCard,
-    } from '@lumi-ui/svelte';
+    import { Button, Card, EmptyState, PageHeader, QuickAccessCard } from '@lumi-ui/svelte';
     import { can } from '@/lib/permissions';
 
     const auth = $derived(page.props.auth);
     const employeeName = $derived(
         auth ? `${auth.employee.first_name} ${auth.employee.last_name}` : '',
     );
-    const needsBranch = $derived(
-        Boolean(auth && auth.branches.length > 0 && !auth.current_branch),
-    );
+    const needsBranch = $derived(Boolean(auth && auth.branches.length > 0 && !auth.current_branch));
     const noBranches = $derived(Boolean(auth && auth.branches.length === 0));
 </script>
 
@@ -88,7 +80,7 @@
                 <QuickAccessCard
                     href="/admin/roles"
                     title="Roles"
-                    description="Permisos por defecto de cada cargo."
+                    description="Permisos que podrán asignarse dentro de cada rol."
                     icon="shield"
                     color="success"
                 />

@@ -56,21 +56,14 @@ class RoleManagementTest extends TestCase
         ]);
     }
 
-    public function test_creating_a_role_is_forbidden_without_manage_permission(): void
+    public function test_creating_a_role_is_forbidden_before_validation_without_manage_permission(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['roles.view']);
 
         $this->actingAs($account)
-            ->post(route('admin.roles.store'), [
-                'name' => 'Bloqueado',
-                'description' => null,
-                'is_active' => true,
-                'permission_codes' => [],
-            ])
+            ->post(route('admin.roles.store'), [])
             ->assertForbidden();
-
-        $this->assertDatabaseMissing('employee_roles', ['name' => 'Bloqueado']);
     }
 
     public function test_a_manager_can_update_role_permission_scope(): void
@@ -174,8 +167,8 @@ class RoleManagementTest extends TestCase
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['roles.manage']);
-        $view = Permission::factory()->create(['name' => 'employees.view']);
-        $manage = Permission::factory()->create(['name' => 'employees.manage']);
+        $view = Permission::factory()->create(['name' => 'students.view']);
+        $manage = Permission::factory()->create(['name' => 'students.manage']);
 
         $this->actingAs($account)
             ->post(route('admin.roles.store'), [

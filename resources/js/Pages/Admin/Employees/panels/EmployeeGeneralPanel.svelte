@@ -1,13 +1,5 @@
 <script lang="ts">
-    import {
-        Button,
-        Card,
-        Checkbox,
-        Fieldset,
-        Input,
-        Select,
-        Switch,
-    } from '@lumi-ui/svelte';
+    import { Button, Card, Checkbox, Fieldset, Input, Select, Switch } from '@lumi-ui/svelte';
 
     interface Option {
         code: string;
@@ -46,9 +38,7 @@
         onreset,
     }: Props = $props();
 
-    const roleOptions = $derived(
-        roles.map((role) => ({ value: role.code, label: role.name })),
-    );
+    const roleOptions = $derived(roles.map((role) => ({ value: role.code, label: role.name })));
 
     function toggleBranch(code: string, checked: boolean): void {
         form.branch_codes = checked
@@ -128,8 +118,7 @@
                     errorMessage={errors.employee_role_code}
                 />
                 <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
-                    Al cambiar de rol se quitan permisos directos que no estén en el
-                    nuevo alcance.
+                    Al cambiar de rol se quitan permisos directos que no estén en el nuevo alcance.
                 </p>
                 <div class="lumi-stack lumi-stack--sm">
                     <span class="lumi-text--sm lumi-text--muted">Sedes asignadas</span>
@@ -151,12 +140,8 @@
 
     {#if canManage}
         <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
-            <Button type="button" variant="border" onclick={onreset}>
-                Restablecer
-            </Button>
-            <Button type="submit" icon="check" loading={processing}>
-                Guardar perfil
-            </Button>
+            <Button type="button" variant="border" onclick={onreset}>Restablecer</Button>
+            <Button type="submit" icon="check" loading={processing}>Guardar perfil</Button>
         </div>
     {/if}
 </form>

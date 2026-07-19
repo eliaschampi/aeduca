@@ -17,44 +17,61 @@ Route::middleware('auth')->delete('/logout', [AuthController::class, 'destroy'])
     ->name('logout');
 
 Route::middleware(['auth', 'employee.active'])->group(function () {
-    Route::get('/', HomeController::class)->name('home');
+    Route::get('/', HomeController::class)
+        ->middleware('can:dashboard.view')
+        ->name('home');
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::put('/current-branch', [BranchController::class, 'update'])
         ->name('current-branch.update');
 
     Route::prefix('admin')->name('admin.')->group(function () {
-        // Branch catalog lives on /branches; these routes only write membership.
+        // Branch catalog lives on /branches; these routes only write catalog attributes.
         Route::post('/branches', [AdminBranchController::class, 'store'])
+            ->middleware('can:branches.manage')
             ->name('branches.store');
         Route::put('/branches/{branch}', [AdminBranchController::class, 'update'])
+            ->middleware('can:branches.manage')
             ->name('branches.update');
 
         Route::get('/employees', [AdminEmployeeController::class, 'index'])
+            ->middleware('can:employees.view')
             ->name('employees.index');
         Route::get('/employees/create', [AdminEmployeeController::class, 'create'])
+            ->middleware('can:employees.manage')
             ->name('employees.create');
         Route::post('/employees', [AdminEmployeeController::class, 'store'])
+            ->middleware('can:employees.manage')
             ->name('employees.store');
         Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show'])
+            ->middleware('can:employees.view')
             ->name('employees.show');
         Route::put('/employees/{employee}', [AdminEmployeeController::class, 'update'])
+            ->middleware('can:employees.manage')
             ->name('employees.update');
         Route::put('/employees/{employee}/password', [AdminEmployeeController::class, 'changePassword'])
+            ->middleware('can:employees.manage')
             ->name('employees.password');
-        Route::put('/employees/{employee}/access', [AdminEmployeeController::class, 'toggleAccess'])
+        Route::put('/employees/{employee}/access', [AdminEmployeeController::class, 'updateAccess'])
+            ->middleware('can:employees.manage')
             ->name('employees.access');
         Route::put('/employees/{employee}/permissions', [AdminEmployeeController::class, 'syncPermissions'])
+            ->middleware('can:employees.manage')
             ->name('employees.permissions');
 
         Route::get('/roles', [AdminRoleController::class, 'index'])
+            ->middleware('can:roles.view')
             ->name('roles.index');
         Route::get('/roles/create', [AdminRoleController::class, 'create'])
+            ->middleware('can:roles.manage')
             ->name('roles.create');
         Route::post('/roles', [AdminRoleController::class, 'store'])
+            ->middleware('can:roles.manage')
             ->name('roles.store');
         Route::get('/roles/{role}', [AdminRoleController::class, 'show'])
+            ->middleware('can:roles.view')
             ->name('roles.show');
         Route::put('/roles/{role}', [AdminRoleController::class, 'update'])
+            ->middleware('can:roles.manage')
             ->name('roles.update');
     });
 });

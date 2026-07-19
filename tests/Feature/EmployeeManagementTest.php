@@ -68,26 +68,14 @@ class EmployeeManagementTest extends TestCase
         ]);
     }
 
-    public function test_creating_a_user_is_forbidden_without_manage_permission(): void
+    public function test_creating_a_user_is_forbidden_before_validation_without_manage_permission(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['employees.view']);
-        $role = EmployeeRole::factory()->create();
-        $branch = Branch::factory()->create();
 
         $this->actingAs($account)
-            ->post(route('admin.employees.store'), [
-                'first_name' => 'Ana',
-                'last_name' => 'Rojas',
-                'employee_role_code' => $role->code,
-                'is_active' => true,
-                'branch_codes' => [$branch->code],
-                'login' => 'arojas',
-                'password' => 'secret-password',
-            ])
+            ->post(route('admin.employees.store'), [])
             ->assertForbidden();
-
-        $this->assertDatabaseMissing('users', ['first_name' => 'Ana', 'last_name' => 'Rojas']);
     }
 
     public function test_create_requires_at_least_one_branch(): void
@@ -164,7 +152,7 @@ class EmployeeManagementTest extends TestCase
         $this->assertSame(1, DB::table('user_branches')->where('user_code', $target->code)->count());
     }
 
-    public function test_a_manager_can_change_password_and_toggle_access(): void
+    public function test_a_manager_can_change_password_and_set_access_idempotently(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['employees.manage']);
@@ -182,9 +170,26 @@ class EmployeeManagementTest extends TestCase
         );
 
         $this->actingAs($account)
-            ->put(route('admin.employees.access', $target))
+            ->put(route('admin.employees.access', $target), ['is_active' => false])
+            ->assertRedirect(route('admin.employees.show', $target));
+
+        $this->actingAs($account)
+            ->put(route('admin.employees.access', $target), ['is_active' => false])
             ->assertRedirect(route('admin.employees.show', $target));
 
         $this->assertFalse((bool) $targetAccount->fresh()->is_active);
+    }
+
+    public function test_access_update_requires_an_explicit_state(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['employees.manage']);
+        $targetAccount = $this->createEmployeeAccount();
+
+        $this->actingAs($account)
+            ->put(route('admin.employees.access', $targetAccount->user), [])
+            ->assertSessionHasErrors('is_active');
+
+        $this->assertTrue((bool) $targetAccount->fresh()->is_active);
     }
 }

@@ -16,8 +16,6 @@ class RoleController extends Controller
 {
     public function index(): Response
     {
-        Gate::authorize('roles.view');
-
         $roles = EmployeeRole::query()
             ->withCount(['permissionScopes', 'users'])
             ->orderBy('name')
@@ -37,8 +35,6 @@ class RoleController extends Controller
 
     public function create(): Response
     {
-        Gate::authorize('roles.manage');
-
         return Inertia::render('Admin/Roles/Form', [
             'role' => null,
             'permission_groups' => $this->permissionGroups(),
@@ -48,8 +44,6 @@ class RoleController extends Controller
 
     public function store(RoleRequest $request, SaveRole $saveRole): RedirectResponse
     {
-        Gate::authorize('roles.manage');
-
         $role = $saveRole->handle(
             null,
             [
@@ -65,8 +59,6 @@ class RoleController extends Controller
 
     public function show(EmployeeRole $role): Response
     {
-        Gate::authorize('roles.view');
-
         $role->load(['permissionScopes:code,name']);
 
         return Inertia::render('Admin/Roles/Form', [
@@ -84,8 +76,6 @@ class RoleController extends Controller
 
     public function update(RoleRequest $request, EmployeeRole $role, SaveRole $saveRole): RedirectResponse
     {
-        Gate::authorize('roles.manage');
-
         $saveRole->handle(
             $role,
             [

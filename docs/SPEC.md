@@ -2,7 +2,7 @@
 
 > **Role of this file.** Single source of truth for domain rules, architecture,
 > and engineering principles. Prefer this document over historical task notes.
-> Claims about *what the code does today* live in [`STATUS.md`](STATUS.md).
+> Claims about _what the code does today_ live in [`STATUS.md`](STATUS.md).
 >
 > **Audience.** Humans and LLMs implementing or reviewing Aeduca v8.
 >
@@ -18,12 +18,12 @@
 Aeduca v8 is a **clean rebuild** of Carrión’s school-management platform.
 It unifies the lessons of prior systems into one application:
 
-| System | Role for v8 | Local path (this machine) |
-| ------ | ----------- | ------------------------- |
-| **Aeduca Admin (v7)** | Evidence of workflows that were *actually used*; source of data to migrate | `../v7 aeduca main` |
-| **Aeduca Aula** | Student portal patterns (login with DNI + password, shared DB with Admin) | historically under v7 tree |
-| **Coedula** | Evidence of *more recent* technical and UI solutions | `../coedula` |
-| **Nextya** | OMR evaluations (separate DB; migrate carefully later) | `../nextya` |
+| System                | Role for v8                                                                | Local path (this machine)  |
+| --------------------- | -------------------------------------------------------------------------- | -------------------------- |
+| **Aeduca Admin (v7)** | Evidence of workflows that were _actually used_; source of data to migrate | `../v7 aeduca main`        |
+| **Aeduca Aula**       | Student portal patterns (login with DNI + password, shared DB with Admin)  | historically under v7 tree |
+| **Coedula**           | Evidence of _more recent_ technical and UI solutions                       | `../coedula`               |
+| **Nextya**            | OMR evaluations (separate DB; migrate carefully later)                     | `../nextya`                |
 
 **Owner institution:** Carrión and its branches (sedes).  
 **Not a SaaS:** no multi-tenant companies, memberships, or enterprise isolation.
@@ -57,15 +57,15 @@ usuarios del personal + roles/permisos). Academic and finance modules come later
 
 ## 2. Stack (fixed)
 
-| Layer | Choice |
-| ----- | ------ |
-| Backend | Laravel 13, PHP 8.5 |
-| Transport | Inertia.js |
-| UI | Svelte 5 (runes only) + TypeScript strict |
-| Components | `@lumi-ui/svelte` (local package `file:../lumi-ui`) |
-| Database | PostgreSQL |
-| Package managers | Composer (PHP), **pnpm only** (JS) |
-| End-user locale | Spanish (`es`) |
+| Layer            | Choice                                              |
+| ---------------- | --------------------------------------------------- |
+| Backend          | Laravel 13, PHP 8.5                                 |
+| Transport        | Inertia.js                                          |
+| UI               | Svelte 5 (runes only) + TypeScript strict           |
+| Components       | `@lumi-ui/svelte` (local package `file:../lumi-ui`) |
+| Database         | PostgreSQL                                          |
+| Package managers | Composer (PHP), **pnpm only** (JS)                  |
+| End-user locale  | Spanish (`es`)                                      |
 
 ### Forbidden dependencies / layers
 
@@ -140,7 +140,7 @@ Deliberately **light**. Not hexagonal ceremony. Clear owners only.
 app/
 ├── Actions/                 # Multitable writes / real domain processes
 ├── Http/
-│   ├── Controllers/         # Thin: authorize → validate → action → redirect/Inertia
+│   ├── Controllers/         # Thin: query/call action → redirect/Inertia
 │   │   └── Admin/           # Administrative CRUD (sedes, usuarios, …)
 │   ├── Middleware/          # Auth revalidation, Inertia shared props
 │   └── Requests/            # Form shape, normalization, Spanish messages
@@ -150,7 +150,7 @@ app/
     ├── Authorization/       # PermissionResolver (single responsibility)
     └── Branches/            # BranchContext (session branch)
 
-routes/web.php               # HTTP entry points only
+routes/web.php               # HTTP entry points + can:* authorization before validation
 
 resources/js/
 ├── app.ts                   # Inertia bootstrap + Lumi styles (once)
@@ -172,17 +172,18 @@ database/
 
 ### Layer ownership
 
-| Layer | Owns | Must not own |
-| ----- | ---- | ------------ |
-| **PostgreSQL** | Structural invariants (FK, UNIQUE, CHECK) | Hidden business logic via triggers |
-| **Model** | Relations, casts, UUID PK, small scopes | Multi-step business processes |
-| **FormRequest** | Shape, types, required, formats, Spanish errors | Full domain policy |
-| **Action** | Transactional multitable writes, invariants | HTTP / presentation |
-| **Controller** | Authorize, call request/action, Inertia/redirect | Fat queries, finance math, permission resolution |
-| **PermissionResolver** | Effective permission names for an account | Role-name checks |
-| **BranchContext** | Session `current_branch_code` + membership | Storing current branch on `users` |
-| **Svelte page** | Interaction, layout composition, `can()` for UI | Security authority |
-| **Lumi** | Domain-neutral primitives | Roles, permissions, school rules |
+| Layer                  | Owns                                              | Must not own                                     |
+| ---------------------- | ------------------------------------------------- | ------------------------------------------------ |
+| **PostgreSQL**         | Structural invariants (FK, UNIQUE, CHECK)         | Hidden business logic via triggers               |
+| **Route**              | HTTP entry point + semantic `can:*` authorization | Domain processes                                 |
+| **Model**              | Relations, casts, UUID PK, small scopes           | Multi-step business processes                    |
+| **FormRequest**        | Shape, types, required, formats, Spanish errors   | Full domain policy                               |
+| **Action**             | Transactional multitable writes, invariants       | HTTP / presentation                              |
+| **Controller**         | Query/call request/action, Inertia/redirect       | Fat queries, finance math, permission resolution |
+| **PermissionResolver** | Effective permission names for an account         | Role-name checks                                 |
+| **BranchContext**      | Session `current_branch_code` + membership        | Storing current branch on `users`                |
+| **Svelte page**        | Interaction, layout composition, `can()` for UI   | Security authority                               |
+| **Lumi**               | Domain-neutral primitives                         | Roles, permissions, school rules                 |
 
 ### When to create an Action
 
@@ -242,16 +243,16 @@ Forbidden for FKs, permissions, authorized sedes, turnos, enrollments, participa
 
 ### Conceptual model
 
-| Concept | Model / table | Meaning |
-| ------- | ------------- | ------- |
-| Sede | `branches` | Physical/operational branch of Carrión |
-| Rol | `employee_roles` | Employee **category** — never authorize by role name |
-| Permiso | `permissions` | Semantic capability `domain.action` |
-| Alcance de rol | `employee_role_permission_scopes` | Permissions **assignable** to employees with that role (not automatic grants) |
-| Usuario (personal) | `users` | Employee **profile** (not credentials). UI label: **Usuarios** |
-| Usuario↔sede | `user_branches` | Membership; owned by employee administration; required for session branch |
-| Permiso directo | `user_permissions` | Actual grant (presence = allowed; no deny rows) |
-| Credencial | `auth_accounts` | Laravel `Authenticatable` (login/password) |
+| Concept            | Model / table                     | Meaning                                                                       |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------------------- |
+| Sede               | `branches`                        | Physical/operational branch of Carrión                                        |
+| Rol                | `employee_roles`                  | Employee **category** — never authorize by role name                          |
+| Permiso            | `permissions`                     | Semantic capability `domain.action`                                           |
+| Alcance de rol     | `employee_role_permission_scopes` | Permissions **assignable** to employees with that role (not automatic grants) |
+| Usuario (personal) | `users`                           | Employee **profile** (not credentials). UI label: **Usuarios**                |
+| Usuario↔sede       | `user_branches`                   | Membership; owned by employee administration; required for session branch     |
+| Permiso directo    | `user_permissions`                | Actual grant (presence = allowed; no deny rows)                               |
+| Credencial         | `auth_accounts`                   | Laravel `Authenticatable` (login/password)                                    |
 
 ```text
 role = employee category
@@ -274,7 +275,7 @@ Students are a **separate** future identity — do not mix into `users`/`auth_ac
 **`users`:** `code`, `first_name`, `last_name`, `email?`, `phone?`, `employee_role_code`, `is_active`, `is_super_admin`, timestamps  
 **`user_branches`:** (`user_code`, `branch_code`) composite PK  
 **`user_permissions`:** (`user_code`, `permission_code`) composite PK — presence = allowed  
-**`auth_accounts`:** `code`, `login` unique (normalized lower), `password` hashed, `user_code` unique, `is_active`, `last_login_at?`, timestamps  
+**`auth_accounts`:** `code`, `login` unique (normalized lower), `password` hashed, `user_code` unique, `is_active`, `last_login_at?`, timestamps
 
 ### Permission catalog (current names — code is authority)
 
@@ -313,7 +314,8 @@ Implemented in `app/Support/Authorization/PermissionResolver.php`:
 5. Expanding a role scope does **not** auto-grant users.
 6. Changing role or reducing scope prunes incompatible direct grants transactionally.
 
-**Backend is always authoritative.** Controllers use `Gate::authorize('employees.manage')` etc.  
+**Backend is always authoritative.** Routes use Laravel `can:*` middleware before
+FormRequest validation; controllers may use `Gate::check` only for presentation props.
 `Gate::before` returns `true` when the resolver allows, else `null` (Laravel denies).
 
 Frontend: **one** helper `can('employees.view')` style — presentation only.  
@@ -380,7 +382,7 @@ One page serves **session selection** and **catalog administration**:
 Minimum:
 
 - List, create (profile + role + sedes + credentials in one transaction),
-  show/edit profile, reassign role/sedes, change password, toggle access,
+  show/edit profile, reassign role/sedes, change password, set access state,
   assign **direct permissions** within the role scope.
 - Permission keys stay `employees.view` / `employees.manage` (stable).
 - End-user Spanish copy says **Usuarios**, never “Trabajadores”.
@@ -502,12 +504,25 @@ Avoid snapshot spam and unit tests that only restate Eloquent.
 ### Mandatory checks before claiming done
 
 ```bash
-php artisan test
-pnpm run check
+# Apply the project-owned PHP and frontend formatters:
+composer run format
+
+# Verify formatting, behavior, TypeScript 7, and lint rules:
+composer run check
+
+# Required when frontend runtime or delivery code changes:
 pnpm run build
 # when DB or seed changed (testing env only):
 # php artisan migrate:fresh --seed --env=testing
 ```
+
+Formatting and lint ownership stays intentionally small:
+
+- **Laravel Pint** formats PHP.
+- **Prettier + the Svelte plugin** formats Svelte, TypeScript, CSS, configuration, and Markdown.
+- **Oxlint** performs fast, zero-config correctness checks for JavaScript, TypeScript, and
+  Svelte script blocks.
+- **TypeScript 7** remains the only TypeScript compiler.
 
 Never run `migrate:fresh` against the development database `aeduca`.
 
@@ -532,12 +547,12 @@ Domain/security ambiguity → investigate; do not guess.
 
 ## 12. Document map
 
-| File | Purpose |
-| ---- | ------- |
-| [`README.md`](../README.md) | Human setup, scripts, short rules |
-| **`docs/SPEC.md`** (this file) | Domain + architecture + principles |
-| [`docs/STATUS.md`](STATUS.md) | Verified implementation state, gaps, next work |
-| `../lumi-ui/docs/*` | Lumi contracts |
+| File                           | Purpose                                        |
+| ------------------------------ | ---------------------------------------------- |
+| [`README.md`](../README.md)    | Human setup, scripts, short rules              |
+| **`docs/SPEC.md`** (this file) | Domain + architecture + principles             |
+| [`docs/STATUS.md`](STATUS.md)  | Verified implementation state, gaps, next work |
+| `../lumi-ui/docs/*`            | Lumi contracts                                 |
 
 Historical task files (`TASK.md`, `Task2.md`, root roadmaps) are superseded by this pair.
 Do not reintroduce parallel “truth” documents.

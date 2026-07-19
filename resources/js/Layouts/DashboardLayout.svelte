@@ -18,7 +18,7 @@
     import { can } from '@/lib/permissions';
 
     interface Props {
-        children: Snippet;
+        children?: Snippet;
     }
 
     const MOBILE_MEDIA_QUERY = '(max-width: 64rem)';
@@ -49,9 +49,7 @@
         if (matches.length === 0) {
             return availableNavigation[0] ?? APP_NAVIGATION[0];
         }
-        return matches.reduce((best, item) =>
-            item.href.length > best.href.length ? item : best,
-        );
+        return matches.reduce((best, item) => (item.href.length > best.href.length ? item : best));
     });
     const activeTheme = $derived(THEME_LABELS[colorScheme.preference]);
     const employeeName = $derived(
@@ -177,7 +175,9 @@
 
     <main class="lumi-dashboard-layout__content">
         <div class="lumi-container lumi-container--ultrawide lumi-min-width--0">
-            {@render children()}
+            {#if children}
+                {@render children()}
+            {/if}
         </div>
     </main>
 </div>

@@ -51,7 +51,12 @@ function shouldHandle(anchor: HTMLAnchorElement): boolean {
     if (target && target !== '_self') return false;
 
     const raw = anchor.getAttribute('href');
-    if (!raw || raw.startsWith('mailto:') || raw.startsWith('tel:') || raw.startsWith('javascript:')) {
+    if (
+        !raw ||
+        raw.startsWith('mailto:') ||
+        raw.startsWith('tel:') ||
+        raw.startsWith('javascript:')
+    ) {
         return false;
     }
 

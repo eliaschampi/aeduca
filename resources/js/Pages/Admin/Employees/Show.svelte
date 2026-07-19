@@ -1,13 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { router } from '@inertiajs/svelte';
-    import {
-        Avatar,
-        Button,
-        Chip,
-        PageHeader,
-        Tabs,
-    } from '@lumi-ui/svelte';
+    import { Avatar, Button, Chip, PageHeader, Tabs } from '@lumi-ui/svelte';
     import { can } from '@/lib/permissions';
     import ChangePasswordDialog from './panels/ChangePasswordDialog.svelte';
     import EmployeeAccessPanel from './panels/EmployeeAccessPanel.svelte';
@@ -110,19 +104,23 @@
 
     function saveProfile(): void {
         if (profileProcessing) return;
-        router.put(`/admin/employees/${employee.code}`, { ...form }, {
-            preserveScroll: true,
-            onStart: () => {
-                profileProcessing = true;
-                errors = {};
+        router.put(
+            `/admin/employees/${employee.code}`,
+            { ...form },
+            {
+                preserveScroll: true,
+                onStart: () => {
+                    profileProcessing = true;
+                    errors = {};
+                },
+                onError: (formErrors: Record<string, string>) => {
+                    errors = formErrors;
+                },
+                onFinish: () => {
+                    profileProcessing = false;
+                },
             },
-            onError: (formErrors: Record<string, string>) => {
-                errors = formErrors;
-            },
-            onFinish: () => {
-                profileProcessing = false;
-            },
-        });
+        );
     }
 
     function resetProfile(): void {
@@ -130,17 +128,21 @@
         errors = {};
     }
 
-    function toggleAccess(): void {
+    function updateAccess(isActive: boolean): void {
         if (accessToggling) return;
-        router.put(`/admin/employees/${employee.code}/access`, {}, {
-            preserveScroll: true,
-            onStart: () => {
-                accessToggling = true;
+        router.put(
+            `/admin/employees/${employee.code}/access`,
+            { is_active: isActive },
+            {
+                preserveScroll: true,
+                onStart: () => {
+                    accessToggling = true;
+                },
+                onFinish: () => {
+                    accessToggling = false;
+                },
             },
-            onFinish: () => {
-                accessToggling = false;
-            },
-        });
+        );
     }
 
     function savePermissions(codes: string[]): void {
@@ -231,10 +233,7 @@
         </div>
     </div>
 
-    <Tabs
-        {tabs}
-        bind:value={activeTab}
-    />
+    <Tabs {tabs} bind:value={activeTab} />
 
     {#if activeTab === 'general'}
         <EmployeeGeneralPanel
@@ -255,7 +254,7 @@
             {canManage}
             togglingAccess={accessToggling}
             onChangePassword={() => (passwordOpen = true)}
-            onToggleAccess={toggleAccess}
+            onUpdateAccess={updateAccess}
         />
     {:else}
         <EmployeePermissionsPanel

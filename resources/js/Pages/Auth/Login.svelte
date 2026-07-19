@@ -36,10 +36,7 @@
 </svelte:head>
 
 <main class="lumi-centered-layout">
-    <Card
-        class="lumi-centered-card lumi-centered-card--sm"
-        spaced
-    >
+    <Card class="lumi-centered-card lumi-centered-card--sm" spaced>
         {#snippet header()}
             <Title
                 level={1}

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\EmployeeRole;
 use App\Models\Permission;
 use Tests\TestCase;
 
@@ -47,6 +48,7 @@ class UserPermissionGrantTest extends TestCase
 
         $target = $this->createEmployeeAccount()->user;
         $scoped = Permission::factory()->create(['name' => 'branches.view']);
+        Permission::factory()->create(['name' => 'roles.view']);
         $outside = Permission::factory()->create(['name' => 'roles.manage']);
         $target->employeeRole->permissionScopes()->attach([$scoped->code]);
 
@@ -110,7 +112,7 @@ class UserPermissionGrantTest extends TestCase
         $target->employeeRole->permissionScopes()->attach([$keep->code, $drop->code]);
         $target->permissions()->attach([$keep->code, $drop->code]);
 
-        $newRole = \App\Models\EmployeeRole::factory()->create(['is_active' => true]);
+        $newRole = EmployeeRole::factory()->create(['is_active' => true]);
         $newRole->permissionScopes()->attach([$keep->code]);
 
         $branchCode = $target->branches()->firstOrFail()->code;

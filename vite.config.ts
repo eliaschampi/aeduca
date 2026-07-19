@@ -29,10 +29,7 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
         warmup: {
-            clientFiles: [
-                './resources/js/app.ts',
-                './resources/js/Layouts/DashboardLayout.svelte',
-            ],
+            clientFiles: ['./resources/js/app.ts', './resources/js/Layouts/DashboardLayout.svelte'],
         },
     },
 });

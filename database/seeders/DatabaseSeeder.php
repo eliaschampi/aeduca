@@ -14,53 +14,59 @@ use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Semantic permission catalog for the administrative foundation.
-     *
-     * @var array<string, string>
-     */
-    private const PERMISSION_CATALOG = [
-        'dashboard.view' => 'Acceder a la página de inicio.',
-        'branches.view' => 'Ver las sedes.',
-        'branches.manage' => 'Crear, editar y activar sedes.',
-        'employees.view' => 'Ver los usuarios del personal.',
-        'employees.manage' => 'Crear, editar y activar usuarios del personal.',
-        'roles.view' => 'Ver los roles y el alcance de permisos.',
-        'roles.manage' => 'Crear y editar roles y su alcance de permisos.',
-    ];
-
     public function run(): void
     {
+        $this->call(PermissionSeeder::class);
+
         $login = Str::lower(trim((string) config('aeduca.seed_admin.login')));
         $password = (string) config('aeduca.seed_admin.password');
 
+        if ($login === '' && $password === '') {
+            return;
+        }
+
         if ($login === '' || $password === '') {
             throw new RuntimeException(
-                'Define AEDUCA_SEED_ADMIN_LOGIN y AEDUCA_SEED_ADMIN_PASSWORD antes de ejecutar el seeder.',
+                'Define juntos AEDUCA_SEED_ADMIN_LOGIN y AEDUCA_SEED_ADMIN_PASSWORD.',
             );
         }
 
         DB::transaction(function () use ($login, $password): void {
-            $branch = Branch::query()->create([
-                'name' => 'Sede principal',
-                'is_active' => true,
-            ]);
+            $existingAccount = AuthAccount::query()
+                ->with('user')
+                ->where('login', $login)
+                ->first();
 
-            $role = EmployeeRole::query()->create([
-                'name' => 'Administración',
-                'description' => 'Categoría administrativa. El alcance define permisos asignables, no grants automáticos.',
-                'is_active' => true,
-            ]);
+            if ($existingAccount) {
+                if (! $existingAccount->user?->is_super_admin) {
+                    throw new RuntimeException(
+                        "El login de bootstrap «{$login}» ya pertenece a otro usuario.",
+                    );
+                }
 
-            $permissions = collect(self::PERMISSION_CATALOG)->map(
-                fn (string $description, string $name): Permission => Permission::query()->create([
-                    'name' => $name,
-                    'description' => $description,
-                ]),
+                $existingAccount->user->employeeRole->permissionScopes()->syncWithoutDetaching(
+                    Permission::query()->pluck('code'),
+                );
+
+                return;
+            }
+
+            $branch = Branch::query()->firstOrCreate(
+                ['name' => 'Sede principal'],
+                ['is_active' => true],
             );
 
-            // Full catalog as assignable scope for this role (not auto-granted).
-            $role->permissionScopes()->attach($permissions->pluck('code'));
+            $role = EmployeeRole::query()->firstOrCreate(
+                ['name' => 'Administración'],
+                [
+                    'description' => 'Categoría administrativa. El alcance define permisos asignables, no grants automáticos.',
+                    'is_active' => true,
+                ],
+            );
+
+            $role->permissionScopes()->syncWithoutDetaching(
+                Permission::query()->pluck('code'),
+            );
 
             $employee = User::query()->create([
                 'first_name' => 'Administrador',

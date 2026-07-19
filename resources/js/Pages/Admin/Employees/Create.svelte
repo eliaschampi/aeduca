@@ -37,9 +37,7 @@
     let processing = $state(false);
     let errors = $state<Record<string, string>>({});
 
-    const roleOptions = $derived(
-        roles.map((role) => ({ value: role.code, label: role.name })),
-    );
+    const roleOptions = $derived(roles.map((role) => ({ value: role.code, label: role.name })));
 
     function toggleBranch(code: string, checked: boolean): void {
         form.branch_codes = checked
@@ -50,18 +48,22 @@
     function submit(): void {
         if (processing) return;
 
-        router.post('/admin/employees', { ...form }, {
-            onStart: () => {
-                processing = true;
-                errors = {};
+        router.post(
+            '/admin/employees',
+            { ...form },
+            {
+                onStart: () => {
+                    processing = true;
+                    errors = {};
+                },
+                onError: (formErrors: Record<string, string>) => {
+                    errors = formErrors;
+                },
+                onFinish: () => {
+                    processing = false;
+                },
             },
-            onError: (formErrors: Record<string, string>) => {
-                errors = formErrors;
-            },
-            onFinish: () => {
-                processing = false;
-            },
-        });
+        );
     }
 </script>
 
@@ -161,7 +163,9 @@
                             />
                         {/each}
                         {#if errors.branch_codes}
-                            <span class="lumi-text--sm lumi-text--danger">{errors.branch_codes}</span>
+                            <span class="lumi-text--sm lumi-text--danger"
+                                >{errors.branch_codes}</span
+                            >
                         {/if}
                     </div>
                 </div>
@@ -193,16 +197,10 @@
         </Card>
 
         <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
-            <Button
-                type="button"
-                variant="border"
-                onclick={() => router.visit('/admin/employees')}
-            >
+            <Button type="button" variant="border" onclick={() => router.visit('/admin/employees')}>
                 Cancelar
             </Button>
-            <Button type="submit" icon="check" loading={processing}>
-                Crear usuario
-            </Button>
+            <Button type="submit" icon="check" loading={processing}>Crear usuario</Button>
         </div>
     </form>
 </div>

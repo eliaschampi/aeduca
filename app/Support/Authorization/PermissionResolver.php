@@ -23,13 +23,15 @@ final class PermissionResolver
      */
     public function effectiveNames(AuthAccount $account): array
     {
-        if ($this->request->attributes->has(self::REQUEST_CACHE_KEY)) {
+        $cacheKey = self::REQUEST_CACHE_KEY.'.'.$account->getKey();
+
+        if ($this->request->attributes->has($cacheKey)) {
             /** @var list<string> */
-            return $this->request->attributes->get(self::REQUEST_CACHE_KEY);
+            return $this->request->attributes->get($cacheKey);
         }
 
         $names = $this->resolveEffectiveNames($account);
-        $this->request->attributes->set(self::REQUEST_CACHE_KEY, $names);
+        $this->request->attributes->set($cacheKey, $names);
 
         return $names;
     }

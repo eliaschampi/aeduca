@@ -1,16 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { router } from '@inertiajs/svelte';
-    import {
-        Button,
-        Card,
-        Chip,
-        Input,
-        PageHeader,
-        Switch,
-        Tabs,
-        Textarea,
-    } from '@lumi-ui/svelte';
+    import { Button, Card, Chip, Input, PageHeader, Switch, Tabs, Textarea } from '@lumi-ui/svelte';
     import RolePermissionScope from './RolePermissionScope.svelte';
 
     interface PermissionItem {
@@ -40,11 +31,7 @@
         can_manage?: boolean;
     }
 
-    const {
-        role = null,
-        permission_groups,
-        can_manage = false,
-    }: Props = $props();
+    const { role = null, permission_groups, can_manage = false }: Props = $props();
 
     const isCreate = $derived(role === null);
     const canEdit = $derived(can_manage);
@@ -140,12 +127,7 @@
         </Chip>
     </div>
 
-    <Tabs
-        bind:value={activeTab}
-        {tabs}
-        color="primary"
-        aria-label="Secciones del rol"
-    />
+    <Tabs bind:value={activeTab} {tabs} color="primary" aria-label="Secciones del rol" />
 
     <form
         class="lumi-stack lumi-stack--lg"
@@ -174,11 +156,7 @@
                         rows={2}
                         disabled={!canEdit}
                     />
-                    <Switch
-                        bind:checked={form.is_active}
-                        label="Rol activo"
-                        disabled={!canEdit}
-                    />
+                    <Switch bind:checked={form.is_active} label="Rol activo" disabled={!canEdit} />
                 </div>
             </Card>
         {:else}
@@ -198,11 +176,7 @@
 
         {#if canEdit}
             <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
-                <Button
-                    type="button"
-                    variant="border"
-                    onclick={() => router.visit('/admin/roles')}
-                >
+                <Button type="button" variant="border" onclick={() => router.visit('/admin/roles')}>
                     Cancelar
                 </Button>
                 <Button type="submit" icon="check" loading={processing}>

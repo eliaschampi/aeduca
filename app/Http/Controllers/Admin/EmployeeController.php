@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangeEmployeePasswordRequest;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\SyncUserPermissionsRequest;
+use App\Http\Requests\UpdateEmployeeAccessRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\Branch;
 use App\Models\EmployeeRole;
@@ -23,8 +24,6 @@ class EmployeeController extends Controller
 {
     public function index(): Response
     {
-        Gate::authorize('employees.view');
-
         $employees = User::query()
             ->with(['employeeRole:code,name', 'authAccount:code,user_code,login,is_active'])
             ->orderBy('first_name')
@@ -47,15 +46,11 @@ class EmployeeController extends Controller
 
     public function create(): Response
     {
-        Gate::authorize('employees.manage');
-
         return Inertia::render('Admin/Employees/Create', $this->formOptions());
     }
 
     public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee): RedirectResponse
     {
-        Gate::authorize('employees.manage');
-
         $employee = $createEmployee->handle(
             [
                 'first_name' => $request->string('first_name')->toString(),
@@ -75,8 +70,6 @@ class EmployeeController extends Controller
 
     public function show(User $employee): Response
     {
-        Gate::authorize('employees.view');
-
         $canManage = Gate::check('employees.manage');
 
         $employee->load([
@@ -127,8 +120,6 @@ class EmployeeController extends Controller
 
     public function update(UpdateEmployeeRequest $request, User $employee, UpdateEmployee $updateEmployee): RedirectResponse
     {
-        Gate::authorize('employees.manage');
-
         $updateEmployee->handle(
             $employee,
             [
@@ -147,8 +138,6 @@ class EmployeeController extends Controller
 
     public function changePassword(ChangeEmployeePasswordRequest $request, User $employee): RedirectResponse
     {
-        Gate::authorize('employees.manage');
-
         $account = $employee->authAccount;
 
         if ($account) {
@@ -160,14 +149,12 @@ class EmployeeController extends Controller
         return to_route('admin.employees.show', $employee);
     }
 
-    public function toggleAccess(User $employee): RedirectResponse
+    public function updateAccess(UpdateEmployeeAccessRequest $request, User $employee): RedirectResponse
     {
-        Gate::authorize('employees.manage');
-
         $account = $employee->authAccount;
 
         if ($account) {
-            $account->update(['is_active' => ! $account->is_active]);
+            $account->update(['is_active' => $request->boolean('is_active')]);
         }
 
         return to_route('admin.employees.show', $employee);
@@ -178,8 +165,6 @@ class EmployeeController extends Controller
         User $employee,
         SyncUserPermissions $syncUserPermissions,
     ): RedirectResponse {
-        Gate::authorize('employees.manage');
-
         if ($employee->is_super_admin) {
             return to_route('admin.employees.show', $employee);
         }

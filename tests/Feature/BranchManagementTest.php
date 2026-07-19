@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Branch;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -56,19 +57,14 @@ class BranchManagementTest extends TestCase
         $this->assertSame(0, DB::table('user_branches')->where('branch_code', $branch->code)->count());
     }
 
-    public function test_creating_a_branch_is_forbidden_without_the_manage_permission(): void
+    public function test_creating_a_branch_is_forbidden_before_validation_without_manage_permission(): void
     {
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['branches.view']);
 
         $this->actingAs($account)
-            ->post(route('admin.branches.store'), [
-                'name' => 'Sede Sur',
-                'is_active' => true,
-            ])
+            ->post(route('admin.branches.store'), [])
             ->assertForbidden();
-
-        $this->assertDatabaseMissing('branches', ['name' => 'Sede Sur']);
     }
 
     public function test_a_manager_can_update_branch_attributes_without_membership_sync(): void
@@ -159,7 +155,11 @@ class BranchManagementTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('can_view_catalog', true)
                 ->where('can_manage', true)
-                ->has('catalog')
-                ->where('catalog.1.name', 'Visible por manage→view'));
+                ->where(
+                    'catalog',
+                    fn (Collection $catalog): bool => $catalog->contains(
+                        fn (array $branch): bool => $branch['name'] === 'Visible por manage→view',
+                    ),
+                ));
     }
 }

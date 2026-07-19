@@ -89,4 +89,16 @@ class PermissionAuthorizationTest extends TestCase
             ->get(route('admin.employees.create'))
             ->assertOk();
     }
+
+    public function test_request_cache_is_scoped_to_the_account(): void
+    {
+        $allowedAccount = $this->createEmployeeAccount();
+        $deniedAccount = $this->createEmployeeAccount();
+        $this->grantPermissions($allowedAccount, ['dashboard.view']);
+
+        $resolver = app(PermissionResolver::class);
+
+        $this->assertSame(['dashboard.view'], $resolver->effectiveNames($allowedAccount));
+        $this->assertSame([], $resolver->effectiveNames($deniedAccount));
+    }
 }

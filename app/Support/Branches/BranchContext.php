@@ -18,9 +18,11 @@ final class BranchContext
      */
     public function authorizedBranches(AuthAccount $account): Collection
     {
-        if ($this->request->attributes->has(self::BRANCHES_CACHE_KEY)) {
+        $cacheKey = self::BRANCHES_CACHE_KEY.'.'.$account->getKey();
+
+        if ($this->request->attributes->has($cacheKey)) {
             /** @var Collection<int, Branch> */
-            return $this->request->attributes->get(self::BRANCHES_CACHE_KEY);
+            return $this->request->attributes->get($cacheKey);
         }
 
         $branches = $account->user?->branches()
@@ -29,7 +31,7 @@ final class BranchContext
             ->get(['branches.code', 'branches.name'])
             ?? collect();
 
-        $this->request->attributes->set(self::BRANCHES_CACHE_KEY, $branches);
+        $this->request->attributes->set($cacheKey, $branches);
 
         return $branches;
     }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Support\Branches\BranchContext;
 use Tests\TestCase;
 
 class BranchSelectionTest extends TestCase
@@ -98,5 +99,21 @@ class BranchSelectionTest extends TestCase
             ->get('/')
             ->assertOk()
             ->assertSessionHas('current_branch_code', $remainingBranch->code);
+    }
+
+    public function test_authorized_branch_cache_is_scoped_to_the_account(): void
+    {
+        $firstAccount = $this->createEmployeeAccount();
+        $secondAccount = $this->createEmployeeAccount();
+        $context = app(BranchContext::class);
+
+        $this->assertSame(
+            $firstAccount->user->branches->pluck('code')->all(),
+            $context->authorizedBranches($firstAccount)->pluck('code')->all(),
+        );
+        $this->assertSame(
+            $secondAccount->user->branches->pluck('code')->all(),
+            $context->authorizedBranches($secondAccount)->pluck('code')->all(),
+        );
     }
 }

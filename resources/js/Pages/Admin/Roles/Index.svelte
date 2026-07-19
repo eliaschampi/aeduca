@@ -52,7 +52,7 @@
         <EmptyState
             icon="shield"
             title="Sin roles"
-            description="Crea un rol y elige los permisos que incluye por defecto."
+            description="Crea un rol y define qué permisos podrán asignarse a sus usuarios."
         >
             {#snippet actions()}
                 {#if canManage}

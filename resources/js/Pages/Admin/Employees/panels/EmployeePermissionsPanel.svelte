@@ -38,9 +38,7 @@
 
     /** manage implies view in the UI before save. */
     function toggle(code: string, name: string, checked: boolean): void {
-        let next = checked
-            ? [...localSelected, code]
-            : localSelected.filter((c) => c !== code);
+        let next = checked ? [...localSelected, code] : localSelected.filter((c) => c !== code);
 
         if (checked && name.endsWith('.manage')) {
             const viewName = name.replace(/\.manage$/, '.view');
@@ -76,8 +74,8 @@
 {#if isSuperAdmin}
     <Card spaced>
         <Alert color="info">
-            Este usuario es superadministrador: tiene acceso completo a todos los
-            permisos del sistema. No se editan grants individuales.
+            Este usuario es superadministrador: tiene acceso completo a todos los permisos del
+            sistema. No se editan grants individuales.
         </Alert>
     </Card>
 {:else if scope.length === 0}
@@ -115,12 +113,8 @@
                                 label={permission.description || permission.name}
                                 checked={isChecked(permission.code)}
                                 disabled={!canManage || isViewLockedByManage(permission.name)}
-                                onchange={(event) =>
-                                    toggle(
-                                        permission.code,
-                                        permission.name,
-                                        (event.currentTarget as HTMLInputElement).checked,
-                                    )}
+                                onchange={(checked) =>
+                                    toggle(permission.code, permission.name, checked)}
                             />
                         {/each}
                     </div>
@@ -130,9 +124,7 @@
 
         {#if canManage}
             <div class="lumi-flex lumi-justify--end">
-                <Button type="submit" icon="check" loading={processing}>
-                    Guardar permisos
-                </Button>
+                <Button type="submit" icon="check" loading={processing}>Guardar permisos</Button>
             </div>
         {/if}
     </form>

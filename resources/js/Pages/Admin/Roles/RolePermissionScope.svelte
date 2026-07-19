@@ -5,7 +5,15 @@
      * No bulk “select all” — full access is superadministrator, not a role checkbox wall.
      */
     import { untrack } from 'svelte';
-    import { Button, Checkbox, EmptyState, Input, List, ListHeader, ListItem } from '@lumi-ui/svelte';
+    import {
+        Button,
+        Checkbox,
+        EmptyState,
+        Input,
+        List,
+        ListHeader,
+        ListItem,
+    } from '@lumi-ui/svelte';
 
     interface PermissionItem {
         code: string;
@@ -25,12 +33,7 @@
         error?: string | null;
     }
 
-    let {
-        permission_groups,
-        selectedCodes = $bindable(),
-        canEdit,
-        error = null,
-    }: Props = $props();
+    let { permission_groups, selectedCodes = $bindable(), canEdit, error = null }: Props = $props();
 
     const groupLabels: Record<string, string> = {
         dashboard: 'Inicio',
@@ -173,7 +176,10 @@
         />
     {:else}
         <div class="lumi-layout--two-columns lumi-layout--sidebar-left">
-            <aside class="lumi-stack lumi-stack--xs lumi-min-width--0" aria-label="Áreas de permisos">
+            <aside
+                class="lumi-stack lumi-stack--xs lumi-min-width--0"
+                aria-label="Áreas de permisos"
+            >
                 {#each domainNav as domain (domain.key)}
                     <Button
                         type="button"
