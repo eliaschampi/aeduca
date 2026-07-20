@@ -1,283 +1,240 @@
-# Aeduca v8 — Agent & developer specification
+# Aeduca v8 — Product and Engineering Specification
 
-> **Role of this file.** Single source of truth for domain rules, architecture,
-> and engineering principles. Prefer this document over historical task notes.
-> Claims about _what the code does today_ live in [`STATUS.md`](STATUS.md).
+> **Role:** permanent source of truth for product direction, domain rules, data rules, and architecture.
 >
-> **Audience.** Humans and LLMs implementing or reviewing Aeduca v8.
->
-> **Rule.** Do not invent tables, fields, permissions, packages, or UI patterns
-> that are not justified here or already present in the repository.
+> Current implementation facts belong in [`STATUS.md`](STATUS.md).
+> Active execution scope belongs in the root [`TASK.md`](../TASK.md).
 
----
+## 1. Product identity
 
-## 1. Project identity
+Aeduca v8 is a clean rebuild of Carrión's education management platform.
 
-### What Aeduca v8 is
+It unifies the useful operational knowledge of:
 
-Aeduca v8 is a **clean rebuild** of Carrión’s school-management platform.
-It unifies the lessons of prior systems into one application:
+| System | Value for Aeduca v8 |
+| --- | --- |
+| Aeduca Admin | Real workflows used by Carrión and primary migration evidence |
+| Aeduca Aula | Student-access and portal history |
+| Coedula | Newer PostgreSQL, Svelte/Lumi, attendance, finance, Drive, and OMR integration lessons |
+| Nextya | OMR evaluation processing and specialized reports |
 
-| System                | Role for v8                                                                | Local path (this machine)  |
-| --------------------- | -------------------------------------------------------------------------- | -------------------------- |
-| **Aeduca Admin (v7)** | Evidence of workflows that were _actually used_; source of data to migrate | `../v7 aeduca main`        |
-| **Aeduca Aula**       | Student portal patterns (login with DNI + password, shared DB with Admin)  | historically under v7 tree |
-| **Coedula**           | Evidence of _more recent_ technical and UI solutions                       | `../coedula`               |
-| **Nextya**            | OMR evaluations (separate DB; migrate carefully later)                     | `../nextya`                |
-
-**Owner institution:** Carrión and its branches (sedes).  
-**Not a SaaS:** no multi-tenant companies, memberships, or enterprise isolation.
-
-### Governing principle (non-negotiable)
-
-**Aeduca v8 is not a clone of Coedula and not a rewrite of Admin as-is.**
+Aeduca v8 is not a clone of any previous system.
 
 For every capability:
 
-1. Identify the real operational need for Carrión.
-2. Study how Admin solved it (workflow evidence).
-3. Study how Coedula solves it (modern technique / UX).
-4. Keep what proved valuable.
-5. Drop structural debt.
-6. Implement the **smallest** solution that protects confirmed rules.
+1. Identify the real Carrión workflow.
+2. Inspect how Aeduca Admin handled it.
+3. Inspect how Coedula handled it.
+4. Preserve proven behavior.
+5. Remove structural debt.
+6. Implement the smallest coherent solution.
 
-Inspiration ≠ copy. Prefer **functionality, clarity, and migration safety** over
-architectural ceremony or visual cloning.
+### Product boundary
 
-### Product goal (long term)
+- One institution: Carrión.
+- Multiple branches.
+- No SaaS tenants, memberships, or company isolation.
+- One application and one operational model.
+- Spanish end-user interface.
+- Migratable from Aeduca v7 and Nextya.
 
-One system for workers and (later) students covering: sedes, personal,
-permisos, ciclos, matrículas, asistencia, caja/pagos, evaluaciones/OMR,
-atenciones, and a lean student portal — migratable from v7 data.
-
-**Current delivery focus:** administrative foundation (access + sedes +
-usuarios del personal + roles/permisos). Academic and finance modules come later.
-
----
-
-## 2. Stack (fixed)
-
-| Layer            | Choice                                              |
-| ---------------- | --------------------------------------------------- |
-| Backend          | Laravel 13, PHP 8.5                                 |
-| Transport        | Inertia.js                                          |
-| UI               | Svelte 5 (runes only) + TypeScript strict           |
-| Components       | `@lumi-ui/svelte` (local package `file:../lumi-ui`) |
-| Database         | PostgreSQL                                          |
-| Package managers | Composer (PHP), **pnpm only** (JS)                  |
-| End-user locale  | Spanish (`es`)                                      |
-
-### Forbidden dependencies / layers
-
-Do **not** install or invent:
-
-- Authorization packages (Spatie, Bouncer, …)
-- Auth starter kits
-- Module frameworks
-- Generic repositories / repository interfaces
-- Generic `*Service` gods (`UserService`, `PermissionService`, …)
-- DTO libraries used only to rename arrays
-- Extra CSS frameworks or component libraries
-- Client state libraries for permissions or session branch
-- Soft-delete-by-default patterns
-- Polymorphic `entity_type` + `entity_code` when an explicit FK is possible
-
-Use Laravel Auth, Gates, Policies, middleware, Eloquent, and PostgreSQL
-constraints directly.
-
----
-
-## 3. Engineering principles
-
-### 3.1 Consistency — one way
-
-- Reuse existing patterns before inventing new ones.
-- Match naming, folders, and composition already in the tree.
-- Domain rules live in Laravel (models, actions, policies/gates).
-- UI is semantic and presentation-only — never encode business rules in Lumi.
-
-### 3.2 Clean and organized
-
-- Prefer delete and simplify over accumulate.
-- One owner per concern (no parallel helpers or dual CSS systems).
-- Small files, clear folders, no dead or speculative layers.
-- Frontend layout: public Lumi classes (`.lumi-stack`, `.lumi-grid`, dashboard shell).
-- **No** local `<style>` blocks, raw colors, or inline styles unless Lumi has no public alternative.
-- Brand seeds only: `resources/js/styles/lumi-theme.css`.
-
-### 3.3 Performance without premature cleverness
-
-- Smallest change that solves the problem.
-- No N+1 by accident; no eager loads “just in case”.
-- Request-scoped memoization is fine; persistent permission/branch caches are not
-  until measurements demand them.
-- One color-scheme controller, one styles import, one layout shell.
-
-### 3.4 Modern UI quality
-
-- Svelte 5 runes: `$state`, `$derived`, `$props`, `$effect`.
-- Types at boundaries (Inertia props, forms).
-- Calm, structured admin UI: clear hierarchy (header → filters/actions → content cards/tables → dialogs).
-- Spanish copy for end users.
-
-### 3.5 Decision filter (before writing code)
-
-1. Does something already solve this?
-2. Is the API free of domain leakage into Lumi?
-3. Can layout use public Lumi classes instead of custom CSS?
-4. Will this stay easy to delete later?
-5. Is there only one owner for this behavior?
-
-If any answer is wrong, stop and redesign.
-
----
-
-## 4. Clean architecture (current, intentional)
-
-Deliberately **light**. Not hexagonal ceremony. Clear owners only.
+### Development line
 
 ```text
-app/
-├── Actions/                 # Multitable writes / real domain processes
-├── Http/
-│   ├── Controllers/         # Thin: query/call action → redirect/Inertia
-│   │   └── Admin/           # Administrative CRUD (sedes, usuarios, …)
-│   ├── Middleware/          # Auth revalidation, Inertia shared props
-│   └── Requests/            # Form shape, normalization, Spanish messages
-├── Models/                  # Relations, casts, small scopes, UUID keys
-├── Providers/               # Gate::before → PermissionResolver
-└── Support/
-    ├── Authorization/       # PermissionResolver (single responsibility)
-    └── Branches/            # BranchContext (session branch)
-
-routes/web.php               # HTTP entry points + can:* authorization before validation
-
-resources/js/
-├── app.ts                   # Inertia bootstrap + Lumi styles (once)
-├── styles/lumi-theme.css    # Brand seeds only
-├── lib/                     # nav, can(), color-scheme
-├── Layouts/                 # Dashboard shell
-├── Pages/                   # Thin Inertia pages
-│   ├── Auth/
-│   ├── Branches/            # Worker branch picker (session)
-│   ├── Admin/               # Administrative screens
-│   └── Home.svelte
-└── types/
-
-database/
-├── migrations/              # Explicit FKs, CHECKs, composite PKs
-├── factories/
-└── seeders/
+Access, branches, users, roles, permissions
+→ Academic structure
+→ Students and minimal contacts
+→ Enrollment and payment obligations
+→ Attendance
+→ Evaluations and OMR
+→ Cashbox and attentions
+→ Lean student portal
 ```
+
+The initial student portal exposes:
+
+- attendance;
+- evaluations and scores;
+- payments;
+- basic information;
+- current shared files.
+
+Chat, social posts, likes, comments, complex virtual-classroom submissions, and web-form examinations are not current priorities.
+
+## 2. Fixed stack
+
+| Layer | Choice |
+| --- | --- |
+| Backend | Laravel 13, PHP 8.5 |
+| Transport | Inertia |
+| Frontend | Svelte 5, TypeScript strict |
+| UI | `@lumi-ui/svelte` |
+| Database | PostgreSQL |
+| Packages | Composer and pnpm |
+| Locale | Spanish |
+
+Do not introduce:
+
+- authorization packages;
+- auth starter kits;
+- module frameworks;
+- generic repositories;
+- generic service classes;
+- DTO libraries that only rename arrays;
+- a second CSS framework or UI library;
+- a client state library for permissions or branch context;
+- soft-delete-by-default;
+- persistent caches without measurement;
+- manual polymorphic relations when explicit FKs are possible.
+
+## 3. Documentation ownership
+
+| File | Owns |
+| --- | --- |
+| `README.md` | Entry point, setup, commands, short rules |
+| `AGENTS.md` | Mandatory agent protocol |
+| `docs/SPEC.md` | Permanent product, domain, data, and architecture decisions |
+| `docs/STATUS.md` | Verified implementation state |
+| `TASK.md` | One temporary active vertical |
+
+Do not create parallel Foundation, Roadmap, Development Line, or alternative specification files.
+
+## 4. Engineering philosophy
+
+### One owner
+
+- Reuse existing patterns before inventing new ones.
+- One owner for every concern and write path.
+- Do not keep parallel helpers, layouts, caches, stores, or documentation truth.
+
+### Lightweight architecture
+
+- Prefer deletion and simplification over accumulation.
+- Abstraction follows a visible responsibility.
+- No speculative layers or future-proofing without a current use.
+- Files remain cohesive; do not split only to reduce line count.
 
 ### Layer ownership
 
-| Layer                  | Owns                                              | Must not own                                     |
-| ---------------------- | ------------------------------------------------- | ------------------------------------------------ |
-| **PostgreSQL**         | Structural invariants (FK, UNIQUE, CHECK)         | Hidden business logic via triggers               |
-| **Route**              | HTTP entry point + semantic `can:*` authorization | Domain processes                                 |
-| **Model**              | Relations, casts, UUID PK, small scopes           | Multi-step business processes                    |
-| **FormRequest**        | Shape, types, required, formats, Spanish errors   | Full domain policy                               |
-| **Action**             | Transactional multitable writes, invariants       | HTTP / presentation                              |
-| **Controller**         | Query/call request/action, Inertia/redirect       | Fat queries, finance math, permission resolution |
-| **PermissionResolver** | Effective permission names for an account         | Role-name checks                                 |
-| **BranchContext**      | Session `current_branch_code` + membership        | Storing current branch on `users`                |
-| **Svelte page**        | Interaction, layout composition, `can()` for UI   | Security authority                               |
-| **Lumi**               | Domain-neutral primitives                         | Roles, permissions, school rules                 |
+| Layer | Owns | Must not own |
+| --- | --- | --- |
+| PostgreSQL | FK, UNIQUE, CHECK, structural truth | Hidden business workflows |
+| Route | HTTP entry and semantic authorization | Domain processing |
+| FormRequest | Input shape, normalization, messages | Full domain policy |
+| Model | Relations, casts, UUID configuration, small scopes | Multi-step processes |
+| Action | Transactional aggregate writes and invariants | HTTP presentation |
+| Controller | Query/action orchestration and response | Large business logic |
+| Svelte page | Interaction and composition | Security authority |
+| Lumi | Domain-neutral UI primitives | Education rules |
 
-### When to create an Action
+Create an Action when a write touches multiple tables or protects a real invariant.
 
-Create an Action when the write:
+A simple validated single-row update may remain direct and clear.
 
-- touches more than one table, or
-- protects a real invariant / process.
+### Performance
 
-A simple single-row update may stay in the controller after FormRequest validation.
-
-### When **not** to create
-
-```text
-app/Modules/
-app/Repositories/
-app/Contracts/Repositories/
-app/Services/UserService.php
-app/Services/PermissionService.php
-```
-
-No base classes until two real implementations share real behavior.
-
----
+- Prevent N+1 deliberately.
+- Index foreign keys and real query paths.
+- Index pages load summaries and counts.
+- Detail/edit pages load one complete aggregate.
+- Do not eager-load nested history on catalog lists.
+- Do not cache before measurement.
+- Prefer bounded, readable work over clever optimization.
 
 ## 5. Data rules
 
 ### Identifiers
 
-- Main entities: UUID primary key column named **`code`**.
-- Foreign keys: **`<entity>_code`** (e.g. `user_code`, `branch_code`).
-- Never embed year, sede, nivel, grado, grupo, or modality inside technical keys.
-- DNI is a **unique attribute**, never a primary key.
-- No `employee_number` until a confirmed functional use exists.
-- No scattered `legacy_id` columns; migration maps live in a technical map artifact.
+- Main entities use UUID primary key `code`.
+- Foreign keys use `<entity>_code`.
+- Technical identifiers never embed year, branch, level, degree, group, modality, or status.
+- DNI is an attribute, never a primary key.
+- Human numbers exist only when they have a confirmed external use.
 
 ### Relations
 
-- Many-to-many → intermediate tables with composite primary keys.
-- **Forbidden:** arrays or JSON for relationships (e.g. no `branches.users uuid[]`).
-- Explicit foreign keys always.
-- Soft deletes only when business needs restore/trash — not by default.
+- Many-to-many relations use explicit intermediate tables.
+- Relationships never live in JSON or PostgreSQL arrays.
+- Explicit FKs are mandatory when possible.
+- Redundant foreign keys require a documented historical or query reason and an integrity guarantee.
 
-### Money / dates (future modules)
+### State and deletion
 
-- Money: `NUMERIC`, never float; multitable finance always transactional.
-- Business dates: `date` / `time` / timestamptz by meaning.
-- A **cycle may span two calendar years** — never validate “same year only”.
+- Use explicit and understandable states.
+- Do not use hidden single-letter role or status rules.
+- Avoid physical deletion when operational history may reference the record.
+- Soft delete is introduced only when restore/trash is a confirmed workflow.
+- Active/inactive is sufficient for catalogs unless restoration semantics are required.
 
-### JSON
+### Dates and money
 
-Allowed only for unstructured external evidence.  
-Forbidden for FKs, permissions, authorized sedes, turnos, enrollments, participants.
+- Use `date`, `time`, and `timestamptz` according to business meaning.
+- A cycle may cross calendar years.
+- Money uses `NUMERIC`, never float.
+- Confirmed financial operations are never hard-deleted.
+- Multi-table finance writes are transactional.
 
----
+### JSON and triggers
 
-## 6. Access domain (implemented foundation)
+JSON is allowed only for genuinely unstructured external evidence.
 
-### Conceptual model
+Do not use JSON for permissions, branches, shifts, enrollments, groups, participants, or foreign-key relationships.
 
-| Concept            | Model / table                     | Meaning                                                                       |
-| ------------------ | --------------------------------- | ----------------------------------------------------------------------------- |
-| Sede               | `branches`                        | Physical/operational branch of Carrión                                        |
-| Rol                | `employee_roles`                  | Employee **category** — never authorize by role name                          |
-| Permiso            | `permissions`                     | Semantic capability `domain.action`                                           |
-| Alcance de rol     | `employee_role_permission_scopes` | Permissions **assignable** to employees with that role (not automatic grants) |
-| Usuario (personal) | `users`                           | Employee **profile** (not credentials). UI label: **Usuarios**                |
-| Usuario↔sede       | `user_branches`                   | Membership; owned by employee administration; required for session branch     |
-| Permiso directo    | `user_permissions`                | Actual grant (presence = allowed; no deny rows)                               |
-| Credencial         | `auth_accounts`                   | Laravel `Authenticatable` (login/password)                                    |
+Do not hide authorization, academic, attendance, or finance behavior in triggers.
+
+## 6. Access domain — closed model
+
+### Entities
+
+```text
+branches
+employee_roles
+permissions
+employee_role_permission_scopes
+users
+user_branches
+user_permissions
+auth_accounts
+```
+
+### Meaning
 
 ```text
 role = employee category
-role permission scope = assignable boundary
-user permission = actual grant
-superadministrator = full access
-manage requires view
-employee workflow owns branch assignments
+role permission scope = permissions assignable to that role
+user permission = actual direct grant
+effective permission = direct grant ∩ role scope
+superadministrator = all known permissions
 ```
 
-Teachers are the same worker entity; academic assignments come later.  
-Students are a **separate** future identity — do not mix into `users`/`auth_accounts` now.
+Rules:
 
-### Table shapes (minimum)
+- Role scope does not grant access automatically.
+- A direct user grant outside the role scope is not effective.
+- Changing role or reducing scope prunes incompatible grants transactionally.
+- `*.manage` requires the matching `*.view` and is normalized when persisted.
+- Never authorize by role name or role code.
+- `is_super_admin` is a controlled technical escalation, not a normal form field.
 
-**`branches`:** `code`, `name`, `is_active`, timestamps  
-**`employee_roles`:** `code`, `name`, `description?`, `is_active`, timestamps  
-**`permissions`:** `code`, `name` unique (lowercase dot notation), `description?`, timestamps  
-**`employee_role_permission_scopes`:** (`employee_role_code`, `permission_code`) composite PK  
-**`users`:** `code`, `first_name`, `last_name`, `email?`, `phone?`, `employee_role_code`, `is_active`, `is_super_admin`, timestamps  
-**`user_branches`:** (`user_code`, `branch_code`) composite PK  
-**`user_permissions`:** (`user_code`, `permission_code`) composite PK — presence = allowed  
-**`auth_accounts`:** `code`, `login` unique (normalized lower), `password` hashed, `user_code` unique, `is_active`, `last_login_at?`, timestamps
+### Branch ownership
 
-### Permission catalog (current names — code is authority)
+- `user_branches` is written only by employee administration.
+- Branch administration edits branch attributes only.
+- Current branch lives in session key `current_branch_code`.
+- Current branch is always validated against active membership.
+- Selecting a branch is based on membership, not a fake permission.
+- Deactivating a branch preserves membership but prevents operational selection.
+
+### Identity and credentials
+
+- `User` is the employee profile.
+- `AuthAccount` is the Laravel authenticatable credential.
+- Passwords are irreversible hashes only.
+- Inactive account, employee, or role means no operational access.
+- Teachers are employees; academic assignments are added later.
+- Students are a separate identity domain.
+
+### Stable permission vocabulary
 
 ```text
 dashboard.view
@@ -289,279 +246,304 @@ roles.view
 roles.manage
 ```
 
-Historical docs sometimes wrote `users.view` / `users.create`. **Do not reintroduce those names.** The implemented vocabulary is `employees.*` and `branches.*`.
+New domains normally use `domain.view` and `domain.manage`.
 
-### View / manage dependency
+## 7. Administrative domain — closed behavior
 
-```text
-*.manage requires the corresponding *.view
-branches.manage → branches.view
-employees.manage → employees.view
-roles.manage → roles.view
-```
+### Branches
 
-Enforced when persisting role scopes and direct user grants (`PermissionDependency`).  
-Do not scatter `view || manage` checks in controllers or Svelte.
+- One branch page handles session selection and branch catalog.
+- Branch fields remain minimal: name and active state unless real evidence requires more.
+- A branch may exist without employees.
+- No physical delete, settings JSON, statistics, bulk import, or membership editing from branch forms.
 
-### Permission resolution (single algorithm)
+### Employees
 
-Implemented in `app/Support/Authorization/PermissionResolver.php`:
+- Create profile, role, branches, and credentials transactionally.
+- Profile and credential remain separate.
+- Employee administration owns branch assignments.
+- Employee profile contains only implemented sections.
+- No physical employee deletion until attendance, finance, and history consequences are defined.
+- Direct permissions are assigned within role scope.
 
-1. Inactive account, worker, or role → no permissions.
-2. `users.is_super_admin` → every known permission name.
-3. Otherwise: **direct `user_permissions` ∩ role `employee_role_permission_scopes`**.
-4. Role scope alone does **not** grant access.
-5. Expanding a role scope does **not** auto-grant users.
-6. Changing role or reducing scope prunes incompatible direct grants transactionally.
+### Roles
 
-**Backend is always authoritative.** Routes use Laravel `can:*` middleware before
-FormRequest validation; controllers may use `Gate::check` only for presentation props.
-`Gate::before` returns `true` when the resolver allows, else `null` (Laravel denies).
+- Role is category and assignable permission boundary.
+- Role UI edits available permissions, not automatic grants.
+- Full access is represented by superadministrator, not by selecting every permission.
 
-Frontend: **one** helper `can('employees.view')` style — presentation only.  
-Lumi components must never contain role/permission logic.
+## 8. Academic foundation — confirmed direction
 
-`is_super_admin` is **seed/escalation only** — never expose it in admin forms as an editable flag for arbitrary users.
-
-### Branch / session context
-
-- Membership: only via `user_branches` (not arrays, not JSON).
-- **Current branch lives only in session** key `current_branch_code`.
-- Never store `current_branch_code` on `users`.
-- Selection always validated against membership.
-- One authorized branch → may auto-select.
-- Multiple → user must choose (worker picker at `/branches`).
-- Zero active memberships → no operational access (session closed by middleware).
-- Selecting a branch depends on **membership**, not on a fake permission.
-
-### Login / security expectations
-
-- Generic invalid-credential message (no user enumeration).
-- Reject inactive account or inactive worker.
-- Passwords: irreversible hash only (`hashed` cast); never reversible storage.
-- Session regenerate on login; invalidate + CSRF regenerate on logout.
-- Revalidate account, worker, role, and branches on authenticated requests (`employee.active`).
-
-### Shared Inertia auth payload
+The academic structure exists to support enrollment, attendance, evaluations, and payment obligations.
 
 ```text
-auth: {
-  employee: { first_name, last_name, role_name },
-  branches: [{ code, name }, ...],   // authorized only
-  current_branch: { code, name } | null,
-  permissions: string[]              // effective names
-}
+academic cycle
+├── cycle degrees
+│   └── academic groups / sections
+└── cycle shifts
 ```
 
----
+### Vocabulary
 
-## 7. Administrative workflows (intended behavior)
+- **Level:** Primaria or Secundaria.
+- **Modality:** program type such as Verano, Intensivo, Reforzamiento, or Virtual.
+- **Cycle degree:** one fixed grade offered in one specific cycle.
+- **Academic group:** a concrete section inside a cycle degree. UI label: `Sección`.
+- **Cycle shift:** one entry-time and tolerance configuration enabled by a cycle.
 
-### 7.1 Sede management (unified `/branches`)
+Level and modality are different concepts.
 
-One page serves **session selection** and **catalog administration**:
+### Degree decision
 
-- Everyone with membership: pick current session sede.
-- `branches.view`: see full catalog (name, active state, **read-only** employee count).
-- `branches.manage`: create/update name and active flag only.
-- Writes: `POST/PUT /admin/branches` (authorization on manage).
-- No physical delete, no stats, no settings JSON, no bulk import.
-- No second sidebar item for “gestión de sedes”.
+Do not create a global `academic_degrees` CRUD or catalog in v1.
 
-**Membership ownership (single write owner):**
+Peruvian school grades are a small fixed domain, while the meaningful operational entity is the grade offered inside a particular cycle.
 
-- `user_branches` is written only by **employee** create/update.
-- Branch admin must **not** accept `user_codes` or sync memberships.
-- A branch may exist with zero employees.
-- Deactivating a branch does not delete memberships; it only blocks operational selection until reactivated.
-- Session “Sede activa” = **selected card + button only**.
-- Catalog state chips: **Habilitada / Deshabilitada** (`is_active`).
-
-### 7.2 User management (`/admin/employees`) — UI: **Usuarios**
+Use `cycle_degrees` as the concrete academic context.
 
 Minimum:
 
-- List, create (profile + role + sedes + credentials in one transaction),
-  show/edit profile, reassign role/sedes, change password, set access state,
-  assign **direct permissions** within the role scope.
-- Permission keys stay `employees.view` / `employees.manage` (stable).
-- End-user Spanish copy says **Usuarios**, never “Trabajadores”.
-- Preserve profile (`User`) vs credential (`AuthAccount`) separation.
-- Profile composition: General / Access / Permissions panels (+ password dialog).
-- Superadministrator: full access message; no misleading editable grant form.
-- Do not implement physical employee deletion until impact on attendance/payments/history is defined.
-- Do not add empty future tabs (attendance, cards, reports) on the profile.
-
-### 7.3 Roles & permissions (closed)
-
-**Philosophy**
-
-- **Role = employee category** + **assignable permission scope** (not automatic access).
-- **User permissions = explicit grants** only (presence allowed; no deny overrides).
-- Effective = grants ∩ role scope; superadministrator = all permissions.
-
-**UI**
-
-- Roles: edit assignable scope (“permisos disponibles para este rol”).
-- Scope picker (`RolePermissionScope`): **search + one domain at a time** through a vertical
-  segmented control + optional “solo seleccionados”. Explicit per-permission toggles only.
-- **No “select all” / “mark all” bulk actions** — full system access is
-  `is_super_admin`, not a role that checks every permission.
-- User: General / Access / Permissions; password via dialog.
-- Every `Input` / `Select` has a Spanish placeholder.
-
-**Gates / actions:** `roles.*`, `SaveRole`, `SyncUserPermissions`.  
-Never authorize by role name.
-
-### 7.4 Out of scope until foundation is solid
-
-Students, cycles, enrollments, attendance, payments, cashbox, evaluations, OMR,
-Drive, attentions, dashboard metrics, full Aula social features.
-
----
-
-## 8. UI composition principles
-
-### Shell
-
-- Authenticated pages: `DashboardLayout` (`.lumi-dashboard-layout` + Sidebar + Navbar).
-- Login: no dashboard shell (`layout = false` pattern if needed).
-- Sidebar items: single source `resources/js/lib/navigation.ts`, filtered by `can()`.
-  Current set: **Inicio · Sedes · Usuarios · Roles**.
-- Navbar shows current sede chip once; sidebar header shows role (not a second sede dump).
-- Navbar user dropdown keeps name and role on separate, width-bounded ellipsis lines.
-- Unified `/branches` for session + catalog (no parallel admin list page).
-
-### Forms
-
-- **Every `Input` must have a `placeholder`** (Spanish, short, realistic examples).
-- `Select` always has a meaningful `placeholder`.
-- Group fields in `Card` / `Fieldset`; use public Lumi layout utilities — no inline styles.
-- Large multi-select catalogs use search + progressive disclosure, never a full-page
-  checkbox wall or “select all catalog” (superadmin is the full-access escape hatch).
-- Successful mutations use native Inertia one-time flash data. `DashboardLayout` is the
-  single owner of Lumi transient notifications.
-- Controllers publish success through `Inertia::flash('success', '…')`; the UI reads
-  `page.flash.success`. Do not duplicate it in shared props, remembered state, or page-local
-  notification queues.
-- Standalone create forms return to their resource list after success. Detail edits remain
-  in context unless the workflow has a clearer next destination.
-
-### Page structure (admin screens)
-
-1. `PageHeader` (title, subtitle, primary action).
-2. Optional toolbar / filters (search) when lists grow.
-3. Content in `Card` / `Table` with clear density.
-4. Destructive or secondary flows in `Dialog`.
-5. Validation via Lumi `Alert` / `dangerText`; successful mutations via the global Lumi
-   `Notification` surface — Spanish messages.
-
-### Inspiration from Coedula (allowed)
-
-- Branch cards with clear “use this sede / active” states.
-- Calm admin lists with role and access chips.
-
-### Must not copy from Coedula
-
-- Array columns for membership.
-- Storing current branch on the user row.
-- Membership edits from the branch form (v8: employee workflow owns `user_branches`).
-- Permission string format `resource:action` if v8 already uses `resource.action`.
-- Mechanical CRUD of every Coedula field (photo, slug roles, etc.) without need.
-
-### Lumi reference
-
-- Install / layout / theming: `../lumi-ui/docs/GUIDE.md`
-- Components: `../lumi-ui/docs/COMPONENTS.md`
-- Agent routing: `../lumi-ui/docs/AGENT_GUIDE.md`
-- Runnable shell: `../lumi-ui/examples/dashboard`
-- Verify props against `node_modules/@lumi-ui/svelte/dist/**/*.d.ts`
-
----
-
-## 9. Domain decisions for later modules (confirmed, not implemented)
-
-These are **business rules** already decided for Carrión; implement only when that vertical starts.
-
-- One institution, multiple sedes; no tenants table.
-- Nivel ≠ modalidad; grades and groups are configurable entities (not hard-coded A/B/C/D).
-- One **active enrollment per student system-wide** (DB-enforced).
-- Enrollment may change sede/group directly; no transfer history in first version.
-- Cycle enables one or two shifts; shift belongs to enrollment selection, not to group.
-- `roll_code` is a human number for OMR/search/card; card QR carries DNI only.
-- Attendance Mon–Sat; no holiday calendar v1; present/late/absence rules as previously defined; no cron mass-inserting absences.
-- Student contact is minimal (name, phone, free note) — not full apoderado model.
-- Finance: obligation vs payment vs application vs cash movement; partial payments; cashier owns cash line (not sede); no formal open/close caja; voids via reverse/state, never hard-delete confirmed finance.
-- OMR: Nextya origin; images discarded after process; Laravel owns academic data; processor does not own students.
-- Migration: map legacy semantic codes → UUIDs in a technical map; migrate students, users, sedes, cycles, grades, groups, enrollments, payments/obligations, cash, attentions, evaluations when reliable.
-- No parallel dual-run for staff at cutover; rehearsal migration + reconciliation first.
-
----
-
-## 10. Testing & verification
-
-### Prefer Feature tests at critical borders
-
-- Auth success/failure, inactive states, throttling where relevant.
-- Permission: scope alone does not grant; direct grant within scope; out-of-scope ignored; manage→view; role change prune; super admin.
-- Branch session selection and rejection; branch create without employees.
-- Admin authorization and multitable creates (employee + branches).
-- DB integrity: UNIQUE, CHECK, FK cascade/restrict.
-
-Avoid snapshot spam and unit tests that only restate Eloquent.
-
-### Mandatory checks before claiming done
-
-```bash
-# Apply the project-owned PHP and frontend formatters:
-composer run format
-
-# Verify formatting, behavior, TypeScript 7, and lint rules:
-composer run check
-
-# Required when frontend runtime or delivery code changes:
-pnpm run build
-# when DB or seed changed (testing env only):
-# php artisan migrate:fresh --seed --env=testing
+```text
+code UUID PK
+cycle_code FK
+number SMALLINT
+timestamps
+UNIQUE (cycle_code, number)
+CHECK (number BETWEEN 1 AND 6)
 ```
 
-Formatting and lint ownership stays intentionally small:
+Rules:
 
-- **Laravel Pint** formats PHP.
-- **Prettier + the Svelte plugin** formats Svelte, TypeScript, CSS, configuration, and Markdown.
-- **Oxlint** performs fast, zero-config correctness checks for JavaScript, TypeScript, and
-  Svelte script blocks.
-- **TypeScript 7** remains the only TypeScript compiler.
+- the cycle's level determines which grade numbers are valid;
+- primary may use 1–6;
+- secondary uses the range confirmed from Carrión data;
+- grade labels are derived consistently in one domain helper/enum, not repeated in tables or UI;
+- do not build a degree-management screen;
+- do not add name, short name, active state, or ordering columns unless real local evidence proves a need.
 
-Never run `migrate:fresh` against the development database `aeduca`.
+This removes a global catalog without losing the stable cycle-specific FK needed by groups, enrollment, evaluation, and reporting.
 
----
+### Academic cycle
 
-## 11. Stop conditions for agents
+Minimum direction:
 
-Stop and explain instead of inventing when:
+```text
+code UUID PK
+branch_code FK
+name
+level
+modality
+start_date
+end_date
+is_active
+timestamps
+```
 
-- A required rule conflicts with existing code and the fix is ambiguous.
-- A new dependency seems necessary.
-- A DB invariant cannot be protected with FK/UNIQUE/CHECK.
-- Lumi lacks a required **public** component (do not fork Lumi internals in Aeduca).
-- The task would pull in another domain module.
-- You are unsure whether behavior belongs in Laravel, Svelte, or Lumi.
-- Two sources of truth disagree and code has not been inspected.
+Rules:
 
-Minor ambiguity → simplest reversible solution.  
-Domain/security ambiguity → investigate; do not guess.
+- belongs to the current authorized branch;
+- may cross calendar years;
+- no `year` or global `current_year`;
+- level and modality are separate;
+- no finance fields until their exact meaning is confirmed;
+- no modality table unless administrators need independent modality CRUD.
 
----
+### Academic group / section
 
-## 12. Document map
+Minimum:
 
-| File                           | Purpose                                        |
-| ------------------------------ | ---------------------------------------------- |
-| [`README.md`](../README.md)    | Human setup, scripts, short rules              |
-| **`docs/SPEC.md`** (this file) | Domain + architecture + principles             |
-| [`docs/STATUS.md`](STATUS.md)  | Verified implementation state, gaps, next work |
-| `../lumi-ui/docs/*`            | Lumi contracts                                 |
+```text
+code UUID PK
+cycle_degree_code FK
+name
+sort_order
+is_active
+timestamps
+```
 
-Historical task files (`TASK.md`, `Task2.md`, root roadmaps) are superseded by this pair.
-Do not reintroduce parallel “truth” documents.
+Rules:
+
+- names are configurable;
+- not limited to A–D or one character;
+- examples may include `A`, `A2`, `P`, `Grupo 1`, or `Único`;
+- name is case-insensitively unique within one cycle degree;
+- future modules reference `academic_group_code`, not repeated group strings.
+
+### Cycle shift
+
+Minimum:
+
+```text
+code UUID PK
+cycle_code FK
+name
+entry_time
+tolerance_minutes
+sort_order
+is_active
+timestamps
+```
+
+Rules:
+
+- one cycle enables one or two active shifts;
+- tolerance is non-negative;
+- future enrollment may select one or both shifts through an explicit relation;
+- do not use `turn_1`, `turn_2`, arrays, JSON, or a permanent `both` enum.
+
+### Future referential direction
+
+Future enrollment references:
+
+```text
+student_code
+academic_group_code
+```
+
+The group determines:
+
+```text
+group
+→ cycle degree
+→ cycle
+→ branch + level + modality
+```
+
+Do not duplicate all of those keys in enrollment without an explicit historical snapshot requirement.
+
+Future shift selection uses an intermediate relation such as `enrollment_shifts`.
+
+Attendance references enrollment and a selected shift.
+
+Evaluations targeting a class reference the academic group.
+
+Payment obligations reference enrollment, not the cycle directly.
+
+## 9. Confirmed future domain rules
+
+### Students and contacts
+
+- DNI is mandatory for the current Carrión student flow but remains an attribute.
+- Student access uses DNI for compatibility.
+- Minimal contact: name, phone, and free note describing who the person is.
+- Do not reconstruct the old full apoderado model initially.
+
+### Enrollment
+
+- One active enrollment per student system-wide.
+- Enrollment may change branch/group directly in v1.
+- Transfer history is deferred.
+- `roll_code` is a human code for OMR, search, and card display.
+- Card QR contains DNI for compatibility with existing cards.
+
+### Attendance
+
+- Monday through Saturday in v1.
+- No holiday calendar in the first delivery.
+- Present until entry time.
+- Late after entry time and through tolerance.
+- After tolerance, automatic reading does not create a normal attendance; absence is derived.
+- Authorized manual correction remains possible.
+- No cron mass-inserts absence rows.
+
+### Finance
+
+Keep four meanings separate:
+
+```text
+obligation
+payment
+payment application
+cash movement
+```
+
+Rules:
+
+- obligations are generated during enrollment;
+- partial payments exist;
+- one payment may apply to multiple obligations;
+- cashier owns the cash line, not the branch;
+- multiple cashiers may operate simultaneously;
+- no formal cash opening/closing in v1;
+- cash received and change may be recorded;
+- confirmed finance is reversed or voided, never hard-deleted.
+
+### Evaluations and OMR
+
+- Nextya is the functional source for OMR behavior and reports.
+- Laravel owns students, evaluations, answers, and results.
+- The OMR processor is isolated and does not own academic data.
+- Scan images are discarded after processing.
+- Final score may be corrected manually with actor and timestamp.
+- Do not rewrite the OMR engine during initial integration.
+
+### Migration
+
+- Use repeatable, idempotent import commands.
+- Map legacy semantic identifiers to new UUIDs in a technical migration map.
+- Do not scatter `legacy_id` through domain tables.
+- Rehearse the full migration and reconcile counts and totals before cutover.
+- Staff will not operate v7 and v8 in parallel, but v7 remains technically recoverable during the cutover window.
+
+## 10. UI principles
+
+- Spanish copy.
+- Calm and consistent administration UI.
+- One dashboard shell.
+- One navigation source.
+- One global notification owner.
+- One frontend `can()` helper.
+- Lumi public components and classes only.
+- No local visual system inside Aeduca.
+- Index pages show summaries; detail pages show the aggregate.
+- Do not add filters, wizards, bulk actions, tabs, or dashboards until the workflow needs them.
+- Never create empty future UI.
+
+## 11. Testing and verification
+
+Prefer focused Feature tests at critical boundaries:
+
+- authorization;
+- transactions;
+- active/inactive access;
+- current branch isolation;
+- database uniqueness and FKs;
+- aggregate rollback;
+- permission scope/direct-grant behavior;
+- academic date, shift, degree, and group invariants.
+
+Do not generate tests that only restate Laravel or Eloquent.
+
+Mandatory checks:
+
+```bash
+composer run format
+composer run check
+pnpm run build
+```
+
+When schema or seeds change:
+
+```bash
+php artisan migrate:fresh --seed --env=testing
+```
+
+Never run `migrate:fresh` against `aeduca`.
+
+## 12. Stop conditions
+
+Stop and investigate instead of inventing when:
+
+- a domain term has conflicting meanings;
+- a field has no confirmed operational owner;
+- Aeduca Admin and Coedula materially disagree;
+- a financial field cannot be named unambiguously;
+- a database invariant cannot be protected cleanly;
+- a proposed solution duplicates an existing owner;
+- another module is required merely to make the current module look complete;
+- Lumi lacks a public solution;
+- required checks fail.
+
+For minor reversible UI ambiguity, choose the simplest existing pattern.
+
+For domain, security, finance, and migration ambiguity, investigate and document before implementation.

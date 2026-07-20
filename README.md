@@ -1,78 +1,79 @@
 # Aeduca
 
-Education management system for **Carrión** (sedes, personal, caja, asistencia,
-evaluación, atenciones, …). This repository is **Aeduca v8**: a clean rebuild,
-not a mechanical clone of legacy Admin or Coedula.
+Aeduca v8 is Carrión's unified education management system.
 
-**Stack:** Laravel 13 · PHP 8.5 · Inertia · Svelte 5 · TypeScript 7 · Lumi UI · PostgreSQL · pnpm
+It is a clean rebuild informed by Aeduca Admin, Aeduca Aula, Coedula, and Nextya. It is not a mechanical copy of any previous system.
 
----
+**Stack:** Laravel 13 · PHP 8.5 · Inertia · Svelte 5 · TypeScript strict · Lumi UI · PostgreSQL · pnpm
 
-## Documentation (read in this order)
+## Documentation ownership
 
-| Need                                               | File                               |
-| -------------------------------------------------- | ---------------------------------- |
-| Domain, architecture, principles (source of truth) | [`docs/SPEC.md`](docs/SPEC.md)     |
-| What is implemented, gaps, next work               | [`docs/STATUS.md`](docs/STATUS.md) |
-| Lumi install / layout / components                 | `../lumi-ui/docs/`                 |
+Read in this order:
 
-Historical task notes were consolidated into those two files. Do not reintroduce
-parallel roadmap/task documents.
+| File | Responsibility |
+| --- | --- |
+| `AGENTS.md` | Mandatory working rules for coding agents |
+| `docs/SPEC.md` | Permanent product, domain, data, and architecture decisions |
+| `docs/STATUS.md` | Verified current implementation state |
+| `TASK.md` | Temporary scope and execution guide for the active vertical |
+| `../lumi-ui/docs/` | Lumi public contracts, components, layout, and theming |
 
----
+There must be only one active `TASK.md`.
 
-## Project rules (mandatory)
+After completing a vertical:
 
-1. **One way** — reuse existing patterns; domain in Laravel; UI presentation-only.
-2. **Clean** — prefer delete over accumulate; Lumi classes only (no local styles / raw colors).
-3. **Small** — no repositories, service gods, module frameworks, or extra UI kits.
-4. **Semantic permissions** — never authorize by role name; one frontend `can()`.
-5. **Not a Coedula clone** — take inspiration; protect Carrión rules; avoid over-engineering.
+1. Merge permanent confirmed decisions into `docs/SPEC.md`.
+2. Record the real implementation in `docs/STATUS.md`.
+3. Remove or replace `TASK.md`.
+4. Do not create parallel Foundation, Roadmap, Development Line, or alternative specification files.
 
-Full rules: [`docs/SPEC.md`](docs/SPEC.md).
+## Product line
 
----
+```text
+Access, branches, users, roles, permissions
+→ Academic structure
+→ Students and minimal contacts
+→ Enrollment and payment obligations
+→ Attendance
+→ Evaluations and OMR
+→ Cashbox and attentions
+→ Lean student portal
+```
 
-## Architecture snapshot
+## Essential rules
 
-| Layer                   | Owns                                                                 |
-| ----------------------- | -------------------------------------------------------------------- |
-| `app/`                  | Domain: models, HTTP, actions, support (permissions, branch context) |
-| `routes/`               | HTTP entry points + semantic authorization middleware                |
-| `resources/js/Pages/`   | Thin Inertia pages                                                   |
-| `resources/js/Layouts/` | Dashboard shell                                                      |
-| `resources/js/lib/`     | `can()`, navigation, color-scheme                                    |
-| `@lumi-ui/svelte`       | Domain-neutral UI primitives                                         |
+1. Investigate the current repository, Aeduca Admin, and Coedula before designing.
+2. Preserve one owner for every responsibility and write path.
+3. Implement the smallest coherent vertical; do not prepare speculative future layers.
+4. Laravel owns domain rules, authorization, validation, and transactions.
+5. Svelte owns interaction and presentation; Lumi remains domain-neutral.
+6. PostgreSQL protects structural truth through explicit constraints.
+7. Never authorize by role name or role code.
+8. Use UUID `code` keys; never embed business meaning in identifiers.
+9. Avoid N+1 queries and oversized Inertia payloads; do not cache before measurement.
+10. Study legacy behavior for migration, but never copy legacy structure blindly.
 
-**Access + admin vertical (done):** credentials, session sedes, roles, usuarios,
-semantic permissions. See [`docs/STATUS.md`](docs/STATUS.md). Students / academic
-modules are not started.
-
----
+Permanent rules live in [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Setup
 
 ```bash
-# PostgreSQL (once)
+# PostgreSQL
 createdb -h 127.0.0.1 -U postgres aeduca
 createdb -h 127.0.0.1 -U postgres aeduca_test
 
-# PHP
+# Backend
 composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate
-php artisan db:seed # idempotent permission catalog
+php artisan db:seed
 
+# Testing environment
 cp .env.testing.example .env.testing
 php artisan key:generate --env=testing
 
-# Optional dev administrator (safe to run again)
-AEDUCA_SEED_ADMIN_LOGIN=admin \
-AEDUCA_SEED_ADMIN_PASSWORD='use-a-local-secret' \
-php artisan db:seed
-
-# Local Lumi (once after clean clone)
+# Lumi
 cd ../lumi-ui
 pnpm install --frozen-lockfile
 pnpm run package
@@ -81,46 +82,45 @@ pnpm run package
 cd ../aeduca
 pnpm install --frozen-lockfile
 pnpm run build
-# or full stack with HMR:
-composer run dev
 ```
 
-### URLs
-
-| URL                       | What it is                         |
-| ------------------------- | ---------------------------------- |
-| **http://127.0.0.1:8000** | **Aeduca** (use this)              |
-| http://127.0.0.1:8001     | Alternate if 8000 is taken         |
-| http://127.0.0.1:5173     | Vite assets only — **not** the app |
-
-After changing Lumi public exports:
+Optional local administrator:
 
 ```bash
-cd ../lumi-ui && pnpm run package
-cd ../aeduca && pnpm install
+AEDUCA_SEED_ADMIN_LOGIN=admin \
+AEDUCA_SEED_ADMIN_PASSWORD='use-a-local-secret' \
+php artisan db:seed
 ```
 
----
+Credentials belong only in `.env` or `.env.testing`.
 
-## Scripts
+## Commands
 
-| Command               | Purpose                                     |
-| --------------------- | ------------------------------------------- |
-| `pnpm run dev`        | Vite HMR                                    |
-| `pnpm run build`      | Production assets                           |
-| `pnpm run typecheck`  | Native TypeScript 7 diagnostics             |
-| `pnpm run lint`       | Fast Oxlint checks for JS, TS, and Svelte   |
-| `pnpm run format`     | Prettier for frontend, config, and docs     |
-| `pnpm run check`      | TypeScript + Oxlint + Prettier verification |
-| `composer run format` | Laravel Pint + Prettier                     |
-| `composer run check`  | Pint + PHPUnit + complete frontend checks   |
-| `php artisan test`    | PHPUnit (uses `aeduca_test`)                |
-| `composer run dev`    | Full local stack                            |
+| Command | Purpose |
+| --- | --- |
+| `composer run dev` | Laravel, queue, logs, and Vite |
+| `composer run format` | PHP and frontend formatting |
+| `composer run check` | PHP tests, formatting, TypeScript, lint, and frontend checks |
+| `php artisan test` | PHPUnit using `aeduca_test` |
+| `pnpm run dev` | Vite HMR |
+| `pnpm run build` | Production frontend build |
+| `pnpm run check` | TypeScript, lint, and formatting verification |
 
-Credentials live only in `.env` / `.env.testing` (gitignored).  
-Never run `migrate:fresh` against `aeduca`.
+When schema or seeds change, use:
 
----
+```bash
+php artisan migrate:fresh --seed --env=testing
+```
+
+Never run `migrate:fresh` against the development database `aeduca`.
+
+## URLs
+
+| URL | Purpose |
+| --- | --- |
+| `http://127.0.0.1:8000` | Aeduca application |
+| `http://127.0.0.1:8001` | Alternate Laravel port |
+| `http://127.0.0.1:5173` | Vite assets only |
 
 ## License
 
