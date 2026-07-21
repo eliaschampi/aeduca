@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BranchController as AdminBranchController;
+use App\Http\Controllers\Admin\CycleController as AdminCycleController;
 use App\Http\Controllers\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\AuthController;
@@ -73,5 +74,21 @@ Route::middleware(['auth', 'employee.active'])->group(function () {
         Route::put('/roles/{role}', [AdminRoleController::class, 'update'])
             ->middleware('can:roles.manage')
             ->name('roles.update');
+
+        Route::get('/cycles', [AdminCycleController::class, 'index'])
+            ->middleware('can:cycles.view')
+            ->name('cycles.index');
+        Route::get('/cycles/create', [AdminCycleController::class, 'create'])
+            ->middleware('can:cycles.manage')
+            ->name('cycles.create');
+        Route::post('/cycles', [AdminCycleController::class, 'store'])
+            ->middleware('can:cycles.manage')
+            ->name('cycles.store');
+        Route::get('/cycles/{cycle}', [AdminCycleController::class, 'show'])
+            ->middleware('can:cycles.view')
+            ->name('cycles.show');
+        Route::put('/cycles/{cycle}', [AdminCycleController::class, 'update'])
+            ->middleware('can:cycles.manage')
+            ->name('cycles.update');
     });
 });

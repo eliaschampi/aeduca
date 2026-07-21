@@ -17,6 +17,8 @@ final class PermissionSeeder extends Seeder
         'dashboard.view' => 'Acceder a la página de inicio.',
         'branches.view' => 'Ver las sedes.',
         'branches.manage' => 'Crear, editar y activar sedes.',
+        'cycles.view' => 'Ver los ciclos académicos de la sede actual.',
+        'cycles.manage' => 'Crear y editar ciclos, grados, secciones y turnos.',
         'employees.view' => 'Ver los usuarios del personal.',
         'employees.manage' => 'Crear, editar y activar usuarios del personal.',
         'roles.view' => 'Ver los roles y el alcance de permisos.',

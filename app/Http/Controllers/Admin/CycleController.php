@@ -1,0 +1,201 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Actions\SaveCycle;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\CycleRequest;
+use App\Models\AcademicCycle;
+use App\Models\AuthAccount;
+use App\Models\Branch;
+use App\Support\Academic\AcademicLevel;
+use App\Support\Academic\CycleModality;
+use App\Support\Branches\BranchContext;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class CycleController extends Controller
+{
+    public function index(Request $request, BranchContext $context): Response|RedirectResponse
+    {
+        $branch = $this->currentBranch($request, $context);
+
+        if (! $branch) {
+            return redirect()->route('branches.index');
+        }
+
+        $cycles = $branch->cycles()
+            ->withCount(['degrees', 'groups'])
+            ->orderByDesc('start_date')
+            ->get(['code', 'name', 'level', 'modality', 'start_date', 'end_date', 'is_active'])
+            ->map(fn (AcademicCycle $cycle): array => [
+                'code' => $cycle->code,
+                'name' => $cycle->name,
+                'level_label' => $cycle->level->label(),
+                'modality_label' => $cycle->modality->label(),
+                'start_date' => $cycle->start_date->toDateString(),
+                'end_date' => $cycle->end_date->toDateString(),
+                'is_active' => $cycle->is_active,
+                'degrees_count' => $cycle->degrees_count,
+                'groups_count' => $cycle->groups_count,
+            ])
+            ->all();
+
+        return Inertia::render('Cycles/Index', [
+            'cycles' => $cycles,
+            'can_manage' => true,
+        ]);
+    }
+
+    public function create(Request $request, BranchContext $context): Response|RedirectResponse
+    {
+        if (! $this->currentBranch($request, $context)) {
+            return redirect()->route('branches.index');
+        }
+
+        return Inertia::render('Cycles/Form', [
+            'cycle' => null,
+            'level_options' => AcademicLevel::options(),
+            'modality_options' => CycleModality::options(),
+            'grade_numbers' => collect(AcademicLevel::cases())
+                ->mapWithKeys(fn (AcademicLevel $level): array => [$level->value => $level->gradeNumbers()])
+                ->all(),
+        ]);
+    }
+
+    public function store(CycleRequest $request, BranchContext $context, SaveCycle $saveCycle): RedirectResponse
+    {
+        $branch = $this->currentBranch($request, $context);
+
+        if (! $branch) {
+            return redirect()->route('branches.index');
+        }
+
+        $saveCycle->handle($branch, null, $this->cycleAttributes($request), $this->shifts($request), $this->degrees($request));
+
+        Inertia::flash('success', 'Ciclo creado');
+
+        return to_route('admin.cycles.index');
+    }
+
+    public function show(Request $request, BranchContext $context, AcademicCycle $cycle): Response|RedirectResponse
+    {
+        $branch = $this->currentBranch($request, $context);
+
+        if (! $branch || $cycle->branch_code !== $branch->code) {
+            abort(404);
+        }
+
+        $cycle->load([
+            'degrees' => fn ($query) => $query->orderBy('number'),
+            'degrees.groups' => fn ($query) => $query->orderBy('sort_order'),
+            'shifts' => fn ($query) => $query->orderBy('sort_order'),
+        ]);
+
+        return Inertia::render('Cycles/Form', [
+            'cycle' => [
+                'code' => $cycle->code,
+                'name' => $cycle->name,
+                'level' => $cycle->level->value,
+                'modality' => $cycle->modality->value,
+                'start_date' => $cycle->start_date->toDateString(),
+                'end_date' => $cycle->end_date->toDateString(),
+                'is_active' => $cycle->is_active,
+                'shifts' => $cycle->shifts->map(fn ($shift) => [
+                    'code' => $shift->code,
+                    'name' => $shift->name,
+                    'entry_time' => substr($shift->entry_time, 0, 5),
+                    'tolerance_minutes' => $shift->tolerance_minutes,
+                ])->all(),
+                'degrees' => $cycle->degrees->map(fn ($degree) => [
+                    'number' => $degree->number,
+                    'groups' => $degree->groups->map(fn ($group) => [
+                        'code' => $group->code,
+                        'name' => $group->name,
+                    ])->all(),
+                ])->all(),
+            ],
+            'level_options' => AcademicLevel::options(),
+            'modality_options' => CycleModality::options(),
+            'grade_numbers' => collect(AcademicLevel::cases())
+                ->mapWithKeys(fn (AcademicLevel $level): array => [$level->value => $level->gradeNumbers()])
+                ->all(),
+        ]);
+    }
+
+    public function update(CycleRequest $request, BranchContext $context, AcademicCycle $cycle, SaveCycle $saveCycle): RedirectResponse
+    {
+        $branch = $this->currentBranch($request, $context);
+
+        if (! $branch || $cycle->branch_code !== $branch->code) {
+            abort(404);
+        }
+
+        $saveCycle->handle($branch, $cycle, $this->cycleAttributes($request), $this->shifts($request), $this->degrees($request));
+
+        Inertia::flash('success', 'Ciclo actualizado');
+
+        return to_route('admin.cycles.index');
+    }
+
+    private function currentBranch(Request $request, BranchContext $context): ?Branch
+    {
+        /** @var AuthAccount $account */
+        $account = $request->user();
+
+        return $context->currentBranch($account);
+    }
+
+    /**
+     * @return array{name: string, level: string, modality: string, start_date: string, end_date: string, is_active: bool}
+     */
+    private function cycleAttributes(CycleRequest $request): array
+    {
+        return [
+            'name' => trim($request->string('name')->toString()),
+            'level' => $request->string('level')->toString(),
+            'modality' => $request->string('modality')->toString(),
+            'start_date' => $request->string('start_date')->toString(),
+            'end_date' => $request->string('end_date')->toString(),
+            'is_active' => $request->boolean('is_active'),
+        ];
+    }
+
+    /**
+     * @return list<array{code?: string|null, name: string, entry_time: string, tolerance_minutes: int}>
+     */
+    private function shifts(CycleRequest $request): array
+    {
+        return collect($request->input('shifts', []))
+            ->map(fn (array $shift): array => [
+                'code' => $shift['code'] ?? null,
+                'name' => trim((string) ($shift['name'] ?? '')),
+                'entry_time' => (string) ($shift['entry_time'] ?? ''),
+                'tolerance_minutes' => (int) ($shift['tolerance_minutes'] ?? 0),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{number: int, groups: list<array{code?: string|null, name: string}>}>
+     */
+    private function degrees(CycleRequest $request): array
+    {
+        return collect($request->input('degrees', []))
+            ->map(fn (array $degree): array => [
+                'number' => (int) $degree['number'],
+                'groups' => collect($degree['groups'] ?? [])
+                    ->map(fn (array $group): array => [
+                        'code' => $group['code'] ?? null,
+                        'name' => trim((string) ($group['name'] ?? '')),
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+    }
+}

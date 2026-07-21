@@ -10,13 +10,13 @@ It is a clean rebuild informed by Aeduca Admin, Aeduca Aula, Coedula, and Nextya
 
 Read in this order:
 
-| File | Responsibility |
-| --- | --- |
-| `AGENTS.md` | Mandatory working rules for coding agents |
-| `docs/SPEC.md` | Permanent product, domain, data, and architecture decisions |
-| `docs/STATUS.md` | Verified current implementation state |
-| `TASK.md` | Temporary scope and execution guide for the active vertical |
-| `../lumi-ui/docs/` | Lumi public contracts, components, layout, and theming |
+| File               | Responsibility                                              |
+| ------------------ | ----------------------------------------------------------- |
+| `AGENTS.md`        | Mandatory working rules for coding agents                   |
+| `docs/SPEC.md`     | Permanent product, domain, data, and architecture decisions |
+| `docs/STATUS.md`   | Verified current implementation state                       |
+| `TASK.md`          | Temporary scope and execution guide for the active vertical |
+| `../lumi-ui/docs/` | Lumi public contracts, components, layout, and theming      |
 
 There must be only one active `TASK.md`.
 
@@ -96,15 +96,15 @@ Credentials belong only in `.env` or `.env.testing`.
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `composer run dev` | Laravel, queue, logs, and Vite |
-| `composer run format` | PHP and frontend formatting |
-| `composer run check` | PHP tests, formatting, TypeScript, lint, and frontend checks |
-| `php artisan test` | PHPUnit using `aeduca_test` |
-| `pnpm run dev` | Vite HMR |
-| `pnpm run build` | Production frontend build |
-| `pnpm run check` | TypeScript, lint, and formatting verification |
+| Command               | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `composer run dev`    | Laravel, queue, logs, and Vite                               |
+| `composer run format` | PHP and frontend formatting                                  |
+| `composer run check`  | PHP tests, formatting, TypeScript, lint, and frontend checks |
+| `php artisan test`    | PHPUnit using `aeduca_test`                                  |
+| `pnpm run dev`        | Vite HMR                                                     |
+| `pnpm run build`      | Production frontend build                                    |
+| `pnpm run check`      | TypeScript, lint, and formatting verification                |
 
 When schema or seeds change, use:
 
@@ -116,11 +116,11 @@ Never run `migrate:fresh` against the development database `aeduca`.
 
 ## URLs
 
-| URL | Purpose |
-| --- | --- |
-| `http://127.0.0.1:8000` | Aeduca application |
+| URL                     | Purpose                |
+| ----------------------- | ---------------------- |
+| `http://127.0.0.1:8000` | Aeduca application     |
 | `http://127.0.0.1:8001` | Alternate Laravel port |
-| `http://127.0.0.1:5173` | Vite assets only |
+| `http://127.0.0.1:5173` | Vite assets only       |
 
 ## License
 

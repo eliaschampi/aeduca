@@ -25,6 +25,12 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         icon: 'building2',
     },
     {
+        label: 'Ciclos',
+        href: '/admin/cycles',
+        icon: 'bookOpen',
+        permission: 'cycles.view',
+    },
+    {
         label: 'Usuarios',
         href: '/admin/employees',
         icon: 'users',

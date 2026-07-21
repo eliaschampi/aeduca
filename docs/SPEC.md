@@ -11,12 +11,12 @@ Aeduca v8 is a clean rebuild of Carrión's education management platform.
 
 It unifies the useful operational knowledge of:
 
-| System | Value for Aeduca v8 |
-| --- | --- |
-| Aeduca Admin | Real workflows used by Carrión and primary migration evidence |
-| Aeduca Aula | Student-access and portal history |
-| Coedula | Newer PostgreSQL, Svelte/Lumi, attendance, finance, Drive, and OMR integration lessons |
-| Nextya | OMR evaluation processing and specialized reports |
+| System       | Value for Aeduca v8                                                                    |
+| ------------ | -------------------------------------------------------------------------------------- |
+| Aeduca Admin | Real workflows used by Carrión and primary migration evidence                          |
+| Aeduca Aula  | Student-access and portal history                                                      |
+| Coedula      | Newer PostgreSQL, Svelte/Lumi, attendance, finance, Drive, and OMR integration lessons |
+| Nextya       | OMR evaluation processing and specialized reports                                      |
 
 Aeduca v8 is not a clone of any previous system.
 
@@ -63,15 +63,15 @@ Chat, social posts, likes, comments, complex virtual-classroom submissions, and 
 
 ## 2. Fixed stack
 
-| Layer | Choice |
-| --- | --- |
-| Backend | Laravel 13, PHP 8.5 |
-| Transport | Inertia |
-| Frontend | Svelte 5, TypeScript strict |
-| UI | `@lumi-ui/svelte` |
-| Database | PostgreSQL |
-| Packages | Composer and pnpm |
-| Locale | Spanish |
+| Layer     | Choice                      |
+| --------- | --------------------------- |
+| Backend   | Laravel 13, PHP 8.5         |
+| Transport | Inertia                     |
+| Frontend  | Svelte 5, TypeScript strict |
+| UI        | `@lumi-ui/svelte`           |
+| Database  | PostgreSQL                  |
+| Packages  | Composer and pnpm           |
+| Locale    | Spanish                     |
 
 Do not introduce:
 
@@ -89,13 +89,13 @@ Do not introduce:
 
 ## 3. Documentation ownership
 
-| File | Owns |
-| --- | --- |
-| `README.md` | Entry point, setup, commands, short rules |
-| `AGENTS.md` | Mandatory agent protocol |
-| `docs/SPEC.md` | Permanent product, domain, data, and architecture decisions |
-| `docs/STATUS.md` | Verified implementation state |
-| `TASK.md` | One temporary active vertical |
+| File             | Owns                                                        |
+| ---------------- | ----------------------------------------------------------- |
+| `README.md`      | Entry point, setup, commands, short rules                   |
+| `AGENTS.md`      | Mandatory agent protocol                                    |
+| `docs/SPEC.md`   | Permanent product, domain, data, and architecture decisions |
+| `docs/STATUS.md` | Verified implementation state                               |
+| `TASK.md`        | One temporary active vertical                               |
 
 Do not create parallel Foundation, Roadmap, Development Line, or alternative specification files.
 
@@ -116,16 +116,16 @@ Do not create parallel Foundation, Roadmap, Development Line, or alternative spe
 
 ### Layer ownership
 
-| Layer | Owns | Must not own |
-| --- | --- | --- |
-| PostgreSQL | FK, UNIQUE, CHECK, structural truth | Hidden business workflows |
-| Route | HTTP entry and semantic authorization | Domain processing |
-| FormRequest | Input shape, normalization, messages | Full domain policy |
-| Model | Relations, casts, UUID configuration, small scopes | Multi-step processes |
-| Action | Transactional aggregate writes and invariants | HTTP presentation |
-| Controller | Query/action orchestration and response | Large business logic |
-| Svelte page | Interaction and composition | Security authority |
-| Lumi | Domain-neutral UI primitives | Education rules |
+| Layer       | Owns                                               | Must not own              |
+| ----------- | -------------------------------------------------- | ------------------------- |
+| PostgreSQL  | FK, UNIQUE, CHECK, structural truth                | Hidden business workflows |
+| Route       | HTTP entry and semantic authorization              | Domain processing         |
+| FormRequest | Input shape, normalization, messages               | Full domain policy        |
+| Model       | Relations, casts, UUID configuration, small scopes | Multi-step processes      |
+| Action      | Transactional aggregate writes and invariants      | HTTP presentation         |
+| Controller  | Query/action orchestration and response            | Large business logic      |
+| Svelte page | Interaction and composition                        | Security authority        |
+| Lumi        | Domain-neutral UI primitives                       | Education rules           |
 
 Create an Action when a write touches multiple tables or protects a real invariant.
 
@@ -240,6 +240,8 @@ Rules:
 dashboard.view
 branches.view
 branches.manage
+cycles.view
+cycles.manage
 employees.view
 employees.manage
 roles.view
@@ -286,7 +288,7 @@ academic cycle
 ### Vocabulary
 
 - **Level:** Primaria or Secundaria.
-- **Modality:** program type such as Verano, Intensivo, Reforzamiento, or Virtual.
+- **Modality:** program type. Confirmed closed set: `regular`, `verano`, `intensivo`, `reforzamiento`, `virtual`.
 - **Cycle degree:** one fixed grade offered in one specific cycle.
 - **Academic group:** a concrete section inside a cycle degree. UI label: `Sección`.
 - **Cycle shift:** one entry-time and tolerance configuration enabled by a cycle.
@@ -315,8 +317,8 @@ CHECK (number BETWEEN 1 AND 6)
 Rules:
 
 - the cycle's level determines which grade numbers are valid;
-- primary may use 1–6;
-- secondary uses the range confirmed from Carrión data;
+- primary uses 1–6;
+- secondary uses 1–5;
 - grade labels are derived consistently in one domain helper/enum, not repeated in tables or UI;
 - do not build a degree-management screen;
 - do not add name, short name, active state, or ordering columns unless real local evidence proves a need.

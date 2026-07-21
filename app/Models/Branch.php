@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['name', 'is_active'])]
 class Branch extends Model
@@ -33,6 +34,11 @@ class Branch extends Model
             'code',
             'code',
         );
+    }
+
+    public function cycles(): HasMany
+    {
+        return $this->hasMany(AcademicCycle::class, 'branch_code', 'code');
     }
 
     protected function casts(): array
