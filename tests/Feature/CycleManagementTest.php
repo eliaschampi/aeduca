@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Actions\SaveCycle;
 use App\Models\AcademicCycle;
 use App\Models\Branch;
 use App\Models\CycleDegree;
 use App\Models\CycleShift;
+use Carbon\CarbonImmutable;
+use Illuminate\Validation\ValidationException;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class CycleManagementTest extends TestCase
@@ -41,6 +45,50 @@ class CycleManagementTest extends TestCase
             ->assertOk();
     }
 
+    public function test_view_only_user_receives_read_only_cycle_capabilities(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['cycles.view']);
+        $cycle = AcademicCycle::factory()->create(['branch_code' => $branch->code]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('admin.cycles.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Cycles/Index')
+                ->where('can_manage', false));
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('admin.cycles.show', $cycle))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Cycles/Form')
+                ->where('can_manage', false));
+    }
+
+    public function test_management_user_receives_cycle_management_capabilities(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['cycles.manage']);
+        $cycle = AcademicCycle::factory()->create(['branch_code' => $branch->code]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('admin.cycles.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('can_manage', true));
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('admin.cycles.show', $cycle))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('can_manage', true));
+    }
+
     public function test_index_shows_only_current_branch_cycles(): void
     {
         $account = $this->createEmployeeAccount();
@@ -60,6 +108,57 @@ class CycleManagementTest extends TestCase
         $cycles = $response->inertiaProps('cycles');
         $this->assertCount(1, $cycles);
         $this->assertSame('Ciclo Propio', $cycles[0]['name']);
+    }
+
+    public function test_index_exposes_lima_date_progress_for_each_cycle_state(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-07-11 12:00:00', 'America/Lima'));
+
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['cycles.view']);
+
+        AcademicCycle::factory()->create([
+            'branch_code' => $branch->code,
+            'name' => 'Próximo',
+            'start_date' => '2026-07-20',
+            'end_date' => '2026-07-30',
+        ]);
+        AcademicCycle::factory()->create([
+            'branch_code' => $branch->code,
+            'name' => 'Vigente',
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-07-21',
+        ]);
+        AcademicCycle::factory()->create([
+            'branch_code' => $branch->code,
+            'name' => 'Finalizado',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-11',
+        ]);
+
+        $response = $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('admin.cycles.index'))
+            ->assertOk();
+
+        $cycles = collect($response->inertiaProps('cycles'))->keyBy('name');
+
+        $this->assertSame([
+            'status' => 'upcoming',
+            'percentage' => 0,
+            'label' => 'Empieza en 9 días',
+        ], $cycles['Próximo']['timeline']);
+        $this->assertSame([
+            'status' => 'active',
+            'percentage' => 50,
+            'label' => 'Han transcurrido 10 de 20 días',
+        ], $cycles['Vigente']['timeline']);
+        $this->assertSame([
+            'status' => 'completed',
+            'percentage' => 100,
+            'label' => 'Finalizado en 10 días',
+        ], $cycles['Finalizado']['timeline']);
     }
 
     public function test_user_cannot_access_cycle_from_another_branch(): void
@@ -236,6 +335,39 @@ class CycleManagementTest extends TestCase
         $this->assertSame(0, $cycle->degrees()->where('number', 1)->count());
         $this->assertSame(1, $cycle->degrees()->where('number', 2)->count());
         $this->assertSame('B', $cycle->groups()->first()->name);
+    }
+
+    public function test_save_cycle_rejects_updating_a_cycle_from_another_branch(): void
+    {
+        $branch = Branch::factory()->create();
+        $foreignCycle = AcademicCycle::factory()->create([
+            'branch_code' => Branch::factory()->create()->code,
+            'name' => 'Ciclo ajeno',
+        ]);
+        $payload = $this->validPayload(['name' => 'Cambio indebido']);
+
+        try {
+            app(SaveCycle::class)->handle(
+                $branch,
+                $foreignCycle,
+                [
+                    'name' => $payload['name'],
+                    'level' => $payload['level'],
+                    'modality' => $payload['modality'],
+                    'start_date' => $payload['start_date'],
+                    'end_date' => $payload['end_date'],
+                    'is_active' => $payload['is_active'],
+                ],
+                $payload['shifts'],
+                $payload['degrees'],
+            );
+
+            $this->fail('Expected the aggregate to reject a cycle from another branch.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('cycle', $exception->errors());
+        }
+
+        $this->assertSame('Ciclo ajeno', $foreignCycle->refresh()->name);
     }
 
     public function test_no_branch_selected_redirects_to_branches(): void

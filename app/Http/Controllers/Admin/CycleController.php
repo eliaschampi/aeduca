@@ -11,13 +11,17 @@ use App\Models\Branch;
 use App\Support\Academic\AcademicLevel;
 use App\Support\Academic\CycleModality;
 use App\Support\Branches\BranchContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CycleController extends Controller
 {
+    private const string BUSINESS_TIMEZONE = 'America/Lima';
+
     public function index(Request $request, BranchContext $context): Response|RedirectResponse
     {
         $branch = $this->currentBranch($request, $context);
@@ -26,6 +30,7 @@ class CycleController extends Controller
             return redirect()->route('branches.index');
         }
 
+        $today = CarbonImmutable::now(self::BUSINESS_TIMEZONE)->startOfDay();
         $cycles = $branch->cycles()
             ->withCount(['degrees', 'groups'])
             ->orderByDesc('start_date')
@@ -40,12 +45,13 @@ class CycleController extends Controller
                 'is_active' => $cycle->is_active,
                 'degrees_count' => $cycle->degrees_count,
                 'groups_count' => $cycle->groups_count,
+                'timeline' => $this->timeline($cycle, $today),
             ])
             ->all();
 
         return Inertia::render('Cycles/Index', [
             'cycles' => $cycles,
-            'can_manage' => true,
+            'can_manage' => Gate::check('cycles.manage'),
         ]);
     }
 
@@ -62,6 +68,7 @@ class CycleController extends Controller
             'grade_numbers' => collect(AcademicLevel::cases())
                 ->mapWithKeys(fn (AcademicLevel $level): array => [$level->value => $level->gradeNumbers()])
                 ->all(),
+            'can_manage' => Gate::check('cycles.manage'),
         ]);
     }
 
@@ -122,6 +129,7 @@ class CycleController extends Controller
             'grade_numbers' => collect(AcademicLevel::cases())
                 ->mapWithKeys(fn (AcademicLevel $level): array => [$level->value => $level->gradeNumbers()])
                 ->all(),
+            'can_manage' => Gate::check('cycles.manage'),
         ]);
     }
 
@@ -146,6 +154,49 @@ class CycleController extends Controller
         $account = $request->user();
 
         return $context->currentBranch($account);
+    }
+
+    /**
+     * @return array{status: 'upcoming'|'active'|'completed', percentage: float, label: string}
+     */
+    private function timeline(AcademicCycle $cycle, CarbonImmutable $today): array
+    {
+        $start = CarbonImmutable::parse($cycle->start_date->toDateString(), self::BUSINESS_TIMEZONE);
+        $end = CarbonImmutable::parse($cycle->end_date->toDateString(), self::BUSINESS_TIMEZONE);
+        $totalDays = max((int) $start->diffInDays($end), 1);
+
+        if ($today->lessThanOrEqualTo($start)) {
+            $daysUntilStart = (int) $today->diffInDays($start);
+
+            return [
+                'status' => 'upcoming',
+                'percentage' => 0.0,
+                'label' => $daysUntilStart === 0
+                    ? 'Empieza hoy'
+                    : "Empieza en {$this->dayCount($daysUntilStart)}",
+            ];
+        }
+
+        if ($today->greaterThanOrEqualTo($end)) {
+            return [
+                'status' => 'completed',
+                'percentage' => 100.0,
+                'label' => "Finalizado en {$this->dayCount($totalDays)}",
+            ];
+        }
+
+        $passedDays = min((int) $start->diffInDays($today), $totalDays);
+
+        return [
+            'status' => 'active',
+            'percentage' => round(($passedDays * 100) / $totalDays, 2),
+            'label' => "Han transcurrido {$passedDays} de {$this->dayCount($totalDays)}",
+        ];
+    }
+
+    private function dayCount(int $days): string
+    {
+        return "{$days} día".($days === 1 ? '' : 's');
     }
 
     /**

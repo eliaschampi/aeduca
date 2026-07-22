@@ -6,6 +6,7 @@ use App\Models\AcademicCycle;
 use App\Models\Branch;
 use App\Models\CycleDegree;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -13,8 +14,8 @@ use InvalidArgumentException;
  * degrees, and groups. A partial failure never leaves orphaned structure.
  *
  * Invariants protected here:
+ * - an existing cycle belongs to the supplied branch;
  * - one or two active shifts per cycle;
- * - grade numbers valid for the cycle level;
  * - shift/group codes only match records already owned by this cycle.
  */
 final class SaveCycle
@@ -26,6 +27,12 @@ final class SaveCycle
      */
     public function handle(Branch $branch, ?AcademicCycle $cycle, array $attributes, array $shifts, array $degrees): AcademicCycle
     {
+        if ($cycle !== null && $cycle->branch_code !== $branch->code) {
+            throw ValidationException::withMessages([
+                'cycle' => 'El ciclo no pertenece a la sede actual.',
+            ]);
+        }
+
         if ($shifts === [] || count($shifts) > 2) {
             throw new InvalidArgumentException('A cycle requires one or two shifts.');
         }

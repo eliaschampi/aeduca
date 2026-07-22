@@ -1,26 +1,22 @@
-# Aeduca v8 — Implementation Status
+# Aeduca v8 — Verified Status
 
-> **Role:** verified current implementation state.
->
-> Permanent rules: [`SPEC.md`](SPEC.md).
-> Active execution: root [`TASK.md`](../TASK.md).
+> Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Reviewed against public `main`: July 20, 2026.**  
-Local unpushed changes may differ and must be inspected by the executing agent.
+**Verified working tree:** July 21, 2026.
 
-## 1. Closed verticals
+## 1. Completed verticals
 
-| Vertical             | Implemented scope                                                                                                          | State |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----- |
-| Access foundation    | `AuthAccount`, employee profile, login/logout, active-state revalidation, session branch, shared Inertia auth props        | Done  |
-| Branches             | Unified branch selection and branch catalog attributes                                                                     | Done  |
-| Employees / Usuarios | List, transactional create, profile panels, role/branch assignment, credential and password management, direct permissions | Done  |
-| Roles                | Role CRUD and assignable permission scope                                                                                  | Done  |
-| Permission model     | Direct grants intersected with role scope; superadministrator; manage→view dependency                                      | Done  |
-| Academic structure   | Cycle CRUD scoped to current branch, cycle degrees, academic groups, cycle shifts, transactional aggregate write           | Done  |
-| Quality baseline     | Pint, PHPUnit, TypeScript, Oxlint, Prettier, production build commands                                                     | Done  |
+| Vertical           | Implemented                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Access             | `AuthAccount`, employee identity, login/logout, active-state revalidation, session branch, shared Inertia auth |
+| Branches           | Unified branch selection and minimal branch catalog                                                            |
+| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                      |
+| Roles              | Role CRUD and assignable permission scope                                                                      |
+| Authorization      | Direct grants intersected with role scope, superadministrator, manage→view dependency                          |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, transactional save                                 |
+| Quality            | Pint, PHPUnit, strict TypeScript, Oxlint, Prettier, production build                                           |
 
-## 2. Live access model
+## 2. Access implementation
 
 ```text
 branches
@@ -34,132 +30,90 @@ auth_accounts
 ```
 
 ```text
-role = category
-role scope = assignable permissions
-user permissions = actual grants
-effective = grants ∩ scope
+effective permission = user grant ∩ role scope
 superadministrator = all known permissions
+session current_branch_code → validated active membership
 ```
 
-Single ownership:
+- Employee administration exclusively writes `user_branches`.
+- Branch administration writes branch attributes only.
+- Authorization is semantic and enforced before form handling.
+- Shared Inertia auth exposes effective permission names; the frontend has one presentation-only `can()`.
+- `AuthAccount` is Laravel's authenticated actor; `User` remains the employee profile.
+- Login normalizes the identifier, throttles by identifier plus IP, checks account/employee/role activity with a non-enumerating failure, rehashes when needed, and records `last_login_at`.
+- Zero active branches blocks login; one is selected automatically; multiple branches use the authenticated shell selector.
+- Authenticated requests revalidate identity and branch state; logout invalidates the session and regenerates the CSRF token.
+- `BranchContext` memoizes authorized branches only inside the current request; no persistent branch or permission cache exists.
+
+## 3. Academic implementation
 
 ```text
-employee administration owns user_branches writes
-branch administration owns branch attributes only
+academic_cycles
+  branch_code FK, name, level, modality, start_date, end_date, is_active
+
+cycle_degrees
+  cycle_code FK, number 1–6, UNIQUE(cycle_code, number)
+
+academic_groups
+  cycle_degree_code FK, name, sort_order, is_active
+  unique lower(btrim(name)) per degree
+
+cycle_shifts
+  cycle_code FK, name, entry_time, tolerance_minutes >= 0, sort_order, is_active
 ```
 
-Current branch:
+- `AcademicCycle` owns degrees → groups and shifts.
+- `SaveCycle` writes the aggregate transactionally and rejects a cycle from another branch.
+- `AcademicLevel`: primary 1–6, secondary 1–5.
+- `CycleModality`: regular, verano, intensivo, reforzamiento, virtual.
+- Permissions: `cycles.view` / `cycles.manage`, scoped through `BranchContext`.
 
-```text
-session current_branch_code
-→ validated active membership
-```
+### Cycle queries and UI
 
-## 3. Live academic structure
+- Index: one branch-scoped query with degree/group counts; no nested eager loading.
+- Each card shows identity, state, level, modality, dates, counts, and derived timeline progress.
+- Timeline status/percentage/label is computed in Laravel from loaded dates using `America/Lima`; it adds no database query and is not persisted.
+- Detail: one cycle with ordered degrees/groups/shifts.
+- One Lumi-tab form: General, Turnos, Grados y secciones.
+- Form state survives tab changes; validation reveals and marks affected tabs.
+- Viewers get a read-only aggregate; create/edit/add/remove/save require `cycles.manage`.
 
-```text
-academic_cycles (branch_code FK, name, level, modality, start_date, end_date, is_active)
-cycle_degrees (cycle_code FK, number 1–6, UNIQUE(cycle_code, number))
-academic_groups (cycle_degree_code FK, name, sort_order, is_active, unique lower(btrim(name)) per degree)
-cycle_shifts (cycle_code FK, name, entry_time, tolerance_minutes >= 0, sort_order, is_active)
-```
+## 4. Application UI
 
-```text
-AcademicCycle is the aggregate owner
-SaveCycle = one transactional write (attributes + shifts + degrees + groups)
-level: AcademicLevel enum (primary 1–6, secondary 1–5)
-modality: CycleModality enum (regular, verano, intensivo, reforzamiento, virtual)
-authorization: cycles.view / cycles.manage, scoped to BranchContext
-```
-
-## 4. Live application shape
-
-```text
-app/
-├── Actions/
-│   ├── AuthenticateEmployee
-│   ├── LogoutEmployee
-│   ├── SelectBranch
-│   ├── SaveBranch
-│   ├── SaveCycle
-│   ├── CreateEmployee
-│   ├── UpdateEmployee
-│   ├── SaveRole
-│   └── SyncUserPermissions
-├── Support/
-│   ├── Authorization/
-│   │   ├── PermissionResolver
-│   │   └── PermissionDependency
-│   ├── Academic/
-│   │   ├── AcademicLevel
-│   │   └── CycleModality
-│   └── Branches/
-│       └── BranchContext
-└── Http/
-    └── administrative controllers and requests
-
-resources/js/
-├── Pages/Branches/
-├── Pages/Cycles/
-├── Pages/Admin/Employees/
-├── Pages/Admin/Roles/
-├── Layouts/
-└── lib/
-```
-
-Authorization is semantic and enforced before protected form handling.
-
-The frontend uses one permission helper for presentation only.
-
-## 5. Current UI contract
-
-- One dashboard shell.
-- One navigation source.
+- One authenticated dashboard shell.
+- One navigation source and global Inertia flash owner.
 - Unified branch picker/catalog.
-- Cycle index: card grid with summary counts (degrees, groups), no nested eager loads.
-- Cycle form: one calm page with General (identity, dates, shifts) and Academic structure (grade tags, sections per grade).
-- Employee creation is one coherent form.
-- Employee profile panels: General, Access, Permissions.
-- Role scope editor represents assignable permissions, not automatic grants.
-- Global Inertia flash notifications are owned by the dashboard layout.
-- No physical employee deletion.
-- No empty attendance, card, or finance tabs.
+- Cycle and catalog indexes load summaries.
+- Employee creation is one form; employee profile panels are General, Access, Permissions.
+- Role scope editor represents assignable permissions, not grants.
+- No physical employee deletion or empty future tabs.
 
-## 6. Not implemented
-
-No student-facing domain is implemented yet:
+## 5. Not implemented
 
 - students and contacts;
-- enrollment;
+- enrollment and obligations;
 - attendance;
-- finance;
+- finance/cashbox;
 - evaluations/OMR;
 - attentions;
 - student portal.
 
-## 7. Active next vertical
+## 6. Next vertical
 
-**Students and minimal contacts**, then **enrollment** referencing `academic_group_code` and cycle shifts through an explicit `enrollment_shifts` relation.
+**Students and minimal contacts**, then enrollment.
 
-## 8. Completion condition for the next vertical
-
-Enrollment is complete when:
+Enrollment completion requires:
 
 - one active enrollment per student system-wide;
-- enrollment references one academic group and one or both cycle shifts;
-- obligations are generated during enrollment;
-- no meaning is reconstructed from concatenated codes or repeated group strings.
+- one `academic_group_code`;
+- one or both shifts through `enrollment_shifts`;
+- obligations generated in the enrollment transaction;
+- no reconstructed meaning from codes or repeated group strings.
 
-## 9. Verification position
+## 7. Verification
 
-This document reflects the state after the academic structure vertical passed:
+- `composer run format`: passed.
+- `composer run check`: passed, including 96 PHPUnit tests / 418 assertions, strict TypeScript, Oxlint, and Prettier.
+- `pnpm run build`: passed production build.
 
-```bash
-composer run format
-composer run check
-pnpm run build
-php artisan migrate:fresh --seed --env=testing
-php artisan test   # 92 passed
-```
-
-Never run `migrate:fresh` against `aeduca`.
+Never run `migrate:fresh` against `aeduca`; use `--env=testing` only when schema or seeds change.

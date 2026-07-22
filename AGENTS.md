@@ -1,8 +1,8 @@
-# Aeduca v8 — Mandatory Agent Rules
+# Aeduca v8 — Mandatory Agent Protocol
 
-This file defines how a coding agent must work. It does not duplicate the domain specification.
+This file governs execution. Product and domain truth belongs in `docs/SPEC.md`.
 
-## Authority order
+## 1. Authority and required reading
 
 Before changing code, read:
 
@@ -10,104 +10,102 @@ Before changing code, read:
 2. `AGENTS.md`
 3. `docs/SPEC.md`
 4. `docs/STATUS.md`
-5. `TASK.md`
-6. Relevant existing code and tests
-7. Relevant Lumi documentation
+5. the single root `TASK.md`, when present
+6. relevant implementation and tests
+7. relevant Lumi public documentation
 
-Authority:
+Authority is exclusive:
 
-- `docs/SPEC.md` owns permanent product, domain, data, and architecture decisions.
-- `docs/STATUS.md` owns verified facts about the current code.
-- `TASK.md` owns only the active vertical.
-- Existing code is implementation evidence, not automatic proof of correct domain meaning.
-- A temporary task may not silently override the permanent specification.
+| Source           | Owns                                                        |
+| ---------------- | ----------------------------------------------------------- |
+| `docs/SPEC.md`   | Permanent product, domain, data, and architecture decisions |
+| `docs/STATUS.md` | Verified current implementation facts                       |
+| `TASK.md`        | Temporary active vertical only                              |
+| Existing code    | Implementation evidence, not automatic domain truth         |
 
-When sources materially conflict, inspect the implementation and legacy evidence, report the conflict, and make the smallest coherent correction.
+A task cannot silently override the specification. When sources materially conflict, inspect current code and legacy evidence, report the conflict, and make the smallest coherent correction.
 
-## Investigation protocol
+A documentation refactor must audit coverage against its sources. Compact by merging or relocating a confirmed rule into its owner; never erase valid context merely to reduce line count. Superseded decisions remain discoverable in Git history, not as competing active guidance.
 
-Before implementing a capability:
+## 2. Investigation before implementation
 
-1. Inspect the current Aeduca v8 code and tests.
-2. Inspect the corresponding real workflow in local Aeduca Admin.
-3. Inspect the corresponding modern approach in local Coedula.
+For every capability:
+
+1. Inspect current Aeduca v8 code and tests.
+2. Inspect the real workflow in local Aeduca Admin.
+3. Inspect the modern approach in local Coedula.
 4. Use Nextya only for evaluation or OMR work.
 5. Separate useful behavior from historical structure.
-6. Produce a concise execution plan before coding.
+6. Present a concise execution plan before coding.
 
-Aeduca Admin and Coedula are evidence, not templates.
+Aeduca Admin and Coedula are evidence, not templates. Never invent a table, field, permission, package, UI pattern, or abstraction for convenience.
 
-Do not invent a table, field, permission, package, UI pattern, or abstraction because it appears convenient.
+## 3. Engineering contract
 
-## Engineering rules
+### Ownership and architecture
 
-- One owner for every responsibility and write path.
-- Use the smallest complete vertical.
-- Reuse current patterns before creating new ones.
-- Domain rules, authorization, validation, and transactions stay in Laravel.
-- Svelte handles interaction and presentation.
-- Lumi components never contain school, role, payment, or attendance rules.
-- Use UUID primary keys named `code`.
-- Use explicit foreign keys named `<entity>_code`.
-- Do not embed business meaning in technical identifiers.
-- Do not store relationships in arrays or JSON.
+- One owner and write path per responsibility.
+- Implement the smallest complete vertical; reuse current patterns first.
+- Laravel owns authorization, validation, domain rules, and transactions.
+- Svelte owns interaction and presentation.
+- Lumi components remain domain-neutral.
+- Use a focused Action for aggregate writes, transactions, or real invariants.
+- Keep a simple validated row update direct.
+- Do not create generic repositories, service gods, module frameworks, base Actions, DTO libraries, Query wrappers for simple queries, CQRS, or event sourcing.
+- Create domain subfolders only when current content justifies them; create no base class before two real uses require shared behavior.
+- Keep files cohesive; do not split them only to reduce line count.
+- Prefer direct calls for mandatory consequences. Use events only for real independent consumers, and never hide critical workflows in observers.
+
+### Data
+
+- Main entities use UUID primary key `code`; FKs use `<entity>_code`.
+- Never encode year, branch, level, degree, group, modality, or status in technical identifiers.
+- Relationships use explicit FKs/intermediate tables, never arrays or JSON.
 - Do not use manual polymorphic type/code relations when explicit FKs are possible.
-- Do not add soft delete by default.
-- Do not authorize by role name or role code.
-- Do not add persistent permission, branch, or catalog caches without measurement.
-- Do not create generic repositories, service gods, module frameworks, base Actions, DTO libraries, CQRS, or event sourcing.
-- A simple query does not need a Query class.
-- A simple single-row update does not automatically need an Action.
-- A focused Action is appropriate for a transaction, aggregate write, or real invariant.
-- Avoid N+1 queries and unnecessary eager loading.
-- Index pages load summaries; detail pages load one aggregate.
-- Do not create empty future tabs, routes, tables, permissions, or UI.
-
-## Frontend rules
-
-- Svelte 5 runes only.
-- TypeScript strict.
-- Spanish end-user copy.
-- One navigation source.
-- One frontend `can()` helper.
-- One authenticated layout shell.
-- One global notification owner.
-- Use Lumi public components, classes, and tokens.
-- No second CSS framework or UI library.
-- No raw colors, inline styles, or local style blocks when Lumi has a public solution.
-- Do not modify Lumi internals for an Aeduca-only requirement.
-
-## Data and migration rules
-
 - PostgreSQL owns structural invariants through FK, UNIQUE, and CHECK.
 - Business-critical multi-table writes are transactional.
-- Do not hide authorization, academic, attendance, or finance behavior in triggers.
-- Legacy semantic codes map to UUIDs through migration tooling, not domain columns.
-- Never reinterpret legacy data silently.
+- Do not add soft delete by default.
+- Never authorize by role name or role code.
+- Do not hide authorization, academic, attendance, or finance workflows in triggers.
+- Legacy semantic codes map to UUIDs in migration tooling, not domain columns; never reinterpret legacy data silently.
 - Rehearse and reconcile migrations before production cutover.
 
-## Scope discipline
+### Performance
 
-Implement only the active `TASK.md`.
+- Prevent N+1 queries and unnecessary eager loading.
+- Index pages load summaries; detail pages load one aggregate.
+- Do not add persistent permission, branch, or catalog caches without measurement.
+- Prefer bounded, readable work over clever optimization.
 
-Stop and investigate when:
+### Frontend
 
-- a domain term has two possible meanings;
+- Svelte 5 runes and strict TypeScript only.
+- Spanish end-user copy.
+- One navigation source, authenticated shell, frontend `can()` helper, and global notification owner.
+- Use Lumi public components, classes, and tokens.
+- Do not add a second UI/CSS system, raw colors, inline styles, or local style blocks when Lumi has a public solution.
+- Do not modify Lumi internals for an Aeduca-only requirement.
+- Do not create empty future tabs, routes, tables, permissions, or UI.
+
+## 4. Scope and stop conditions
+
+Implement only the active `TASK.md`. Stop and investigate when:
+
+- a domain term has multiple meanings;
 - a field has no confirmed operational owner;
 - local evidence materially contradicts the task;
-- another module is required only to make the current module appear complete;
-- a database invariant cannot be protected clearly;
+- another module is required only to make this one appear complete;
+- an invariant cannot be protected clearly;
 - an existing owner or pattern would be duplicated;
-- Lumi lacks a required public contract;
-- project checks fail.
+- a new runtime dependency appears necessary;
+- Lumi lacks the required public contract;
+- required checks fail.
 
-For a minor reversible UI ambiguity, choose the simplest existing pattern.
+For minor reversible UI ambiguity, use the simplest existing pattern. Never guess about domain, security, finance, or migration semantics.
 
-For domain, security, finance, or migration ambiguity, do not guess.
+## 5. Verification
 
-## Verification
-
-Use repository-owned commands:
+Required:
 
 ```bash
 composer run format
@@ -115,26 +113,24 @@ composer run check
 pnpm run build
 ```
 
-When schema or seeds change:
+After schema or seed changes:
 
 ```bash
 php artisan migrate:fresh --seed --env=testing
 ```
 
-Never run `migrate:fresh` against `aeduca`.
+Never run `migrate:fresh` against `aeduca`. Do not claim completion while a required check fails.
 
-Do not claim completion while a required check fails.
+## 6. Documentation closure
 
-## Documentation closure
+After a vertical:
 
-After completing the active vertical:
-
-1. Merge permanent confirmed rules into `docs/SPEC.md`.
-2. Replace current-state facts in `docs/STATUS.md`.
+1. Merge durable confirmed rules into `docs/SPEC.md`.
+2. Replace current facts in `docs/STATUS.md`.
 3. Remove or replace `TASK.md`.
-4. Do not preserve obsolete task reasoning as another source of truth.
+4. Do not preserve obsolete reasoning in another roadmap/specification.
 
-## Final report
+## 7. Final report
 
 Report only:
 
