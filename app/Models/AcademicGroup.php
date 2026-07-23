@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Concrete section inside a cycle degree. UI label: «Sección».
- * Future enrollment references academic_group_code.
+ * Enrollment references this concrete section through academic_group_code.
  */
 #[Fillable(['cycle_degree_code', 'name', 'sort_order', 'is_active'])]
 class AcademicGroup extends Model
@@ -24,6 +25,11 @@ class AcademicGroup extends Model
     public function cycleDegree(): BelongsTo
     {
         return $this->belongsTo(CycleDegree::class, 'cycle_degree_code', 'code');
+    }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class, 'academic_group_code', 'code');
     }
 
     protected function casts(): array

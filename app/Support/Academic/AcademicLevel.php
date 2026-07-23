@@ -32,6 +32,11 @@ enum AcademicLevel: string
         };
     }
 
+    public function gradeLabel(int $number): string
+    {
+        return "{$number}.° de {$this->label()}";
+    }
+
     /**
      * @return list<array{value: string, label: string}>
      */

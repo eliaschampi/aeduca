@@ -14,6 +14,11 @@
         ListItem,
         SegmentedControl,
     } from '@lumi-ui/svelte';
+    import {
+        isPermissionRequired,
+        togglePermissionCodes,
+        type PermissionDependencyMap,
+    } from '@/lib/permission-dependencies';
 
     interface PermissionItem {
         code: string;
@@ -28,18 +33,28 @@
 
     interface Props {
         permission_groups: PermissionGroup[];
+        permission_dependencies: PermissionDependencyMap;
         selectedCodes: string[];
         canEdit: boolean;
         error?: string | null;
     }
 
-    let { permission_groups, selectedCodes = $bindable(), canEdit, error = null }: Props = $props();
+    let {
+        permission_groups,
+        permission_dependencies,
+        selectedCodes = $bindable(),
+        canEdit,
+        error = null,
+    }: Props = $props();
 
     const groupLabels: Record<string, string> = {
         dashboard: 'Inicio',
         branches: 'Sedes',
+        cycles: 'Ciclos',
         employees: 'Usuarios',
+        enrollments: 'Matrículas',
         roles: 'Roles',
+        students: 'Estudiantes',
     };
 
     let query = $state('');
@@ -52,15 +67,7 @@
     const selectedCount = $derived(selectedCodes.length);
     /** O(1) membership for large catalogs. */
     const selectedSet = $derived(new Set(selectedCodes));
-    const permissionByName = $derived.by(() => {
-        const map = new Map<string, PermissionItem>();
-        for (const group of permission_groups) {
-            for (const permission of group.permissions) {
-                map.set(permission.name, permission);
-            }
-        }
-        return map;
-    });
+    const permissions = $derived(permission_groups.flatMap((group) => group.permissions));
 
     const normalizedQuery = $derived(query.trim().toLowerCase());
     const isSearching = $derived(normalizedQuery.length > 0);
@@ -111,38 +118,14 @@
             : `${groupTitle(activeGroup)} · ${visibleRows.length}`,
     );
 
-    function isViewLockedByManage(name: string): boolean {
-        if (!name.endsWith('.view')) return false;
-        const manage = permissionByName.get(name.replace(/\.view$/, '.manage'));
-        return Boolean(manage && selectedSet.has(manage.code));
-    }
-
     function togglePermission(code: string, checked: boolean): void {
-        const permission = permission_groups
-            .flatMap((g) => g.permissions)
-            .find((p) => p.code === code);
-
-        let next = checked
-            ? selectedSet.has(code)
-                ? selectedCodes
-                : [...selectedCodes, code]
-            : selectedCodes.filter((current) => current !== code);
-
-        if (permission?.name.endsWith('.manage') && checked) {
-            const view = permissionByName.get(permission.name.replace(/\.manage$/, '.view'));
-            if (view && !next.includes(view.code)) {
-                next = [...next, view.code];
-            }
-        }
-
-        if (permission?.name.endsWith('.view') && !checked) {
-            const manage = permissionByName.get(permission.name.replace(/\.view$/, '.manage'));
-            if (manage) {
-                next = next.filter((c) => c !== manage.code);
-            }
-        }
-
-        selectedCodes = next;
+        selectedCodes = togglePermissionCodes(
+            code,
+            checked,
+            selectedCodes,
+            permissions,
+            permission_dependencies,
+        );
     }
 </script>
 
@@ -210,7 +193,13 @@
                             >
                                 <Checkbox
                                     checked={selectedSet.has(permission.code)}
-                                    disabled={!canEdit || isViewLockedByManage(permission.name)}
+                                    disabled={!canEdit ||
+                                        isPermissionRequired(
+                                            permission.name,
+                                            selectedCodes,
+                                            permissions,
+                                            permission_dependencies,
+                                        )}
                                     aria-label={permissionLabel(permission)}
                                     onchange={(checked) =>
                                         togglePermission(permission.code, checked)}

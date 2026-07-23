@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Schema;
  * Academic structure — cycles, degrees, groups, shifts.
  *
  * Aggregate ownership: academic_cycles owns cycle_degrees → academic_groups
- * and cycle_shifts. Future enrollment references academic_group_code and
- * cycle shifts through explicit relations.
+ * and cycle_shifts. Enrollment references academic_group_code and cycle
+ * shifts through explicit relations.
  */
 return new class extends Migration
 {

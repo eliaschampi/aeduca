@@ -15,6 +15,7 @@ use App\Models\Branch;
 use App\Models\EmployeeRole;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\Authorization\PermissionDependency;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -115,6 +116,9 @@ class EmployeeController extends Controller
             'permission_codes' => $employee->is_super_admin
                 ? []
                 : $employee->permissions->pluck('code')->values()->all(),
+            'permission_dependencies' => PermissionDependency::dependencyMap(
+                $employee->employeeRole?->permissionScopes->pluck('name')->all() ?? [],
+            ),
             ...$this->formOptions(),
             'can_manage' => $canManage,
         ]);

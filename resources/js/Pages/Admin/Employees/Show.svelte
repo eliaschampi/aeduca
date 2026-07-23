@@ -3,6 +3,7 @@
     import { router } from '@inertiajs/svelte';
     import { Avatar, Button, Chip, PageHeader, Tabs } from '@lumi-ui/svelte';
     import { can } from '@/lib/permissions';
+    import type { PermissionDependencyMap } from '@/lib/permission-dependencies';
     import ChangePasswordDialog from './panels/ChangePasswordDialog.svelte';
     import EmployeeAccessPanel from './panels/EmployeeAccessPanel.svelte';
     import EmployeeGeneralPanel from './panels/EmployeeGeneralPanel.svelte';
@@ -54,6 +55,7 @@
         branches: Option[];
         role_permission_scope?: ScopePermission[];
         permission_codes?: string[];
+        permission_dependencies: PermissionDependencyMap;
         can_manage?: boolean;
     }
 
@@ -63,6 +65,7 @@
         branches,
         role_permission_scope = [],
         permission_codes = [],
+        permission_dependencies,
         can_manage = false,
     }: Props = $props();
 
@@ -262,6 +265,7 @@
             roleName={employee.role_name}
             scope={role_permission_scope}
             selectedCodes={permission_codes}
+            {permission_dependencies}
             {canManage}
             processing={permissionsProcessing}
             error={permissionsError}

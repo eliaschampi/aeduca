@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import { router } from '@inertiajs/svelte';
     import { Button, Card, Chip, Input, PageHeader, Switch, Tabs, Textarea } from '@lumi-ui/svelte';
+    import type { PermissionDependencyMap } from '@/lib/permission-dependencies';
     import RolePermissionScope from './RolePermissionScope.svelte';
 
     interface PermissionItem {
@@ -28,10 +29,16 @@
     interface Props {
         role?: RolePayload | null;
         permission_groups: PermissionGroup[];
+        permission_dependencies: PermissionDependencyMap;
         can_manage?: boolean;
     }
 
-    const { role = null, permission_groups, can_manage = false }: Props = $props();
+    const {
+        role = null,
+        permission_groups,
+        permission_dependencies,
+        can_manage = false,
+    }: Props = $props();
 
     const isCreate = $derived(role === null);
     const canEdit = $derived(can_manage);
@@ -167,6 +174,7 @@
             >
                 <RolePermissionScope
                     {permission_groups}
+                    {permission_dependencies}
                     bind:selectedCodes={form.permission_codes}
                     {canEdit}
                     error={errors.permission_codes ?? null}

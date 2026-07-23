@@ -1,6 +1,11 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { Alert, Button, Card, Checkbox, EmptyState, Fieldset } from '@lumi-ui/svelte';
+    import {
+        isPermissionRequired,
+        togglePermissionCodes,
+        type PermissionDependencyMap,
+    } from '@/lib/permission-dependencies';
 
     interface ScopePermission {
         code: string;
@@ -13,6 +18,7 @@
         roleName: string | null;
         scope: ScopePermission[];
         selectedCodes: string[];
+        permission_dependencies: PermissionDependencyMap;
         canManage: boolean;
         processing: boolean;
         error?: string | null;
@@ -24,6 +30,7 @@
         roleName,
         scope,
         selectedCodes,
+        permission_dependencies,
         canManage,
         processing,
         error = null,
@@ -36,38 +43,18 @@
         localSelected = [...selectedCodes];
     });
 
-    /** manage implies view in the UI before save. */
-    function toggle(code: string, name: string, checked: boolean): void {
-        let next = checked ? [...localSelected, code] : localSelected.filter((c) => c !== code);
-
-        if (checked && name.endsWith('.manage')) {
-            const viewName = name.replace(/\.manage$/, '.view');
-            const view = scope.find((p) => p.name === viewName);
-            if (view && !next.includes(view.code)) {
-                next = [...next, view.code];
-            }
-        }
-
-        if (!checked && name.endsWith('.view')) {
-            const manageName = name.replace(/\.view$/, '.manage');
-            const manage = scope.find((p) => p.name === manageName);
-            if (manage) {
-                next = next.filter((c) => c !== manage.code);
-            }
-        }
-
-        localSelected = next;
+    function toggle(code: string, checked: boolean): void {
+        localSelected = togglePermissionCodes(
+            code,
+            checked,
+            localSelected,
+            scope,
+            permission_dependencies,
+        );
     }
 
     function isChecked(code: string): boolean {
         return localSelected.includes(code);
-    }
-
-    function isViewLockedByManage(name: string): boolean {
-        if (!name.endsWith('.view')) return false;
-        const manageName = name.replace(/\.view$/, '.manage');
-        const manage = scope.find((p) => p.name === manageName);
-        return Boolean(manage && localSelected.includes(manage.code));
     }
 </script>
 
@@ -99,8 +86,8 @@
                 <div class="lumi-stack lumi-stack--md">
                     <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
                         Solo se pueden marcar permisos del alcance del rol
-                        {roleName ? `«${roleName}»` : ''}. Marcar «gestionar» incluye
-                        automáticamente «ver».
+                        {roleName ? `«${roleName}»` : ''}. Las dependencias necesarias se incluyen
+                        automáticamente.
                     </p>
 
                     {#if error}
@@ -112,9 +99,14 @@
                             <Checkbox
                                 label={permission.description || permission.name}
                                 checked={isChecked(permission.code)}
-                                disabled={!canManage || isViewLockedByManage(permission.name)}
-                                onchange={(checked) =>
-                                    toggle(permission.code, permission.name, checked)}
+                                disabled={!canManage ||
+                                    isPermissionRequired(
+                                        permission.name,
+                                        localSelected,
+                                        scope,
+                                        permission_dependencies,
+                                    )}
+                                onchange={(checked) => toggle(permission.code, checked)}
                             />
                         {/each}
                     </div>

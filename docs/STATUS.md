@@ -2,7 +2,7 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Verified working tree:** July 21, 2026.
+**Verified working tree:** July 23, 2026.
 
 ## 1. Completed verticals
 
@@ -14,6 +14,8 @@
 | Roles              | Role CRUD and assignable permission scope                                                                      |
 | Authorization      | Direct grants intersected with role scope, superadministrator, manage→view dependency                          |
 | Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, transactional save                                 |
+| Students           | Institution-wide identity, profile-managed contacts, directory, create/edit, and canonical profile             |
+| Enrollment         | Academic assignment, shifts, active replacement, initial obligations, profile history, and edit                |
 | Quality            | Pint, PHPUnit, strict TypeScript, Oxlint, Prettier, production build                                           |
 
 ## 2. Access implementation
@@ -44,6 +46,7 @@ session current_branch_code → validated active membership
 - Zero active branches blocks login; one is selected automatically; multiple branches use the authenticated shell selector.
 - Authenticated requests revalidate identity and branch state; logout invalidates the session and regenerates the CSRF token.
 - `BranchContext` memoizes authorized branches only inside the current request; no persistent branch or permission cache exists.
+- Permissions now include `students.*` and `enrollments.*`; enrollment view also expands to student view, while role scope remains explicit and never depends on a role name.
 
 ## 3. Academic implementation
 
@@ -64,6 +67,7 @@ cycle_shifts
 
 - `AcademicCycle` owns degrees → groups and shifts.
 - `SaveCycle` writes the aggregate transactionally and rejects a cycle from another branch.
+- Removing a group or shift with enrollment history deactivates it; only unreferenced removed structure is deleted.
 - `AcademicLevel`: primary 1–6, secondary 1–5.
 - `CycleModality`: regular, verano, intensivo, reforzamiento, virtual.
 - Permissions: `cycles.view` / `cycles.manage`, scoped through `BranchContext`.
@@ -78,42 +82,79 @@ cycle_shifts
 - Form state survives tab changes; validation reveals and marks affected tabs.
 - Viewers get a read-only aggregate; create/edit/add/remove/save require `cycles.manage`.
 
-## 4. Application UI
+## 4. Student implementation
+
+```text
+students
+  code UUID PK, unique eight-digit DNI, identity/contact fields, timestamps
+
+student_contacts
+  code UUID PK, student_code FK, positive position, name, phone, note
+  UNIQUE(student_code, position), cascade with student
+```
+
+- `Student` owns ordered contacts; neither model owns a branch or academic relation.
+- `StudentRequest` and `SaveStudent` own student fields only; concurrent DNI conflicts map to field validation.
+- `StudentContactRequest` normalizes one contact. `CreateStudentContact` serializes append position assignment; nested update/delete routes own the existing row.
+- PostgreSQL protects DNI shape/uniqueness, nonblank names, positive contact positions, ownership, and per-student position uniqueness without an arbitrary contact count.
+- Permissions are `students.view` / `students.manage` with the standard manage→view dependency.
+- Directory queries are institution-wide, select displayed fields only, show recent students or ranked search results, and paginate 10 rows without contacts.
+- Profile queries load ordered contacts and, only with `enrollments.view`, the student's enrollment aggregate with section, cycle, branch, shifts, and obligation summaries. Student edit still loads identity fields only.
+
+## 5. Enrollment implementation
+
+```text
+enrollments
+  student_code FK, academic_group_code FK, four-digit roll_code,
+  is_active, observation, timestamps
+  one active row per student and active roll code through partial UNIQUE indexes
+
+enrollment_shifts
+  enrollment_code FK, cycle_shift_code FK, composite PK
+
+payment_obligations
+  enrollment_code FK, concept, NUMERIC(12,2) amount, due_date, timestamps
+```
+
+- `EnrollmentRequest` normalizes the assignment and obligation collection; relational branch/cycle/shift ownership is verified by `SaveEnrollment`.
+- `SaveEnrollment` locks the student, validates authorized branch and active academic structure, deactivates a previous active enrollment, reserves an available roll code, syncs one or two shifts, and creates/updates stable obligation identities in one transaction.
+- PostgreSQL independently protects UUID relations, four-digit roll format, positive/nonblank obligations, one active enrollment per student, and active roll-code uniqueness.
+- Create/edit routes require `enrollments.manage`; institution-wide history is shown only with `enrollments.view`.
+- The form offers eligible cycles across authorized branches, preferring the current branch, and never reconstructs branch, grade, section, or shift from codes.
+- Enrollment has no physical delete route. Payments, applications, and cash movements are not implemented.
+
+## 6. Application UI
 
 - One authenticated dashboard shell.
 - One navigation source and global Inertia flash owner.
 - Unified branch picker/catalog.
 - Cycle and catalog indexes load summaries.
+- Student directory uses server search/pagination and distinct empty/no-match states.
+- Student create/edit share one identity form. The responsive 30/70 profile uses Matrículas and Contactos tabs; contacts remain dialog CRUD without redirects or count limits.
+- Enrollment create/edit is a dedicated Lumi form organized into Asignación académica and Obligaciones, with validation marking the affected tab.
 - Employee creation is one form; employee profile panels are General, Access, Permissions.
 - Role scope editor represents assignable permissions, not grants.
 - No physical employee deletion or empty future tabs.
 
-## 5. Not implemented
+## 7. Not implemented
 
-- students and contacts;
-- enrollment and obligations;
 - attendance;
-- finance/cashbox;
+- payments, payment applications, and cashbox;
 - evaluations/OMR;
 - attentions;
 - student portal.
 
-## 6. Next vertical
+## 8. Next vertical
 
-**Students and minimal contacts**, then enrollment.
+**Attendance.**
 
-Enrollment completion requires:
+Attendance must reference enrollment and a selected enrollment shift, use cycle entry time/tolerance, and preserve the no-mass-absence rule in `SPEC.md`.
 
-- one active enrollment per student system-wide;
-- one `academic_group_code`;
-- one or both shifts through `enrollment_shifts`;
-- obligations generated in the enrollment transaction;
-- no reconstructed meaning from codes or repeated group strings.
-
-## 7. Verification
+## 9. Verification
 
 - `composer run format`: passed.
-- `composer run check`: passed, including 96 PHPUnit tests / 418 assertions, strict TypeScript, Oxlint, and Prettier.
-- `pnpm run build`: passed production build.
+- `composer run check`: passed, including 114 PHPUnit tests / 627 assertions, strict TypeScript, Oxlint, and Prettier.
+- `pnpm run build`: passed production build without warnings.
+- `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test` through enrollment migration `000006`.
 
 Never run `migrate:fresh` against `aeduca`; use `--env=testing` only when schema or seeds change.

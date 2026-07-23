@@ -79,7 +79,9 @@ final class SaveCycle
             }
         }
 
-        $cycle->shifts()->whereNotIn('code', $keepCodes)->delete();
+        $removed = $cycle->shifts()->whereNotIn('code', $keepCodes);
+        (clone $removed)->whereHas('enrollments')->update(['is_active' => false]);
+        (clone $removed)->whereDoesntHave('enrollments')->delete();
     }
 
     /**
@@ -100,8 +102,22 @@ final class SaveCycle
             $this->syncGroups($model, $degree['groups']);
         }
 
-        // Cascade removes groups belonging to deleted degrees.
-        $cycle->degrees()->whereNotIn('number', $keepNumbers)->delete();
+        $cycle->degrees()
+            ->whereNotIn('number', $keepNumbers)
+            ->with('groups')
+            ->get()
+            ->each(function (CycleDegree $degree): void {
+                $degree->groups()
+                    ->whereHas('enrollments')
+                    ->update(['is_active' => false]);
+                $degree->groups()
+                    ->whereDoesntHave('enrollments')
+                    ->delete();
+
+                if (! $degree->groups()->exists()) {
+                    $degree->delete();
+                }
+            });
     }
 
     /**
@@ -130,6 +146,8 @@ final class SaveCycle
             }
         }
 
-        $degree->groups()->whereNotIn('code', $keepCodes)->delete();
+        $removed = $degree->groups()->whereNotIn('code', $keepCodes);
+        (clone $removed)->whereHas('enrollments')->update(['is_active' => false]);
+        (clone $removed)->whereDoesntHave('enrollments')->delete();
     }
 }

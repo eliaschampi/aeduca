@@ -31,6 +31,12 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         permission: 'cycles.view',
     },
     {
+        label: 'Estudiantes',
+        href: '/students',
+        icon: 'graduationCap',
+        permission: 'students.view',
+    },
+    {
         label: 'Usuarios',
         href: '/admin/employees',
         icon: 'users',

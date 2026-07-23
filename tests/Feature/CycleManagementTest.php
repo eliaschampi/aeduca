@@ -7,6 +7,8 @@ use App\Models\AcademicCycle;
 use App\Models\Branch;
 use App\Models\CycleDegree;
 use App\Models\CycleShift;
+use App\Models\Enrollment;
+use App\Models\Student;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -335,6 +337,45 @@ class CycleManagementTest extends TestCase
         $this->assertSame(0, $cycle->degrees()->where('number', 1)->count());
         $this->assertSame(1, $cycle->degrees()->where('number', 2)->count());
         $this->assertSame('B', $cycle->groups()->first()->name);
+    }
+
+    public function test_update_deactivates_enrolled_structure_instead_of_erasing_history(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['cycles.manage']);
+        $cycle = AcademicCycle::factory()->create([
+            'branch_code' => $branch->code,
+            'level' => 'primary',
+        ]);
+        $degree = CycleDegree::factory()->create([
+            'cycle_code' => $cycle->code,
+            'number' => 1,
+        ]);
+        $group = $degree->groups()->create([
+            'name' => 'Histórica',
+            'sort_order' => 0,
+            'is_active' => true,
+        ]);
+        $shift = CycleShift::factory()->create(['cycle_code' => $cycle->code]);
+        $enrollment = Enrollment::factory()->create([
+            'student_code' => Student::factory(),
+            'academic_group_code' => $group->code,
+        ]);
+        $enrollment->shifts()->attach($shift);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->put(route('admin.cycles.update', $cycle), $this->validPayload([
+                'degrees' => [['number' => 2, 'groups' => [['name' => 'Nueva']]]],
+            ]))
+            ->assertRedirect(route('admin.cycles.index'));
+
+        $this->assertFalse($group->fresh()->is_active);
+        $this->assertFalse($shift->fresh()->is_active);
+        $this->assertModelExists($degree);
+        $this->assertSame($group->code, $enrollment->fresh()->academic_group_code);
+        $this->assertTrue($enrollment->shifts()->whereKey($shift->code)->exists());
     }
 
     public function test_save_cycle_rejects_updating_a_cycle_from_another_branch(): void

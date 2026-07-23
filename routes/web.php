@@ -6,7 +6,10 @@ use App\Http\Controllers\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\StudentContactController;
+use App\Http\Controllers\StudentController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -24,6 +27,68 @@ Route::middleware(['auth', 'employee.active'])->group(function () {
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::put('/current-branch', [BranchController::class, 'update'])
         ->name('current-branch.update');
+
+    Route::get('/students', [StudentController::class, 'index'])
+        ->middleware('can:students.view')
+        ->name('students.index');
+    Route::get('/students/create', [StudentController::class, 'create'])
+        ->middleware('can:students.manage')
+        ->name('students.create');
+    Route::post('/students', [StudentController::class, 'store'])
+        ->middleware('can:students.manage')
+        ->name('students.store');
+    Route::get('/students/{student}', [StudentController::class, 'show'])
+        ->middleware('can:students.view')
+        ->name('students.show');
+    Route::get('/students/{student}/edit', [StudentController::class, 'edit'])
+        ->middleware('can:students.manage')
+        ->name('students.edit');
+    Route::put('/students/{student}', [StudentController::class, 'update'])
+        ->middleware('can:students.manage')
+        ->name('students.update');
+    Route::post('/students/{student}/contacts', [StudentContactController::class, 'store'])
+        ->middleware('can:students.manage')
+        ->name('students.contacts.store');
+    Route::put(
+        '/students/{student}/contacts/{contact}',
+        [StudentContactController::class, 'update'],
+    )
+        ->scopeBindings()
+        ->middleware('can:students.manage')
+        ->name('students.contacts.update');
+    Route::delete(
+        '/students/{student}/contacts/{contact}',
+        [StudentContactController::class, 'destroy'],
+    )
+        ->scopeBindings()
+        ->middleware('can:students.manage')
+        ->name('students.contacts.destroy');
+    Route::get(
+        '/students/{student}/enrollments/create',
+        [EnrollmentController::class, 'create'],
+    )
+        ->middleware('can:enrollments.manage')
+        ->name('students.enrollments.create');
+    Route::post(
+        '/students/{student}/enrollments',
+        [EnrollmentController::class, 'store'],
+    )
+        ->middleware('can:enrollments.manage')
+        ->name('students.enrollments.store');
+    Route::get(
+        '/students/{student}/enrollments/{enrollment}/edit',
+        [EnrollmentController::class, 'edit'],
+    )
+        ->scopeBindings()
+        ->middleware('can:enrollments.manage')
+        ->name('students.enrollments.edit');
+    Route::put(
+        '/students/{student}/enrollments/{enrollment}',
+        [EnrollmentController::class, 'update'],
+    )
+        ->scopeBindings()
+        ->middleware('can:enrollments.manage')
+        ->name('students.enrollments.update');
 
     Route::prefix('admin')->name('admin.')->group(function () {
         // Branch catalog lives on /branches; these routes only write catalog attributes.

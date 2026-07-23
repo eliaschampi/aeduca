@@ -7,10 +7,17 @@ use Illuminate\Support\Collection;
 use LogicException;
 
 /**
- * Domain invariant: *.manage requires the matching *.view.
+ * Domain permission dependencies expanded before role scope or direct grants.
  */
 final class PermissionDependency
 {
+    /**
+     * @var array<string, list<string>>
+     */
+    private const array DEPENDENCIES = [
+        'enrollments.view' => ['students.view'],
+    ];
+
     /**
      * Expand permission names so every manage includes its view.
      *
@@ -21,18 +28,44 @@ final class PermissionDependency
     {
         $set = array_fill_keys($names, true);
 
-        foreach ($names as $name) {
-            if (! str_ends_with($name, '.manage')) {
-                continue;
-            }
+        do {
+            $before = count($set);
 
-            $set[substr($name, 0, -strlen('.manage')).'.view'] = true;
-        }
+            foreach (array_keys($set) as $name) {
+                foreach (self::directDependencies($name) as $dependency) {
+                    $set[$dependency] = true;
+                }
+            }
+        } while (count($set) !== $before);
 
         $expanded = array_keys($set);
         sort($expanded);
 
         return $expanded;
+    }
+
+    /**
+     * Direct dependency map for presentation clients. Persistence still calls
+     * expandNames/expandCodes and remains the security owner.
+     *
+     * @param  list<string>  $names
+     * @return array<string, list<string>>
+     */
+    public static function dependencyMap(array $names): array
+    {
+        $map = [];
+
+        foreach ($names as $name) {
+            $dependencies = self::directDependencies($name);
+
+            if ($dependencies !== []) {
+                $map[$name] = $dependencies;
+            }
+        }
+
+        ksort($map);
+
+        return $map;
     }
 
     /**
@@ -76,5 +109,19 @@ final class PermissionDependency
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function directDependencies(string $name): array
+    {
+        $dependencies = self::DEPENDENCIES[$name] ?? [];
+
+        if (str_ends_with($name, '.manage')) {
+            $dependencies[] = substr($name, 0, -strlen('.manage')).'.view';
+        }
+
+        return array_values(array_unique($dependencies));
     }
 }

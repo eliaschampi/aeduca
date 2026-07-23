@@ -149,10 +149,15 @@ employees.view
 employees.manage
 roles.view
 roles.manage
+students.view
+students.manage
+enrollments.view
+enrollments.manage
 ```
 
 New domains normally use `domain.view` and `domain.manage`.
 Permission names use lowercase dot notation and PostgreSQL validates that shape.
+`enrollments.view` additionally requires `students.view`, because enrollment history is exposed through the canonical student profile.
 
 ### Branch context
 
@@ -274,13 +279,13 @@ cycle_shifts
 - Names are configurable and not limited to A–D or one character.
 - Valid examples: `A`, `A2`, `P`, `Grupo 1`, `Único`.
 - Name is case-insensitively unique within its cycle degree.
-- Future modules reference `academic_group_code`, never repeated group strings.
+- Enrollment and future modules reference `academic_group_code`, never repeated group strings.
 
 ### Shift
 
 - A cycle has one or two active shifts.
 - Tolerance is non-negative.
-- Future enrollment selects one or both shifts through an explicit intermediate relation.
+- Enrollment selects one or both shifts through an explicit intermediate relation.
 - Never model `turn_1`, `turn_2`, arrays, JSON, or a permanent `both` enum.
 
 ### Referential direction
@@ -294,29 +299,75 @@ enrollment.academic_group_code
 ```
 
 - Do not duplicate those keys in enrollment without a confirmed historical snapshot requirement.
-- Future `enrollment_shifts` owns selected shifts.
+- `enrollment_shifts` owns selected shifts.
 - Attendance references enrollment and selected shift.
 - Class evaluations reference academic group.
 - Payment obligations reference enrollment.
 
-## 5. Confirmed future verticals
+## 5. Students and contacts — closed
 
-### Students and contacts
+```text
+students
+  code UUID PK
+  dni UNIQUE, first_name, last_name, birth_date, phone, address, observation, timestamps
 
-- DNI is mandatory for the current Carrión flow but remains an attribute.
-- Student access uses DNI for compatibility.
-- Student passwords remain irreversible hashes. If `AuthAccount` later supports students, use an explicit student FK and a database constraint guaranteeing exactly one account owner; never manual polymorphism.
-- Minimal contact: name, phone, and a free note describing the relationship.
-- Do not recreate the full legacy apoderado model initially.
+student_contacts
+  code UUID PK
+  student_code FK, positive position, name, phone, note
+  UNIQUE(student_code, position)
+```
 
-### Enrollment
+- Student identity is institution-wide and owns no branch, cycle, degree, section, shift, or year.
+- DNI is mandatory for the current Carrión flow but remains an attribute. It is trimmed, exactly eight digits, and unique.
+- Names are trimmed and nonblank. Optional blank text persists as `NULL`.
+- Student location is one address field. There is no generic person table, ubigeo, district, gender, email, student number, JSON profile, legacy ID, or soft delete.
+- A student has zero or more ordered contacts. Each contact stores only name, phone, and a free note; it has no identity outside its student.
+- Student identity and contacts have separate write paths. The student form never creates, replaces, or deletes contacts.
+- Contact management lives on the canonical profile. Creation appends a server-derived position transactionally; updates and confirmed deletion address one nested contact and never accept ownership or position from the client.
+- `students.view` owns the institution-wide directory/profile; `students.manage` owns create/edit and includes view.
+- The directory shows recent students by default, searches DNI/names, ranks an exact DNI first, and paginates on the server without loading contacts.
+- One canonical profile owns current identity, enrollment history, and contacts. Its tabs expose only implemented workflows.
+- Photo and Drive attachments remain deferred until file ownership is designed. Use initials now; do not add a photo column or uploader.
+- Student access uses DNI for compatibility. Passwords remain irreversible hashes. If `AuthAccount` later supports students, use an explicit student FK and a database constraint guaranteeing exactly one account owner; never manual polymorphism.
+- Do not recreate the full legacy apoderado model.
 
-- One active enrollment per student system-wide, protected by PostgreSQL.
-- Enrollment references one academic group and one or both cycle shifts.
-- Branch/group may change directly in v1; transfer history is deferred.
-- Obligations are generated during enrollment.
-- `roll_code` is a human identifier for OMR, search, and card display.
-- Card QR contains DNI for compatibility.
+## 6. Enrollment and initial obligations — closed
+
+```text
+enrollments
+  code UUID PK
+  student_code FK
+  academic_group_code FK
+  roll_code VARCHAR(4), is_active, observation, timestamps
+  UNIQUE(student_code) WHERE is_active
+  UNIQUE(roll_code) WHERE is_active
+  CHECK(roll_code is four digits)
+
+enrollment_shifts
+  enrollment_code FK, cycle_shift_code FK
+  PRIMARY KEY(enrollment_code, cycle_shift_code)
+
+payment_obligations
+  code UUID PK
+  enrollment_code FK
+  concept, amount NUMERIC(12,2), due_date, timestamps
+  CHECK(nonblank concept, amount > 0)
+```
+
+- One active enrollment per student system-wide is protected independently by PostgreSQL and the transactional write path.
+- Enrollment references one academic group and one or both shifts from the same cycle; it never repeats branch, level, grade, section, modality, or year.
+- Active assignment requires an active, non-ended cycle plus active group and shifts.
+- Creation from the student profile defaults to the current branch while allowing any authorized branch. Branch/group may change directly in v1; transfer events remain deferred.
+- Activating a new enrollment deactivates the previous active enrollment in the same transaction.
+- `roll_code` is a four-digit human identifier for active-roster OMR, search, and card display. It is generated under a PostgreSQL transaction advisory lock and is not a technical primary key.
+- One or more initial obligations are created with enrollment. Each keeps stable UUID identity across edits and stores concept, positive PEN amount, and due date.
+- Enrollment and obligation creation/update have one transactional Action. There is no enrollment delete route.
+- Cycle editing deactivates groups and shifts already referenced by enrollment history instead of deleting them; unreferenced removed structure is physically removed.
+- `enrollments.view` exposes history and obligation summaries on the student profile; `enrollments.manage` owns create/edit and includes view.
+- The profile uses Matrículas and Contactos tabs; enrollment has a dedicated two-tab Asignación académica / Obligaciones form.
+- Card QR remains deferred; when implemented, it contains DNI for compatibility.
+
+## 7. Confirmed future verticals
 
 ### Attendance
 
@@ -333,6 +384,7 @@ obligation ≠ payment ≠ payment application ≠ cash movement
 ```
 
 - Each obligation has a concept, amount, and due date.
+- Carrión monetary amounts are Peruvian soles (`PEN`).
 - Partial payments exist; one payment may apply to multiple obligations and one obligation may receive multiple payments through applications.
 - Cashier owns the cash line, not the branch; ownership does not change when the cashier works in another branch, while the movement may retain the operation branch as context.
 - Multiple cashiers may work simultaneously.
@@ -349,16 +401,18 @@ obligation ≠ payment ≠ payment application ≠ cash movement
 - Manual final-score correction records actor and timestamp.
 - Do not rewrite the OMR engine during initial integration.
 
-## 6. Migration
+## 8. Migration
 
 - Imports are repeatable and idempotent.
 - Legacy semantic identifiers map to UUIDs in a technical migration map, not scattered `legacy_id` columns.
 - Never reinterpret legacy data silently.
+- Student import maps legacy `person + student` into one student row and all representable minimal contacts. Unsupported legacy family fields are reported, never silently reinterpreted.
+- Legacy student ubigeo, district, gender, email, and images are not imported into the v8 student profile; photo migration waits for confirmed file ownership.
 - Confirmed cutover scope includes branches, employees/accounts, students, cycles, degrees, groups, enrollments, obligations/payments, cash movements, attentions, and evaluations/results that can be associated reliably.
 - Rehearse the complete migration and reconcile counts/totals before cutover.
 - Staff will not operate v7/v8 in parallel; v7 remains technically recoverable during the cutover window.
 
-## 7. UI contract
+## 9. UI contract
 
 - Spanish, calm administration UI.
 - One dashboard shell, navigation source, notification owner, and frontend `can()` helper.
@@ -367,7 +421,7 @@ obligation ≠ payment ≠ payment application ≠ cash movement
 - Add filters, tabs, wizards, bulk actions, or dashboards only for a demonstrated workflow.
 - Never create empty future UI.
 
-## 8. Quality boundaries
+## 10. Quality boundaries
 
 Prefer Feature tests for critical flows and Unit tests only for isolated rules that merit them. Cover authorization, transactions, active/inactive access, branch isolation, database invariants, rollback, permission scope/grants, and academic date/shift/degree/group rules. Do not test framework behavior.
 

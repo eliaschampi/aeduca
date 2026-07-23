@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Support\Academic\AcademicLevel;
 use App\Support\Academic\CycleModality;
 use App\Support\Branches\BranchContext;
+use App\Support\Business\BusinessCalendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +21,6 @@ use Inertia\Response;
 
 class CycleController extends Controller
 {
-    private const string BUSINESS_TIMEZONE = 'America/Lima';
-
     public function index(Request $request, BranchContext $context): Response|RedirectResponse
     {
         $branch = $this->currentBranch($request, $context);
@@ -30,7 +29,7 @@ class CycleController extends Controller
             return redirect()->route('branches.index');
         }
 
-        $today = CarbonImmutable::now(self::BUSINESS_TIMEZONE)->startOfDay();
+        $today = BusinessCalendar::today();
         $cycles = $branch->cycles()
             ->withCount(['degrees', 'groups'])
             ->orderByDesc('start_date')
@@ -161,8 +160,8 @@ class CycleController extends Controller
      */
     private function timeline(AcademicCycle $cycle, CarbonImmutable $today): array
     {
-        $start = CarbonImmutable::parse($cycle->start_date->toDateString(), self::BUSINESS_TIMEZONE);
-        $end = CarbonImmutable::parse($cycle->end_date->toDateString(), self::BUSINESS_TIMEZONE);
+        $start = BusinessCalendar::parseDate($cycle->start_date->toDateString());
+        $end = BusinessCalendar::parseDate($cycle->end_date->toDateString());
         $totalDays = max((int) $start->diffInDays($end), 1);
 
         if ($today->lessThanOrEqualTo($start)) {

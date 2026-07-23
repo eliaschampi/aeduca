@@ -23,6 +23,10 @@ final class PermissionSeeder extends Seeder
         'employees.manage' => 'Crear, editar y activar usuarios del personal.',
         'roles.view' => 'Ver los roles y el alcance de permisos.',
         'roles.manage' => 'Crear y editar roles y su alcance de permisos.',
+        'students.view' => 'Ver el directorio y las fichas de estudiantes.',
+        'students.manage' => 'Crear y editar estudiantes y sus contactos.',
+        'enrollments.view' => 'Ver las matrículas y obligaciones de estudiantes.',
+        'enrollments.manage' => 'Crear y editar matrículas y sus obligaciones.',
     ];
 
     public function run(): void

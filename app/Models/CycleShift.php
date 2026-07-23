@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * Entry-time and tolerance configuration enabled by a cycle.
@@ -24,6 +25,16 @@ class CycleShift extends Model
     public function cycle(): BelongsTo
     {
         return $this->belongsTo(AcademicCycle::class, 'cycle_code', 'code');
+    }
+
+    public function enrollments(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Enrollment::class,
+            'enrollment_shifts',
+            'cycle_shift_code',
+            'enrollment_code',
+        );
     }
 
     protected function casts(): array

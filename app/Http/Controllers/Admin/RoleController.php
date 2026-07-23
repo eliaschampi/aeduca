@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RoleRequest;
 use App\Models\EmployeeRole;
 use App\Models\Permission;
+use App\Support\Authorization\PermissionDependency;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -37,7 +38,7 @@ class RoleController extends Controller
     {
         return Inertia::render('Admin/Roles/Form', [
             'role' => null,
-            'permission_groups' => $this->permissionGroups(),
+            ...$this->permissionData(),
             'can_manage' => true,
         ]);
     }
@@ -71,7 +72,7 @@ class RoleController extends Controller
                 'is_active' => $role->is_active,
                 'permission_codes' => $role->permissionScopes->pluck('code')->all(),
             ],
-            'permission_groups' => $this->permissionGroups(),
+            ...$this->permissionData(),
             'can_manage' => Gate::check('roles.manage'),
         ]);
     }
@@ -94,9 +95,12 @@ class RoleController extends Controller
     }
 
     /**
-     * @return list<array{group: string, permissions: list<array{code: string, name: string, description: ?string}>}>
+     * @return array{
+     *   permission_groups: list<array{group: string, permissions: list<array{code: string, name: string, description: ?string}>}>,
+     *   permission_dependencies: array<string, list<string>>
+     * }
      */
-    private function permissionGroups(): array
+    private function permissionData(): array
     {
         $permissions = Permission::query()
             ->orderBy('name')
@@ -115,12 +119,17 @@ class RoleController extends Controller
 
         ksort($groups);
 
-        return collect($groups)
-            ->map(fn (array $items, string $group): array => [
-                'group' => $group,
-                'permissions' => $items,
-            ])
-            ->values()
-            ->all();
+        return [
+            'permission_groups' => collect($groups)
+                ->map(fn (array $items, string $group): array => [
+                    'group' => $group,
+                    'permissions' => $items,
+                ])
+                ->values()
+                ->all(),
+            'permission_dependencies' => PermissionDependency::dependencyMap(
+                $permissions->pluck('name')->all(),
+            ),
+        ];
     }
 }
