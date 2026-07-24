@@ -211,7 +211,7 @@ class CycleManagementTest extends TestCase
             ->assertSessionHasErrors('end_date');
     }
 
-    public function test_invalid_grade_for_level_is_rejected(): void
+    public function test_cycle_name_does_not_restrict_sixth_grade(): void
     {
         $account = $this->createEmployeeAccount();
         $branch = $account->user->branches->sole();
@@ -220,8 +220,24 @@ class CycleManagementTest extends TestCase
         $this->actingAs($account)
             ->withSession(['current_branch_code' => $branch->code])
             ->post(route('admin.cycles.store'), $this->validPayload([
-                'level' => 'secondary',
+                'name' => 'Secundaria',
                 'degrees' => [['number' => 6, 'groups' => [['name' => 'A']]]],
+            ]))
+            ->assertRedirect(route('admin.cycles.index'));
+
+        $this->assertDatabaseHas('cycle_degrees', ['number' => 6]);
+    }
+
+    public function test_grade_above_supported_range_is_rejected(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['cycles.manage']);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->post(route('admin.cycles.store'), $this->validPayload([
+                'degrees' => [['number' => 7, 'groups' => [['name' => 'A']]]],
             ]))
             ->assertSessionHasErrors('degrees.0.number');
     }
@@ -320,7 +336,7 @@ class CycleManagementTest extends TestCase
         $branch = $account->user->branches->sole();
         $this->grantPermissions($account, ['cycles.manage']);
 
-        $cycle = AcademicCycle::factory()->create(['branch_code' => $branch->code, 'level' => 'primary']);
+        $cycle = AcademicCycle::factory()->create(['branch_code' => $branch->code]);
         $degree = CycleDegree::factory()->create(['cycle_code' => $cycle->code, 'number' => 1]);
         $degree->groups()->create(['name' => 'A', 'sort_order' => 0, 'is_active' => true]);
         CycleShift::factory()->create(['cycle_code' => $cycle->code]);
@@ -352,7 +368,6 @@ class CycleManagementTest extends TestCase
                 $foreignCycle,
                 [
                     'name' => $payload['name'],
-                    'level' => $payload['level'],
                     'modality' => $payload['modality'],
                     'start_date' => $payload['start_date'],
                     'end_date' => $payload['end_date'],
@@ -388,7 +403,6 @@ class CycleManagementTest extends TestCase
     {
         return array_merge([
             'name' => 'Ciclo Verano 2026',
-            'level' => 'primary',
             'modality' => 'verano',
             'start_date' => '2026-01-15',
             'end_date' => '2026-03-15',

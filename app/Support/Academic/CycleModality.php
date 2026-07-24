@@ -3,7 +3,7 @@
 namespace App\Support\Academic;
 
 /**
- * Cycle modality domain. Program type — distinct from academic level.
+ * Cycle modality domain. Program type — distinct from cycle identity and degrees.
  * Values confirmed from Carrión operation and Coedula evidence.
  */
 enum CycleModality: string

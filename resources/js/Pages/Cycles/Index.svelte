@@ -14,7 +14,6 @@
     interface CycleSummary {
         code: string;
         name: string;
-        level_label: string;
         modality_label: string;
         start_date: string;
         end_date: string;
@@ -125,7 +124,6 @@
                             </div>
 
                             <div class="lumi-flex lumi-flex--wrap lumi-flex--gap-xs">
-                                <Chip color="primary" size="sm">{cycle.level_label}</Chip>
                                 <Chip color="info" size="sm">{cycle.modality_label}</Chip>
                             </div>
 

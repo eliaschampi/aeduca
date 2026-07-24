@@ -21,7 +21,7 @@ use InvalidArgumentException;
 final class SaveCycle
 {
     /**
-     * @param  array{name: string, level: string, modality: string, start_date: string, end_date: string, is_active: bool}  $attributes
+     * @param  array{name: string, modality: string, start_date: string, end_date: string, is_active: bool}  $attributes
      * @param  list<array{code?: string|null, name: string, entry_time: string, tolerance_minutes: int}>  $shifts
      * @param  list<array{number: int, groups: list<array{code?: string|null, name: string}>}>  $degrees
      */

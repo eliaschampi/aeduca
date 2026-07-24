@@ -2,9 +2,11 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Verified working tree:** July 21, 2026.
+**Implementation inventory reviewed:** July 23, 2026.
 
-## 1. Completed verticals
+**Last full automated verification:** July 23, 2026.
+
+## 1. Completed implementation
 
 | Vertical           | Implemented                                                                                                    |
 | ------------------ | -------------------------------------------------------------------------------------------------------------- |
@@ -13,7 +15,7 @@
 | Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                      |
 | Roles              | Role CRUD and assignable permission scope                                                                      |
 | Authorization      | Direct grants intersected with role scope, superadministrator, manage→view dependency                          |
-| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, transactional save                                 |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                             |
 | Quality            | Pint, PHPUnit, strict TypeScript, Oxlint, Prettier, production build                                           |
 
 ## 2. Access implementation
@@ -35,21 +37,23 @@ superadministrator = all known permissions
 session current_branch_code → validated active membership
 ```
 
+- `AuthAccount` currently authenticates employees through a required unique `user_code`.
+- `User` owns the employee profile; teachers currently use this employee identity model.
 - Employee administration exclusively writes `user_branches`.
 - Branch administration writes branch attributes only.
 - Authorization is semantic and enforced before form handling.
 - Shared Inertia auth exposes effective permission names; the frontend has one presentation-only `can()`.
-- `AuthAccount` is Laravel's authenticated actor; `User` remains the employee profile.
 - Login normalizes the identifier, throttles by identifier plus IP, checks account/employee/role activity with a non-enumerating failure, rehashes when needed, and records `last_login_at`.
 - Zero active branches blocks login; one is selected automatically; multiple branches use the authenticated shell selector.
 - Authenticated requests revalidate identity and branch state; logout invalidates the session and regenerates the CSRF token.
 - `BranchContext` memoizes authorized branches only inside the current request; no persistent branch or permission cache exists.
+- Student accounts, student login, and student self-service are not implemented.
 
 ## 3. Academic implementation
 
 ```text
 academic_cycles
-  branch_code FK, name, level, modality, start_date, end_date, is_active
+  branch_code FK, name, modality, start_date, end_date, is_active
 
 cycle_degrees
   cycle_code FK, number 1–6, UNIQUE(cycle_code, number)
@@ -64,17 +68,19 @@ cycle_shifts
 
 - `AcademicCycle` owns degrees → groups and shifts.
 - `SaveCycle` writes the aggregate transactionally and rejects a cycle from another branch.
-- `AcademicLevel`: primary 1–6, secondary 1–5.
-- `CycleModality`: regular, verano, intensivo, reforzamiento, virtual.
-- Permissions: `cycles.view` / `cycles.manage`, scoped through `BranchContext`.
+- `DegreeNumber` owns the supported 1–6 range and its presentation labels.
+- Current `CycleModality`: regular, verano, intensivo, reforzamiento, virtual.
+- Permissions are `cycles.view` / `cycles.manage`, scoped through `BranchContext`.
+- Cycle identity comes only from `name`; offered degrees are explicit and independent of name and modality.
+- The base migration, payloads, validation, tests, and UI contain no duplicate cycle `level` field.
 
-### Cycle queries and UI
+### Queries and UI
 
-- Index: one branch-scoped query with degree/group counts; no nested eager loading.
-- Each card shows identity, state, level, modality, dates, counts, and derived timeline progress.
-- Timeline status/percentage/label is computed in Laravel from loaded dates using `America/Lima`; it adds no database query and is not persisted.
-- Detail: one cycle with ordered degrees/groups/shifts.
-- One Lumi-tab form: General, Turnos, Grados y secciones.
+- Index uses one branch-scoped query with degree/group counts and no nested eager loading.
+- Each card shows identity, state, modality, dates, counts, and derived timeline progress.
+- Timeline status/percentage/label is computed in Laravel from loaded dates using `America/Lima`; it adds no query and is not persisted.
+- Detail loads one cycle with ordered degrees/groups/shifts.
+- One Lumi-tab form owns General, Turnos, and Grados y secciones.
 - Form state survives tab changes; validation reveals and marks affected tabs.
 - Viewers get a read-only aggregate; create/edit/add/remove/save require `cycles.manage`.
 
@@ -88,32 +94,38 @@ cycle_shifts
 - Role scope editor represents assignable permissions, not grants.
 - No physical employee deletion or empty future tabs.
 
-## 5. Not implemented
+## 5. Not implemented in `main`
 
-- students and contacts;
-- enrollment and obligations;
-- attendance;
-- finance/cashbox;
-- evaluations/OMR;
+- student identity, photo, state, contacts, account, login, directory, global search, or profile;
+- enrollment, academic roster, cycle/degree/group filters, history, card, or QR;
+- payments, cashbox, or payment reporting;
+- student or employee attendance;
+- evaluations, OMR, or score reports;
 - attentions;
-- student portal.
+- student portal or shared-file access.
 
-## 6. Next vertical
+No `students.*`, `enrollments.*`, or `payments.*` permissions exist in the current catalog.
 
-**Students and minimal contacts**, then enrollment.
+## 6. Next implementation: student registry and access
 
-Enrollment completion requires:
+The next product task must define an observable result containing:
 
-- one active enrollment per student system-wide;
-- one `academic_group_code`;
-- one or both shifts through `enrollment_shifts`;
-- obligations generated in the enrollment transaction;
-- no reconstructed meaning from codes or repeated group strings.
+- student identity with DNI, photo, and active/inactive state;
+- extension of the existing `AuthAccount` owner for student credentials;
+- shared login with student self authorization;
+- institution-wide `/students/search` directory and profile entry;
+- profile hub with access state and bounded domain summaries;
+- `students.view` / `students.manage` without per-button permissions.
 
-## 7. Verification
+Enrollment then owns the branch-aware `/students` academic roster, its cycle/degree/group filters, history, and Payments. It must not be declared complete without those list/filter/profile flows.
 
+## 7. Verification record
+
+Current implementation verification:
+
+- `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including 96 PHPUnit tests / 418 assertions, strict TypeScript, Oxlint, and Prettier.
+- `composer run check`: passed, including 98 PHPUnit tests / 422 assertions, strict TypeScript, Oxlint, and Prettier.
 - `pnpm run build`: passed production build.
 
-Never run `migrate:fresh` against `aeduca`; use `--env=testing` only when schema or seeds change.
+The local `aeduca` database was not migrated or seeded.

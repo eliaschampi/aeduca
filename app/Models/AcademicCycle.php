@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Support\Academic\AcademicLevel;
 use App\Support\Academic\CycleModality;
 use Database\Factories\AcademicCycleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -17,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 /**
  * Aggregate owner of cycle degrees (→ academic groups) and cycle shifts.
  */
-#[Fillable(['branch_code', 'name', 'level', 'modality', 'start_date', 'end_date', 'is_active'])]
+#[Fillable(['branch_code', 'name', 'modality', 'start_date', 'end_date', 'is_active'])]
 class AcademicCycle extends Model
 {
     /** @use HasFactory<AcademicCycleFactory> */
@@ -60,7 +59,6 @@ class AcademicCycle extends Model
     protected function casts(): array
     {
         return [
-            'level' => AcademicLevel::class,
             'modality' => CycleModality::class,
             'start_date' => 'date',
             'end_date' => 'date',

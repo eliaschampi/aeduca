@@ -20,7 +20,6 @@ return new class extends Migration
             $table->uuid('code')->primary();
             $table->uuid('branch_code');
             $table->string('name', 120);
-            $table->string('level', 20);
             $table->string('modality', 30);
             $table->date('start_date');
             $table->date('end_date');
@@ -40,8 +39,6 @@ return new class extends Migration
             CHECK (btrim(name) <> ''),
             ADD CONSTRAINT academic_cycles_dates_order_check
             CHECK (end_date >= start_date),
-            ADD CONSTRAINT academic_cycles_level_check
-            CHECK (level IN ('primary', 'secondary')),
             ADD CONSTRAINT academic_cycles_modality_check
             CHECK (modality IN ('regular', 'verano', 'intensivo', 'reforzamiento', 'virtual'))
             SQL);

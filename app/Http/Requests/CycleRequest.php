@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Support\Academic\AcademicLevel;
 use App\Support\Academic\CycleModality;
+use App\Support\Academic\DegreeNumber;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,7 +23,6 @@ class CycleRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:120'],
-            'level' => ['required', 'string', Rule::enum(AcademicLevel::class)],
             'modality' => ['required', 'string', Rule::enum(CycleModality::class)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
@@ -36,7 +35,12 @@ class CycleRequest extends FormRequest
             'shifts.*.tolerance_minutes' => ['required', 'integer', 'min:0', 'max:600'],
 
             'degrees' => ['required', 'array', 'min:1'],
-            'degrees.*.number' => ['required', 'integer', 'min:1', 'max:6'],
+            'degrees.*.number' => [
+                'required',
+                'integer',
+                'min:'.DegreeNumber::MIN,
+                'max:'.DegreeNumber::MAX,
+            ],
             'degrees.*.groups' => ['present', 'array'],
             'degrees.*.groups.*.code' => ['nullable', 'string'],
             'degrees.*.groups.*.name' => ['required', 'string', 'max:60'],
@@ -44,31 +48,17 @@ class CycleRequest extends FormRequest
     }
 
     /**
-     * Cross-field invariants: grade validity per level, duplicate grades,
-     * and case-insensitive duplicate group names within one degree.
+     * Cross-field invariants: duplicate grades and case-insensitive duplicate
+     * group names within one degree.
      */
     public function after(): array
     {
         return [
             function (Validator $validator): void {
-                $level = AcademicLevel::tryFrom((string) $this->input('level'));
-
-                if ($level === null) {
-                    return;
-                }
-
-                $validNumbers = $level->gradeNumbers();
                 $seenNumbers = [];
 
                 foreach ((array) $this->input('degrees', []) as $index => $degree) {
                     $number = (int) ($degree['number'] ?? 0);
-
-                    if ($number !== 0 && ! in_array($number, $validNumbers, true)) {
-                        $validator->errors()->add(
-                            "degrees.{$index}.number",
-                            "El grado {$number} no es válido para {$level->label()}.",
-                        );
-                    }
 
                     if (in_array($number, $seenNumbers, true)) {
                         $validator->errors()->add("degrees.{$index}.number", 'El grado está repetido en el ciclo.');
@@ -107,7 +97,6 @@ class CycleRequest extends FormRequest
         return [
             'name.required' => 'El nombre del ciclo es obligatorio.',
             'name.max' => 'El nombre no puede superar los 120 caracteres.',
-            'level.required' => 'Selecciona el nivel del ciclo.',
             'modality.required' => 'Selecciona la modalidad del ciclo.',
             'start_date.required' => 'La fecha de inicio es obligatoria.',
             'end_date.required' => 'La fecha de fin es obligatoria.',

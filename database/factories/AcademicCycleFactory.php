@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\AcademicCycle;
 use App\Models\Branch;
-use App\Support\Academic\AcademicLevel;
 use App\Support\Academic\CycleModality;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,7 +19,6 @@ class AcademicCycleFactory extends Factory
         return [
             'branch_code' => Branch::factory(),
             'name' => fake()->unique()->sentence(3),
-            'level' => fake()->randomElement(AcademicLevel::cases()),
             'modality' => fake()->randomElement(CycleModality::cases()),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => fake()->dateTimeBetween($start, '2026-12-31')->format('Y-m-d'),

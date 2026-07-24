@@ -6,11 +6,17 @@ use App\Models\AuthAccount;
 use App\Models\Permission;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DatabaseIntegrityTest extends TestCase
 {
+    public function test_academic_cycle_does_not_duplicate_operational_identity_as_level(): void
+    {
+        $this->assertFalse(Schema::hasColumn('academic_cycles', 'level'));
+    }
+
     public function test_login_must_be_unique(): void
     {
         $account = $this->createEmployeeAccount();

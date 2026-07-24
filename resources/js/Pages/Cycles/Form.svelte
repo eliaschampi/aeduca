@@ -28,6 +28,11 @@
         groups: GroupEntry[];
     }
 
+    interface DegreeOption {
+        number: number;
+        label: string;
+    }
+
     interface ShiftEntry {
         code: string | null;
         name: string;
@@ -38,7 +43,6 @@
     interface CyclePayload {
         code: string;
         name: string;
-        level: string;
         modality: string;
         start_date: string;
         end_date: string;
@@ -49,19 +53,12 @@
 
     interface Props {
         cycle?: CyclePayload | null;
-        level_options: SelectOption[];
         modality_options: SelectOption[];
-        grade_numbers: Record<string, number[]>;
+        degree_options: DegreeOption[];
         can_manage?: boolean;
     }
 
-    const {
-        cycle = null,
-        level_options,
-        modality_options,
-        grade_numbers,
-        can_manage = false,
-    }: Props = $props();
+    const { cycle = null, modality_options, degree_options, can_manage = false }: Props = $props();
 
     const isCreate = $derived(cycle === null);
     const canEdit = $derived(can_manage);
@@ -69,7 +66,6 @@
     function seedForm() {
         return {
             name: cycle?.name ?? '',
-            level: cycle?.level ?? 'primary',
             modality: cycle?.modality ?? 'regular',
             start_date: cycle?.start_date ?? '',
             end_date: cycle?.end_date ?? '',
@@ -91,7 +87,6 @@
     let errors = $state<Record<string, string>>({});
     let activeTab = $state<CycleTab>('general');
 
-    const availableGrades = $derived(grade_numbers[form.level] ?? []);
     const selectedNumbers = $derived(new Set(form.degrees.map((degree) => degree.number)));
     const sortedDegrees = $derived([...form.degrees].sort((a, b) => a.number - b.number));
     const tabs = $derived([
@@ -121,7 +116,7 @@
             return keys.some((key) => key === 'degrees' || key.startsWith('degrees.'));
 
         return keys.some((key) =>
-            ['name', 'level', 'modality', 'start_date', 'end_date', 'is_active'].includes(key),
+            ['name', 'modality', 'start_date', 'end_date', 'is_active'].includes(key),
         );
     }
 
@@ -134,7 +129,7 @@
     }
 
     function gradeLabel(number: number): string {
-        return `${number}°`;
+        return degree_options.find((option) => option.number === number)?.label ?? String(number);
     }
 
     function toggleGrade(number: number): void {
@@ -145,14 +140,6 @@
         } else {
             form.degrees = [...form.degrees, { number, groups: [{ code: null, name: '' }] }];
         }
-    }
-
-    function onLevelChange(value: string | number | Record<string, unknown> | null): void {
-        if (!canEdit) return;
-
-        form.level = typeof value === 'string' ? value : 'primary';
-        const valid = new Set(grade_numbers[form.level] ?? []);
-        form.degrees = form.degrees.filter((degree) => valid.has(degree.number));
     }
 
     function addShift(): void {
@@ -183,7 +170,6 @@
 
         const payload = {
             name: form.name,
-            level: form.level,
             modality: form.modality,
             start_date: form.start_date,
             end_date: form.end_date,
@@ -279,7 +265,7 @@
             {#if activeTab === 'general'}
                 <Card
                     title="Información general"
-                    subtitle="Identidad, modalidad, nivel, estado y vigencia del ciclo."
+                    subtitle="Identidad, modalidad, estado y vigencia del ciclo."
                     spaced
                 >
                     <div class="lumi-stack lumi-stack--md">
@@ -305,25 +291,6 @@
                         </div>
 
                         <div class="lumi-grid lumi-grid--responsive lumi-grid--gap-md">
-                            <Select
-                                label="Nivel"
-                                bind:value={form.level}
-                                options={level_options}
-                                disabled={!canEdit}
-                                onchange={(value) => onLevelChange(value)}
-                                error={!!errors.level}
-                                errorMessage={errors.level}
-                            />
-                            <div class="lumi-flex lumi-align-items--center">
-                                <Switch
-                                    bind:checked={form.is_active}
-                                    label="Ciclo activo"
-                                    disabled={!canEdit}
-                                />
-                            </div>
-                        </div>
-
-                        <div class="lumi-grid lumi-grid--responsive lumi-grid--gap-md">
                             <Input
                                 label="Fecha de inicio"
                                 type="date"
@@ -343,6 +310,12 @@
                                 dangerText={errors.end_date}
                             />
                         </div>
+
+                        <Switch
+                            bind:checked={form.is_active}
+                            label="Ciclo activo"
+                            disabled={!canEdit}
+                        />
                     </div>
                 </Card>
             {:else if activeTab === 'shifts'}
@@ -438,12 +411,12 @@
                         <Fieldset legend="Grados ofrecidos">
                             <div class="lumi-stack lumi-stack--sm">
                                 <div class="lumi-grid lumi-grid--columns-3 lumi-grid--gap-sm">
-                                    {#each availableGrades as number (number)}
+                                    {#each degree_options as option (option.number)}
                                         <TagOption
-                                            label={gradeLabel(number)}
-                                            active={selectedNumbers.has(number)}
+                                            label={option.label}
+                                            active={selectedNumbers.has(option.number)}
                                             disabled={!canEdit}
-                                            onclick={() => toggleGrade(number)}
+                                            onclick={() => toggleGrade(option.number)}
                                         />
                                     {/each}
                                 </div>

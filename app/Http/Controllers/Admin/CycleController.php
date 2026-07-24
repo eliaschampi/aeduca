@@ -8,8 +8,8 @@ use App\Http\Requests\CycleRequest;
 use App\Models\AcademicCycle;
 use App\Models\AuthAccount;
 use App\Models\Branch;
-use App\Support\Academic\AcademicLevel;
 use App\Support\Academic\CycleModality;
+use App\Support\Academic\DegreeNumber;
 use App\Support\Branches\BranchContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -34,11 +34,10 @@ class CycleController extends Controller
         $cycles = $branch->cycles()
             ->withCount(['degrees', 'groups'])
             ->orderByDesc('start_date')
-            ->get(['code', 'name', 'level', 'modality', 'start_date', 'end_date', 'is_active'])
+            ->get(['code', 'name', 'modality', 'start_date', 'end_date', 'is_active'])
             ->map(fn (AcademicCycle $cycle): array => [
                 'code' => $cycle->code,
                 'name' => $cycle->name,
-                'level_label' => $cycle->level->label(),
                 'modality_label' => $cycle->modality->label(),
                 'start_date' => $cycle->start_date->toDateString(),
                 'end_date' => $cycle->end_date->toDateString(),
@@ -63,12 +62,7 @@ class CycleController extends Controller
 
         return Inertia::render('Cycles/Form', [
             'cycle' => null,
-            'level_options' => AcademicLevel::options(),
-            'modality_options' => CycleModality::options(),
-            'grade_numbers' => collect(AcademicLevel::cases())
-                ->mapWithKeys(fn (AcademicLevel $level): array => [$level->value => $level->gradeNumbers()])
-                ->all(),
-            'can_manage' => Gate::check('cycles.manage'),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -105,7 +99,6 @@ class CycleController extends Controller
             'cycle' => [
                 'code' => $cycle->code,
                 'name' => $cycle->name,
-                'level' => $cycle->level->value,
                 'modality' => $cycle->modality->value,
                 'start_date' => $cycle->start_date->toDateString(),
                 'end_date' => $cycle->end_date->toDateString(),
@@ -124,12 +117,7 @@ class CycleController extends Controller
                     ])->all(),
                 ])->all(),
             ],
-            'level_options' => AcademicLevel::options(),
-            'modality_options' => CycleModality::options(),
-            'grade_numbers' => collect(AcademicLevel::cases())
-                ->mapWithKeys(fn (AcademicLevel $level): array => [$level->value => $level->gradeNumbers()])
-                ->all(),
-            'can_manage' => Gate::check('cycles.manage'),
+            ...$this->formOptions(),
         ]);
     }
 
@@ -200,17 +188,32 @@ class CycleController extends Controller
     }
 
     /**
-     * @return array{name: string, level: string, modality: string, start_date: string, end_date: string, is_active: bool}
+     * @return array{name: string, modality: string, start_date: string, end_date: string, is_active: bool}
      */
     private function cycleAttributes(CycleRequest $request): array
     {
         return [
             'name' => trim($request->string('name')->toString()),
-            'level' => $request->string('level')->toString(),
             'modality' => $request->string('modality')->toString(),
             'start_date' => $request->string('start_date')->toString(),
             'end_date' => $request->string('end_date')->toString(),
             'is_active' => $request->boolean('is_active'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     modality_options: list<array{value: string, label: string}>,
+     *     degree_options: list<array{number: int, label: string}>,
+     *     can_manage: bool
+     * }
+     */
+    private function formOptions(): array
+    {
+        return [
+            'modality_options' => CycleModality::options(),
+            'degree_options' => DegreeNumber::options(),
+            'can_manage' => Gate::check('cycles.manage'),
         ];
     }
 

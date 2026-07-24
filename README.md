@@ -1,8 +1,20 @@
 # Aeduca
 
-Aeduca v8 is Carrión's unified education management system: a clean rebuild informed by Aeduca Admin, Aeduca Aula, Coedula, and Nextya—not a structural copy of them.
+Aeduca v8 is Carrión's unified education platform. It improves the proven workflows of Aeduca v7, removes their structural debt, and incorporates useful ideas from Coedula and Nextya without copying their architecture.
+
+The product brings administrators, teachers, and students into one system for academic management, access, attendance, evaluations, payments, cashbox, reports, photos, and shared files.
 
 **Stack:** Laravel 13 · PHP 8.5 · Inertia · Svelte 5 · TypeScript strict · Lumi UI · PostgreSQL · pnpm
+
+## Direction
+
+- Aeduca v7 and Aeduca Admin provide the operational baseline that must not be lost.
+- Coedula provides modern product, PostgreSQL, attendance, payments, Drive, and portal lessons.
+- Nextya is used for OMR and specialized evaluation behavior.
+- The current v8 architecture is the implementation baseline. Extend its owners and patterns before creating another layer.
+- A small delivery is successful only when it completes a usable result; technical minimalism must not reduce a real workflow to isolated CRUD.
+
+The permanent product and domain contract is in [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Documentation
 
@@ -13,36 +25,24 @@ Read in order:
 | `AGENTS.md`        | Mandatory execution protocol                                |
 | `docs/SPEC.md`     | Permanent product, domain, data, and architecture decisions |
 | `docs/STATUS.md`   | Verified implementation state and next vertical             |
-| `TASK.md`          | Single temporary active scope, when present                 |
+| `TASK.md`          | Single temporary active result, when present                |
 | `../lumi-ui/docs/` | Lumi public UI contracts                                    |
 
-After a vertical: merge durable rules into `SPEC.md`, replace current facts in `STATUS.md`, and remove or replace `TASK.md`. Do not create competing roadmap or specification files. Consolidation may relocate or merge confirmed context; it must not silently delete it.
+[`analisis.md`](analisis.md) preserves investigation evidence requested by the project owner. It is not an active specification; confirmed decisions must live in `docs/SPEC.md`.
 
-## Product sequence
-
-```text
-Access and administration
-→ Academic structure
-→ Students and minimal contacts
-→ Enrollment and payment obligations
-→ Attendance
-→ Evaluations and OMR
-→ Cashbox and attentions
-→ Lean student portal
-```
+After a vertical, merge durable rules into `SPEC.md`, replace current facts in `STATUS.md`, and remove or replace `TASK.md`. Do not create competing roadmap or specification files.
 
 ## Engineering baseline
 
-- Inspect v8, Aeduca Admin, and Coedula before designing a capability.
+- Reuse the existing `AuthAccount`, employee access, permissions, `BranchContext`, Laravel/Inertia, and Lumi patterns.
 - Give every responsibility and write path one explicit owner.
-- Implement the smallest coherent vertical; do not prepare speculative layers.
 - Laravel owns domain rules, authorization, validation, and transactions.
 - Svelte owns interaction and presentation; Lumi remains domain-neutral.
 - PostgreSQL protects structural truth with FK, UNIQUE, and CHECK constraints.
 - Main keys are UUID `code`; foreign keys are `<entity>_code`; neither embeds business meaning.
-- Never authorize by role name or role code.
+- Add permissions for stable business capabilities, not for every field or button.
 - Prevent N+1 queries and oversized Inertia payloads; cache only after measurement.
-- Preserve proven legacy behavior for migration without copying legacy structure.
+- Preserve useful legacy behavior while replacing legacy identifiers and coupling.
 
 Full rules: [`AGENTS.md`](AGENTS.md) and [`docs/SPEC.md`](docs/SPEC.md).
 
@@ -97,13 +97,13 @@ Credentials belong only in `.env` or `.env.testing`.
 | `pnpm run build`      | Production frontend build                                    |
 | `pnpm run check`      | TypeScript, lint, and formatting verification                |
 
-After schema or seed changes:
+During feature development, schema verification belongs in `aeduca_test`:
 
 ```bash
 php artisan migrate:fresh --seed --env=testing
 ```
 
-Never run `migrate:fresh` against `aeduca`.
+Never run `migrate:fresh` against `aeduca`. Do not apply feature migrations or seeds to `aeduca` merely to validate an unfinished direction; use it only for an accepted integrated review or when the project owner explicitly requests it.
 
 ## Local URLs
 
