@@ -6,7 +6,6 @@
         Button,
         Card,
         Checkbox,
-        Chip,
         InfoItem,
         PageHeader,
         Select,
@@ -193,9 +192,9 @@
                                 Selecciona una sección para ver sus turnos.
                             </span>
                         {:else if availableShifts.length === 0}
-                            <Alert color="warning"
-                                >El ciclo seleccionado no tiene turnos activos.</Alert
-                            >
+                            <Alert color="warning">
+                                El ciclo seleccionado no tiene turnos activos.
+                            </Alert>
                         {:else}
                             {#each availableShifts as shift (shift.code)}
                                 <Checkbox

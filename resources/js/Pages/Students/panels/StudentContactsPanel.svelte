@@ -168,6 +168,7 @@
             bind:value={form.name}
             label="Nombre"
             maxlength={150}
+            placeholder="Nombre completo"
             required
             disabled={processing}
             danger={!!errors.name}
@@ -176,6 +177,7 @@
         <Input
             bind:value={form.phone}
             label="Teléfono"
+            placeholder="Ej. 987654321"
             maxlength={30}
             disabled={processing}
             danger={!!errors.phone}
@@ -184,6 +186,7 @@
         <Textarea
             bind:value={form.note}
             label="Nota"
+            placeholder="Mamá del estudiante, llamar solo por las tardes"
             maxlength={250}
             rows={3}
             showCount

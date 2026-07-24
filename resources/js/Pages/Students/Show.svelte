@@ -235,17 +235,11 @@
                     <UserInfo
                         name={student.first_name}
                         lastName={student.last_name}
-                        description={`DNI ${student.dni}`}
+                        description={`Estado: ${student.is_active ? 'Alumno activo' : 'Alumno inactivo'}`}
                         photoUrl={student.photo_url ?? undefined}
                         avatarSize="xl"
                         avatarColor="primary"
                     />
-
-                    <div class="lumi-flex lumi-flex--wrap lumi-flex--gap-xs">
-                        <Chip color={student.is_active ? 'success' : 'secondary'} size="sm">
-                            {student.is_active ? 'Alumno activo' : 'Alumno inactivo'}
-                        </Chip>
-                    </div>
 
                     {#if can_manage}
                         <Button

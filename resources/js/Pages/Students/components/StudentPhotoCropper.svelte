@@ -218,7 +218,7 @@
     onDestroy(releaseImage);
 </script>
 
-<Dialog bind:open title="Cambiar foto" size="sm" persistent={processing} onclose={reset}>
+<Dialog bind:open title="Cambiar foto" persistent={processing} onclose={reset}>
     <div class="lumi-stack lumi-stack--sm">
         <input
             bind:this={fileInput}
@@ -271,7 +271,12 @@
                 description="Usa una imagen nítida; podrás ajustar el encuadre antes de guardarla."
             >
                 {#snippet actions()}
-                    <Button type="button" icon="upload" onclick={() => fileInput?.click()}>
+                    <Button
+                        type="button"
+                        variant="gradient"
+                        icon="upload"
+                        onclick={() => fileInput?.click()}
+                    >
                         Elegir imagen
                     </Button>
                 {/snippet}
@@ -292,7 +297,13 @@
                     Elegir otra
                 </Button>
             {/if}
-            <Button type="button" variant="border" disabled={processing} onclick={closeEditor}>
+            <Button
+                type="button"
+                variant="border"
+                color="warning"
+                disabled={processing}
+                onclick={closeEditor}
+            >
                 Cancelar
             </Button>
             <Button
@@ -302,7 +313,7 @@
                 disabled={!sourceImage}
                 onclick={upload}
             >
-                Guardar foto
+                Guardar
             </Button>
         </div>
     {/snippet}

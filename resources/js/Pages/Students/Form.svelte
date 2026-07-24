@@ -135,7 +135,7 @@
                         <Input
                             bind:value={form.first_name}
                             label="Nombres"
-                            placeholder="Ej. Valeria Lucía"
+                            placeholder="Ej. Mariela"
                             maxlength={100}
                             required
                             disabled={processing}
@@ -145,7 +145,7 @@
                         <Input
                             bind:value={form.last_name}
                             label="Apellidos"
-                            placeholder="Ej. Ramos Quispe"
+                            placeholder="Ej. Flores Quispe"
                             maxlength={100}
                             required
                             disabled={processing}
@@ -160,7 +160,7 @@
                         <Input
                             bind:value={form.phone}
                             label="Teléfono"
-                            placeholder="Ej. 987 654 321"
+                            placeholder="Ej. 987654321"
                             maxlength={30}
                             disabled={processing}
                             danger={Boolean(errors.phone)}
@@ -169,7 +169,7 @@
                         <Input
                             bind:value={form.address}
                             label="Dirección"
-                            placeholder="Ej. Av. Principal 123, Lima"
+                            placeholder="Ej. Av. Principal 123, Cusco"
                             maxlength={250}
                             disabled={processing}
                             danger={Boolean(errors.address)}

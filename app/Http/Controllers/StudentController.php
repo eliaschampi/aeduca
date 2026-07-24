@@ -84,7 +84,7 @@ class StudentController extends Controller
             $this->attributes($request),
         );
 
-        Inertia::flash('success', 'Alumno registrado');
+        Inertia::flash('success', 'Estudiante registrado');
 
         return to_route('students.show', $student);
     }

@@ -93,7 +93,7 @@
         <div class="lumi-search-panel__copy">
             <h2 class="lumi-search-panel__title">Directorio institucional</h2>
             <p class="lumi-search-panel__subtitle">
-                Encuentra una identidad aunque todavía no tenga matrícula activa.
+                Listado de estudiantes registrados recientemente
             </p>
         </div>
         <form
@@ -109,12 +109,12 @@
                         bind:value={search}
                         name="q"
                         label="Buscar alumno"
-                        placeholder="Ej. 76543210, Valeria Ramos o 0042"
+                        placeholder="Ej. 76543210, Valeria o 0042"
                         icon="search"
                     />
                 </div>
                 <div class="lumi-inline-filters__actions">
-                    <Button type="submit" icon="search">Buscar</Button>
+                    <Button type="submit" icon="search" />
                     {#if filters.q}
                         <Button
                             type="button"
@@ -124,9 +124,7 @@
                                 search = '';
                                 visit();
                             }}
-                        >
-                            Limpiar
-                        </Button>
+                        />
                     {/if}
                 </div>
             </div>
