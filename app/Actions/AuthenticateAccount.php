@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-final class AuthenticateEmployee
+final class AuthenticateAccount
 {
     private const int MAX_ATTEMPTS = 5;
 
@@ -19,7 +19,7 @@ final class AuthenticateEmployee
 
     public function __construct(private readonly BranchContext $branchContext) {}
 
-    public function handle(Request $request, string $login, string $password): void
+    public function handle(Request $request, string $login, string $password): AuthAccount
     {
         $normalizedLogin = Str::lower(trim($login));
         $throttleKey = $this->throttleKey($normalizedLogin, $request->ip());
@@ -33,6 +33,7 @@ final class AuthenticateEmployee
         }
 
         $account = AuthAccount::query()
+            ->with(['user.employeeRole', 'student'])
             ->where('login', $normalizedLogin)
             ->first();
 
@@ -41,30 +42,29 @@ final class AuthenticateEmployee
             $account?->password ?? $this->dummyHash(),
         );
 
-        if (
-            ! $passwordIsValid
-            || ! $account?->is_active
-        ) {
+        if (! $passwordIsValid || ! $account?->is_active) {
             $this->fail($throttleKey);
         }
 
-        $account->load('user.employeeRole');
+        if ($account->user_code) {
+            if (
+                ! $account->user?->is_active
+                || ! $account->user->employeeRole?->is_active
+            ) {
+                $this->fail($throttleKey);
+            }
 
-        if (
-            ! $account->user?->is_active
-            || ! $account->user->employeeRole?->is_active
-        ) {
+            $branches = $this->branchContext->authorizedBranches($account);
+
+            if ($branches->isEmpty()) {
+                RateLimiter::clear($throttleKey);
+
+                throw ValidationException::withMessages([
+                    'login' => 'Tu cuenta no tiene una sede activa asignada. Contacta a un administrador.',
+                ]);
+            }
+        } elseif (! $account->student?->is_active) {
             $this->fail($throttleKey);
-        }
-
-        $branches = $this->branchContext->authorizedBranches($account);
-
-        if ($branches->isEmpty()) {
-            RateLimiter::clear($throttleKey);
-
-            throw ValidationException::withMessages([
-                'login' => 'Tu cuenta no tiene una sede activa asignada. Contacta a un administrador.',
-            ]);
         }
 
         $attributes = ['last_login_at' => now()];
@@ -79,11 +79,16 @@ final class AuthenticateEmployee
         $request->session()->regenerate();
         $request->session()->forget('current_branch_code');
 
-        if ($branches->count() === 1) {
-            $request->session()->put('current_branch_code', $branches->first()->code);
+        if ($account->user_code) {
+            $branches = $this->branchContext->authorizedBranches($account);
+            if ($branches->count() === 1) {
+                $request->session()->put('current_branch_code', $branches->first()->code);
+            }
         }
 
         RateLimiter::clear($throttleKey);
+
+        return $account;
     }
 
     private function fail(string $throttleKey): never
@@ -97,7 +102,7 @@ final class AuthenticateEmployee
 
     private function throttleKey(string $login, ?string $ip): string
     {
-        return 'employee-login:'.hash('sha256', $login.'|'.($ip ?? 'unknown'));
+        return 'account-login:'.hash('sha256', $login.'|'.($ip ?? 'unknown'));
     }
 
     private function dummyHash(): string

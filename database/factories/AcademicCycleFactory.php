@@ -14,14 +14,14 @@ class AcademicCycleFactory extends Factory
 {
     public function definition(): array
     {
-        $start = fake()->dateTimeBetween('2026-01-01', '2026-06-30');
+        $start = fake()->dateTimeBetween('-6 months', '-1 day');
 
         return [
             'branch_code' => Branch::factory(),
             'name' => fake()->unique()->sentence(3),
             'modality' => fake()->randomElement(CycleModality::cases()),
             'start_date' => $start->format('Y-m-d'),
-            'end_date' => fake()->dateTimeBetween($start, '2026-12-31')->format('Y-m-d'),
+            'end_date' => fake()->dateTimeBetween('+1 day', '+6 months')->format('Y-m-d'),
             'is_active' => true,
         ];
     }

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\AuthenticateEmployee;
-use App\Actions\LogoutEmployee;
+use App\Actions\AuthenticateAccount;
+use App\Actions\LogoutAccount;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,20 +19,22 @@ class AuthController extends Controller
 
     public function store(
         LoginRequest $request,
-        AuthenticateEmployee $authenticateEmployee,
+        AuthenticateAccount $authenticateAccount,
     ): RedirectResponse {
-        $authenticateEmployee->handle(
+        $account = $authenticateAccount->handle(
             $request,
             $request->string('login')->toString(),
             $request->string('password')->toString(),
         );
 
-        return to_route('branches.index');
+        return $account->student_code
+            ? to_route('students.show', $account->student_code)
+            : to_route('branches.index');
     }
 
-    public function destroy(Request $request, LogoutEmployee $logoutEmployee): RedirectResponse
+    public function destroy(Request $request, LogoutAccount $logoutAccount): RedirectResponse
     {
-        $logoutEmployee->handle($request);
+        $logoutAccount->handle($request);
 
         return to_route('login');
     }

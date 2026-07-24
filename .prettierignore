@@ -3,6 +3,7 @@
 
 # Generated, installed, or package-manager-owned files.
 /bootstrap/cache
+/.claude
 /node_modules
 /public/build
 /storage

@@ -5,6 +5,8 @@ export interface NavigationItem {
     href: string;
     icon: IconName;
     permission?: string;
+    exact?: boolean;
+    activePrefixes?: readonly string[];
 }
 
 /**
@@ -29,6 +31,21 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         href: '/admin/cycles',
         icon: 'bookOpen',
         permission: 'cycles.view',
+    },
+    {
+        label: 'Alumnos',
+        href: '/students/search',
+        icon: 'graduationCap',
+        permission: 'students.view',
+        activePrefixes: ['/students/'],
+    },
+    {
+        label: 'Matriculados',
+        href: '/students',
+        icon: 'listChecks',
+        permission: 'enrollments.view',
+        exact: true,
+        activePrefixes: ['/enrollments/'],
     },
     {
         label: 'Usuarios',

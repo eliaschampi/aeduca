@@ -1,253 +1,351 @@
-> Registro de investigación conservado por solicitud del propietario. No es una especificación activa; las decisiones confirmadas fueron consolidadas en `docs/SPEC.md`.
+# Evidencia consolidada — recorrido estudiantil
 
-## Dictamen
+> Registro de investigación solicitado por el propietario. No es una especificación activa
+> ni un roadmap. Las decisiones permanentes viven en `docs/SPEC.md`; los hechos vigentes,
+> en `docs/STATUS.md`. Un trabajo futuro debe crear un `TASK.md` pequeño con un resultado
+> observable y volver a verificar esta evidencia contra el código.
 
-Sí: el problema actual no es la disciplina arquitectónica, sino que los MD describen “Estudiantes” como una entidad mínima y no como un recorrido operativo completo. Un agente obediente termina construyendo CRUD, aunque técnicamente esté bien hecho.
+## 1. Lenguaje común del producto
 
-La abstracción correcta para Aeduca v8 debería tener cuatro capacidades conectadas:
+Aeduca v8 debe mejorar los recorridos probados de Aeduca v7 sin copiar su acoplamiento, e
+incorporar los patrones útiles de Coedula sin copiar su repositorio educativo
+sobredimensionado.
 
-```text
-Buscador global
-      ↓
-Perfil del estudiante
-      ↓
-Matrícula actual + historial
-      ↓
-Acceso, asistencia, evaluaciones, finanzas y archivos
-```
-
-### Qué rescatar de Coedula
-
-| Área       | Rescatar                                                                                 | No copiar                                                                           |
-| ---------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Estudiante | Identidad global, DNI, foto, historial y cuenta separada                                 | `photo_url` sin un propietario claro de archivos                                    |
-| Matrícula  | FK explícitas, transacción, una matrícula activa y pagos iniciales en la misma operación | `group_code` A–D, `turn_1/turn_2/both` y un repositorio educativo sobredimensionado |
-| Listado    | Contexto por sede/ciclo/grado/grupo y búsqueda dentro del grupo                          | Métodos y endpoints de búsqueda duplicados                                          |
-| Búsqueda   | Directorio independiente, recientes, paginación y matrícula vigente resumida             | `ILIKE %texto%` sin índice apropiado                                                |
-| Perfil     | Hub compuesto por consultas acotadas                                                     | Un repositorio educativo gigantesco o cargar toda la historia                       |
-| Acceso     | Una entrada de autenticación y propietario explícito de la cuenta                        | Bloquear automáticamente el login por no tener matrícula activa                     |
-
-La base de Coedula demuestra una separación valiosa entre estudiante, credencial y matrícula en [01-tables.sql](/Users/shaun/Documents/coedula/database/init/01-tables.sql:258), además de restricciones para una sola matrícula activa en [02-indexes.sql](/Users/shaun/Documents/coedula/database/init/02-indexes.sql:65).
-
-Su escritura de matrícula también protege ciclo, sede, turnos y pagos iniciales dentro de una transacción en [education.repository.ts](/Users/shaun/Documents/coedula/src/lib/server/repositories/education.repository.ts:1595). Pero tiene deuda que Aeduca ya decidió corregir: grupo como texto fijo, turnos como enum y demasiadas responsabilidades dentro de un único repositorio.
-
-### Listado y búsqueda
-
-Coedula realmente posee dos herramientas diferentes:
-
-1. `/students` es un listado operativo de matrículas, limitado por la sede activa y filtrado por ciclo, grado, grupo y texto. Está en [+page.server.ts](</Users/shaun/Documents/coedula/src/routes/(dashboard)/students/+page.server.ts:7>).
-
-2. `/students/search` es un directorio global: búsqueda paginada, alumnos recientes y resumen de su última matrícula. Su forma de lectura está centralizada en [student_registro_lookup](/Users/shaun/Documents/coedula/database/init/05-views.sql:243).
-
-Esa separación es correcta y Aeduca debería conservarla:
-
-- Listado de matrículas: operativo, por sede y estructura académica.
-- Buscador global: institucional, independiente de la sede seleccionada.
-- Perfil: destino común de ambos.
-
-Aeduca v7 aporta algo que Coedula no resuelve tan bien: un buscador disponible globalmente para estudiantes, docentes y apoderados, con filtro de sede y “solo activos” en [Finder.vue](/Users/shaun/Documents/v7-aeduca/aeduca-main/resources/js/Components/Views/Finder.vue:24). También utiliza similitud de PostgreSQL para ordenar nombres aproximados en [StudentRepository.php](/Users/shaun/Documents/v7-aeduca/aeduca-main/app/Repositories/StudentRepository.php:23).
-
-Debemos rescatar el concepto, no la implementación: v7 interpola texto directamente en SQL, lo cual no debe repetirse.
-
-El buscador objetivo debería:
-
-- Buscar estudiantes por DNI, nombre y `roll_code`.
-- Buscar docentes/personal por DNI y nombre.
-- Priorizar coincidencias exactas y luego similitud.
-- Permitir sede y estado activo como filtros, no como limitaciones estructurales.
-- Mostrar resultados recientes cuando todavía no hay consulta.
-- Usar paginación y `pg_trgm` con consultas parametrizadas.
-- No exigir una tabla genérica `people` ni polimorfismo solamente para compartir la búsqueda.
-
-### Perfil objetivo del estudiante
-
-El perfil no debe ser un formulario CRUD ampliado. Debe ser el hub institucional del alumno:
-
-- Identidad, foto, contacto y observaciones.
-- Matrícula vigente y matrícula histórica.
-- Estado de acceso y restablecimiento de credenciales.
-- Resumen financiero.
-- Archivos directos y archivos compartidos con su grupo.
-- Accesos especializados a asistencia y evaluaciones.
-
-Coedula ya compone su perfil mediante consultas separadas para matrícula, archivos y pagos en [+page.server.ts](</Users/shaun/Documents/coedula/src/routes/(dashboard)/students/[studentCode]/+page.server.ts:13>). Esa composición es correcta: el perfil muestra resúmenes y deriva hacia vistas especializadas, sin convertirse en una consulta monstruosa.
-
-### Modelo conceptual recomendado
+El recorrido estudiantil confirmado es:
 
 ```text
-AuthAccount ── exactamente un propietario ── User
-                                           └─ Student
-
-Student ──< Enrollment ──> AcademicGroup ──> CycleDegree ──> Cycle ──> Branch
-                │
-                ├──< EnrollmentShift
-                └──< Payment (semántica pendiente/pagado/caja por cerrar)
-
-Student ──< Contact
-Student ── foto de perfil
-Student ──< archivos directos
-AcademicGroup ──< archivos compartidos
+búsqueda institucional
+        ↓
+identidad y perfil
+        ↓
+matrícula actual + historia
+        ↓
+acceso, pagos/caja, asistencia, evaluaciones y archivos
 ```
 
-Docentes y administrativos deben compartir el mismo sistema de autenticación como usuarios internos; no necesitan otro login aislado. Eso no obliga a mezclar la asistencia laboral con la asistencia académica: pueden compartir plataforma y reportes, pero conservar modelos de dominio diferentes.
+Las capacidades se integran desde el perfil, pero cada dominio conserva su propietario,
+autorización, consultas y páginas especializadas. “Vertical pequeña” significa el incremento
+más pequeño que deja un resultado utilizable; no significa entregar una tabla o CRUD
+aislado.
 
-También recomiendo separar:
-
-- Cuenta habilitada: controla si la persona puede autenticarse.
-- Matrícula activa: controla operaciones académicas actuales.
-- Autorización del portal: controla qué información puede consultar.
-
-Coedula exige matrícula activa para iniciar sesión en [session.ts](/Users/shaun/Documents/coedula/src/lib/auth/session.ts:134). No lo copiaría automáticamente: un egresado o alumno temporalmente inactivo podría necesitar consultar historial, notas o deudas.
-
-## Qué cambiaría posteriormente en los MD
-
-Mantendría las reglas de FK explícitas, transacciones, propietario único, DRY/KISS, ausencia de UI vacía y prohibición de repositorios genéricos.
-
-Modificaría el enfoque de alcance:
-
-1. Reemplazar “vertical mínima” por “recorrido operativo mínimo completo”.
-
-2. Redefinir “Estudiantes y contactos mínimos” como:
-
-    > Registro estudiantil: identidad, foto, contactos, búsqueda, perfil, credencial y conexión con matrícula.
-
-3. Establecer que una capacidad adyacente necesaria para completar el recorrido —foto, búsqueda, acceso o archivos— no es _scope creep_.
-
-4. Exigir antes de cada `TASK.md` una matriz corta:
-
-    - comportamiento existente;
-    - comportamiento que se conserva;
-    - deuda que se descarta;
-    - aceptación operativa esperada.
-
-5. Aclarar que un `TASK.md` no puede reducir silenciosamente un flujo confirmado. Si durante la investigación aparece una carencia, se corrige el task antes de desarrollar.
-
-6. Cambiar “Lean student portal” por “Portal estudiantil operativo”, manteniendo fuera chat, LMS y funcionalidades sociales.
-
-El conflicto actual está entre el objetivo de preservar flujos reales de [SPEC.md](/Users/shaun/Documents/aeduca/docs/SPEC.md:7) y una descripción futura demasiado pequeña en [SPEC.md](/Users/shaun/Documents/aeduca/docs/SPEC.md:304), amplificada por el alcance estricto de [AGENTS.md](/Users/shaun/Documents/aeduca/AGENTS.md:90). No hay que eliminar las reglas de oro; hay que darles una definición de producto suficientemente completa.
-
-Quedan cuatro decisiones por confirmar antes del esquema: acceso de alumnos sin matrícula activa, necesidad real de `student_number` además de DNI, alcance/unicidad de `roll_code`, y propietario definitivo del almacenamiento de fotos y archivos.
-
-No modifiqué archivos ni ejecuté base de datos, pruebas o builds durante esta revisión.
-
----
-
-## Auditoría de `origin/codex/wrong1`
-
-### Dictamen
-
-La rama no fracasó principalmente por la interfaz ni porque Laravel obligue a crear demasiados archivos. Fracasó porque el alcance técnico no representó el resultado operativo esperado.
-
-El commit agrega 54 archivos, 4,557 líneas y mezcla en una sola entrega:
-
-- estudiantes y contactos;
-- matrícula;
-- un modelo financiero todavía no confirmado;
-- cambios de integridad en ciclos;
-- una generalización del grafo de permisos;
-- documentación y pruebas.
-
-Una parte importante del volumen es normal para una vertical Laravel/Inertia: migraciones, modelos, validación, rutas, pantallas y pruebas. El problema es la prioridad de esas líneas. Solamente el formulario de matrícula y el panel CRUD de contactos suman 705 líneas de Svelte, mientras quedaron fuera capacidades centrales del producto.
-
-### Defectos concretos
-
-1. **No existe acceso del estudiante.** `AuthAccount` continúa requiriendo exclusivamente `user_code`; la autenticación y el middleware siguen siendo de empleados. La rama no agrega contraseña, creación/restablecimiento de cuenta ni sesión del alumno.
-
-2. **No existe foto del estudiante.** No hay campo, archivo, carga, servicio ni representación real de foto; únicamente avatares genéricos de Lumi.
-
-3. **No existe estado activo/inactivo del estudiante.** La tabla `students` no tiene estado y el perfil no ofrece una acción para desactivar al alumno. El `is_active` implementado pertenece a la matrícula, no al estudiante ni a su cuenta.
-
-4. **No existe el listado académico operativo.** `/students` es sólo un directorio institucional por DNI o nombre. No filtra por sede, ciclo, grado, sección, turno ni estado de matrícula. Tampoco existe un índice de matrículas; las matrículas sólo se encuentran entrando al perfil de cada alumno.
-
-5. **No existe búsqueda global integrada.** No se recuperó el buscador global de v7 ni el hub `/students/search` de Coedula. La consulta del directorio usa `ILIKE '%texto%'` sin índice trigram y no busca por `roll_code`.
-
-6. **Se implementó el dominio financiero equivocado.** La rama crea `payment_obligations`, obliga a registrar al menos una al matricular y permite reemplazarlas/eliminarlas al editar. No existen pagos, cobros, estados pendiente/pagado, caja ni reversos. Esto consumió código para una semántica que el dominio operativo llama simplemente **Pagos**.
-
-7. **Hay aislamiento de sede incompleto al leer.** La escritura de matrícula valida sedes autorizadas, pero el perfil carga todo el historial de matrículas del alumno sin filtrar por las sedes del usuario. Los códigos autorizados sólo deciden si aparece la edición. Un usuario con `enrollments.view` puede recibir historia académica de otras sedes, salvo que se confirme expresamente que ese permiso es institucional.
-
-8. **La rama conserva la dimensión redundante `academic_cycles.level`.** Matrícula vuelve a depender de ella para etiquetas de grado. Esto propaga la decisión incorrecta hacia controlador, UI y pruebas.
-
-9. **El cierre documental fue prematuro.** `STATUS.md` declara Estudiantes y Matrícula como verticales terminadas y propone Asistencia como siguiente paso, aunque el recorrido solicitado de estudiante todavía no funciona de extremo a extremo.
-
-### Complejidad necesaria y complejidad evitable
-
-Era razonable crear:
-
-- `Student`, `Enrollment` y sus relaciones reales;
-- validaciones de entrada;
-- una Action transaccional para matrícula;
-- índices parciales para una matrícula activa;
-- pantallas y pruebas enfocadas.
-
-Fue evitable o prematuro:
-
-- `SaveStudent` para un simple create/update sin agregado transaccional;
-- una segunda migración sólo para retirar el límite de dos contactos antes de integrar la primera;
-- generalizar el grafo completo de dependencias de permisos por `enrollments.view → students.view`;
-- construir “obligaciones” y su editor antes de confirmar Pagos/Caja;
-- modificar y sembrar la base `aeduca` para una dirección aún no aceptada;
-- priorizar un CRUD completo de contactos antes de foto, acceso, estado, filtros y búsqueda.
-
-La arquitectura base no exige 54 archivos para cada función. El número aumentó porque el task reunió demasiados dominios y porque cada incertidumbre se resolvió agregando código en lugar de detener y corregir el alcance.
-
-### Permisos
-
-No corresponde crear un permiso por cada botón o pequeña funcionalidad. Los permisos deben representar capacidades de negocio estables. Como punto de partida:
-
-- `students.view` / `students.manage`;
-- `enrollments.view` / `enrollments.manage`;
-- `payments.view` / `payments.manage`;
-- permisos posteriores para asistencia, evaluaciones y caja cuando exista cada recorrido.
-
-Subir foto, editar datos o desactivar un estudiante pueden pertenecer a `students.manage`. Restablecer acceso sólo merece un permiso separado si Carrión confirma que lo realiza un cargo diferente. El alumno que consulta su propia información no debe recibir `students.view`; accede por identidad propia y políticas de autoservicio.
-
-### Bases de datos y pruebas
-
-Usar `aeduca_test` con `RefreshDatabase` y ejecutar la migración completa es correcto. Lo innecesario fue repetir migraciones y seed sobre la base operativa local `aeduca` antes de aprobar el modelo y la experiencia.
-
-La regla recomendada es:
-
-1. durante el desarrollo, migraciones y pruebas solamente en `aeduca_test`;
-2. revisión funcional temprana con datos de prueba reproducibles;
-3. migrar `aeduca` únicamente cuando la vertical haya sido aceptada o cuando el usuario solicite expresamente una prueba integrada;
-4. nunca usar la base original para conservar iteraciones fallidas de una migración aún no integrada.
-
-Según el propio informe de la rama, `aeduca` recibió las migraciones descartadas. Eso deja posible deriva entre el código de `main` y la base local; debe revisarse por separado antes de continuar, sin borrar nada automáticamente.
-
-### Dirección recomendada para Aeduca v8
-
-> Aeduca v8 mejora Aeduca v7 conservando sus recorridos operativos probados, corrige su deuda estructural e incorpora las mejores ideas de Coedula dentro de una sola plataforma para administrativos, docentes y alumnos.
-
-El recorrido mínimo completo de Estudiantes debe incluir:
-
-- listado académico por sede, ciclo, grado y sección;
-- búsqueda dentro del listado y búsqueda global de personas;
-- alta y edición del estudiante con foto y estado activo;
-- perfil como hub de matrícula, pagos, contactos, archivos y acceso;
-- cuenta del alumno con DNI y contraseña dentro del mismo sistema de autenticación;
-- creación/edición/desactivación de matrícula;
-- establecimiento de pagos pendientes usando el vocabulario **Pagos**;
-- permisos semánticos para personal y autorización por identidad para el alumno.
-
-La estructura de navegación puede conservar la separación útil de Coedula:
+Las entradas tienen significados distintos:
 
 ```text
-/students                 listado académico con filtros
-/students/search          directorio global y recientes
-/students/{student}       perfil institucional
-/students/{student}/...   matrícula, acceso, pagos y archivos
+/students/search          directorio institucional y recientes
+/students                 padrón activo de la sede por ciclo/grado/sección
+/students/{student}       ficha institucional y destino común
+/students/{student}/...   escrituras o historias de dominios especializados
 ```
 
-### Cambio documental posterior
+## 2. Evidencia inspeccionada
 
-La reescritura debería mantener una sola autoridad por tipo de información:
+### Aeduca v8
 
-- `README.md`: propósito y entrada rápida, sin duplicar una especificación detallada;
-- `AGENTS.md`: protocolo de ejecución, incluyendo que una vertical se completa por recorrido operativo y no por número de tablas;
-- `docs/SPEC.md`: objetivo del producto, actores, vocabulario y criterios funcionales permanentes;
-- `docs/STATUS.md`: únicamente hechos comprobados del código actual;
-- `TASK.md`: un solo incremento ejecutable con aceptación observable.
+Se revisaron el contrato completo de `README.md`, `AGENTS.md`, `docs/SPEC.md`,
+`docs/STATUS.md`, los documentos temporales consolidados aquí, y la implementación de:
 
-Debe eliminarse de la especificación la doctrina de “obligaciones” y cualquier afirmación de que esa separación es una verdad confirmada. Para v8, el término operativo será **Pagos**; el esquema exacto de estados, cobro y caja se cerrará observando v7 y Coedula antes de implementarlo.
+- autenticación actor-aware y `AuthAccount`;
+- permisos, `PermissionDependency` y `BranchContext`;
+- estructura académica;
+- migraciones, vistas `student_directory`, `student_roster` y
+  `student_enrollment_overview`;
+- registro, perfil, contactos, acceso, matrícula, padrón y sus pruebas;
+- shell Inertia/Svelte y contratos públicos utilizados de Lumi.
 
-También debe redefinirse “vertical mínima” como **el incremento más pequeño que completa un resultado utilizable**. Las reglas arquitectónicas continúan vigentes, pero ninguna puede utilizarse como excusa para omitir foto, acceso, filtros, búsqueda o pagos cuando son parte del recorrido aceptado.
+La arquitectura v8 ya aceptada es la línea base. No se justifica otro sistema de
+autenticación, repositorio, store de sede/permisos, media library ni framework de módulos.
+
+### Aeduca v7
+
+Evidencia relevante en `/home/qorilux/Documents/v7 aeduca main`:
+
+- `resources/js/layout/partial/Header.vue` mantiene Finder disponible desde la barra
+  superior para estudiantes, docentes y apoderados.
+- `resources/js/Components/Views/Finder.vue` busca personas y permite alcance por sede y
+  alumnos activos. El concepto es valioso; su interpolación SQL histórica no debe copiarse.
+- `resources/js/Components/Views/MainWrapper.vue` compone una tarjeta lateral con portada,
+  foto, identidad y contenido contiguo de altura independiente.
+- `resources/js/Components/Views/AvatarManager.vue` selecciona, mueve y recorta una foto
+  cuadrada desde la ficha, no durante el alta.
+- `resources/js/Views/Student/History.vue` deriva hacia historia de matrícula, contactos,
+  documentos, asistencia e incidencias en lugar de cargar todo en un solo formulario.
+- `pinia/cycle.js` y `pinia/section.js` conservan ciclo y sección mientras vive la SPA. Es
+  memoria de navegación, no persistencia durable en `localStorage`; el comportamiento es
+  valioso, no su dependencia de un store global.
+- Los flujos financieros usan el vocabulario Pagos/Caja; no existe evidencia para renombrar
+  el dominio como “obligaciones”.
+
+Se conserva el recorrido y se descartan las claves semánticas, SQL inseguro, stores
+acoplados, Bootstrap específico y contraseñas o archivos sin propietario claro.
+
+### Coedula
+
+Evidencia relevante en `/home/qorilux/Documents/coedula`:
+
+- `src/routes/(dashboard)/students/+page.svelte` usa `PageSidebar`, contexto académico,
+  búsqueda dentro del grupo, tabla con persona y menú de acciones.
+- `src/routes/(dashboard)/students/[studentCode]/+page.svelte` usa tarjeta lateral con
+  `Card.image`, datos compactos y un único dropdown en el título.
+- `src/lib/components/StudentSearchDialog/StudentSearchDialog.svelte` y
+  `StudentSelect.svelte` ofrecen búsqueda desde el shell mediante resultados remotos
+  acotados.
+- `src/lib/components/StudentPhotoUploader/StudentPhotoUploader.svelte` demuestra recorte
+  y optimización en navegador. Su comportamiento es útil; su UI y CSS no se copiaron.
+- El perfil compone matrícula, pagos y archivos mediante lecturas separadas.
+- Matrícula y pagos pueden escribirse en una operación coordinada, mientras Caja conserva
+  la responsabilidad del cobro. No se copia `group_code` fijo, `turn_1/turn_2/both`, ni el
+  gran `EducationRepository`.
+
+### Lumi
+
+Se verificaron `docs/GUIDE.md`, `src/lib/styles/core.css`,
+`src/lib/styles/patterns.css` y los componentes públicos usados.
+
+Contratos aplicados:
+
+- `Card.image`, `UserInfo`, `InfoItem`, `Divider`, `Tabs` y `Dropdown`;
+- `.lumi-layout--two-columns` con wrapper lateral para impedir que la tarjeta interna se
+  estire;
+- `PageSidebar` y `.lumi-page-sidebar__header-actions`;
+- `Fieldset`, `Input`, `Select`, `Dialog`, `RemoteSelect`, `Slider` y `Table`;
+- `.lumi-search-panel`, `.lumi-filter-summary` y celdas/personas públicas.
+
+Lumi no publica un recortador de imágenes. Un componente cohesivo de Aeduca, limitado a
+canvas y tokens Lumi, es una excepción justificada; no constituye un segundo sistema UI.
+
+### Nextya
+
+Nextya sólo aporta evidencia para evaluaciones, OMR y reportes especializados. No es fuente
+para el perfil o el padrón. El contrato OMR ya confirmó `roll_code` de cuatro dígitos; no se
+extendió su alcance en este corte.
+
+## 3. Resultado implementado
+
+### Identidad y foto
+
+- `Student` es identidad institucional con UUID `code`; DNI normalizado de ocho dígitos es
+  único y no es PK.
+- Alta/edición escribe identidad, contacto, observación y estado. No recibe foto.
+- La foto se gestiona desde el perfil mediante un diálogo sobrio:
+  selección JPG/PNG/WebP → encuadre cuadrado → paneo/zoom → canvas 640×640 → WebP 0.86.
+- El viewport visible y el diálogo son compactos; la resolución de salida no determina el
+  tamaño de la interfaz ni provoca scroll vertical innecesario.
+- El navegador envía sólo el resultado optimizado; el servidor vuelve a validar tipo y
+  tamaño.
+- `UpdateStudentPhoto` es el único propietario del reemplazo. Guarda el archivo nuevo,
+  persiste su ruta y elimina el anterior sólo después del éxito.
+- La lectura permanece privada y autorizada; no se expone una URL pública de Storage.
+
+### Búsqueda
+
+- `/students/search` conserva directorio, recientes, paginación y contexto académico.
+- El formulario alinea campo y acciones con el patrón público de filtros en línea de Lumi;
+  en viewport estrecho vuelve naturalmente a una columna.
+- `student_directory` centraliza el read model.
+- DNI exacto y `roll_code` activo exacto preceden a similitud/nombre.
+- El shell autorizado abre un diálogo desde cualquier página.
+- `/students/lookup` exige dos caracteres, limita consulta y respuesta, y reutiliza la misma
+  semántica del directorio; no es otro buscador de dominio.
+- La expansión a docentes/apoderados se hará por propietarios explícitos cuando existan,
+  no mediante una tabla polimórfica `people`.
+
+### Perfil
+
+- La tarjeta lateral reúne portada, foto, identidad, DNI, nacimiento, teléfono, dirección y
+  observaciones.
+- La tarjeta está envuelta en el sidebar del layout; por ello su altura no depende de la
+  columna contigua.
+- El encabezado identifica la página sin repetir el nombre. El nombre, DNI y estado viven
+  juntos en la tarjeta de identidad, mientras el encabezado conserva un único menú de
+  gestión. No existen botones falsos de carnet, pagos, asistencia o archivos.
+- La columna principal muestra matrícula activa y paneles reales de acceso, contactos e
+  historia de matrículas.
+- El perfil carga hasta diez matrículas autorizadas; las historias futuras tendrán su propia
+  consulta/página.
+
+### Padrón activo
+
+- `/students` pertenece a la sede actual de `BranchContext`.
+- Ciclo, grado y sección son obligatorios y se validan entre sí contra el catálogo activo de
+  esa sede antes de consultar `student_roster`.
+- Sin contexto completo no se ejecuta consulta al read model de matrículas.
+- El último ciclo/grado/sección válido se recuerda en la sesión autenticada por sede. Un
+  retorno sin selección lo revalida contra el catálogo activo y redirige a la URL canónica;
+  texto y página no se guardan como preferencias.
+- La consulta siempre fija `enrollment_is_active = true`.
+- La búsqueda por nombre, DNI o `roll_code` se aplica únicamente dentro de la sección
+  seleccionada.
+- No hay “Todos los ciclos/grados/secciones”, filtro de turno ni filtro de estado.
+- La tabla evita repetir ciclo/grado/sección ya visibles en el encabezado; muestra alumno,
+  código, turnos y acciones.
+- Una futura lista de inactivos será otra entrada y otro resultado observable; no un modo
+  escondido de este padrón.
+
+### Formularios
+
+- Alta/edición usa una ficha centrada con fieldsets Identidad, Contacto e Información
+  adicional.
+- Los campos textuales tienen placeholders útiles y errores junto al control.
+- La foto no compite con la captura de datos ni obliga a multipart durante el registro.
+
+## 4. Propietarios e invariantes que no deben romperse
+
+```text
+AuthAccount ── exactamente un propietario ── User | Student
+
+Student ──< Enrollment ──> AcademicGroup ──> CycleDegree ──> AcademicCycle ──> Branch
+                └──< EnrollmentShift >── CycleShift
+
+Student ──< StudentContact
+Student ── foto privada
+Enrollment ──< Payment                  (futuro)
+Payment ── cobro/reverso de Cashbox     (futuro)
+```
+
+- Estudiante, cuenta y matrícula tienen estados separados.
+- El alumno se autentica por identidad propia, sin permisos administrativos ni sede
+  inventada, y no requiere matrícula activa sólo para iniciar sesión.
+- Existe una sola fila de matrícula por alumno y ciclo; PostgreSQL protege
+  `UNIQUE(student_code, cycle_code)`.
+- `roll_code` es único y se reserva atómicamente dentro del ciclo.
+- Grupo y uno/dos turnos deben pertenecer al mismo ciclo y a la sede actual.
+- Reintentar el mismo ciclo dirige a editar la matrícula existente y conserva `code` y
+  `roll_code`; nunca desactiva una fila para fabricar otra.
+- Mientras el ciclo de una matrícula no haya terminado, el alumno no puede abrir otra en
+  un ciclo distinto. La transacción bloquea la identidad del alumno para serializar esa
+  decisión.
+- “Finalizada” se deriva en la lectura desde `AcademicCycle.end_date`; no se persiste ni
+  requiere enum, Action, cron o actualización masiva.
+- El historial académico de empleados se limita a sedes autorizadas.
+- Permisos iniciales: `students.view/manage`, `enrollments.view/manage`; no hay permisos por
+  tab, foto o botón.
+
+## 5. Plano para Pagos y Caja
+
+Pagos es una vertical posterior, no una columna decorativa del padrón ni una parte implícita
+del formulario actual.
+
+Responsabilidad confirmada:
+
+```text
+Matrícula
+  └── puede establecer 0..n Payments pendientes
+        ├── concepto
+        ├── importe
+        └── vencimiento
+
+Cashbox
+  └── cobra/publica/anula el Payment
+        ├── cajero responsable
+        ├── fecha y contexto de caja
+        └── movimiento neto de efectivo
+```
+
+Antes de implementar se debe volver a inspeccionar el recorrido real v7/Coedula y cerrar:
+
+- catálogo o libertad del concepto;
+- generación manual/por lote/al matricular;
+- periodicidad y mensualidad;
+- pago parcial;
+- descuentos/moras;
+- efectivo recibido y vuelto;
+- anulación/reverso y trazabilidad;
+- visibilidad entre sedes y autoservicio.
+
+Reglas ya confirmadas:
+
+- una matrícula es válida aunque cree cero pagos;
+- “Pagos” es el vocabulario, no `PaymentObligation`;
+- un pendiente sin consecuencia de caja puede corregirse;
+- un pago cobrado/publicado nunca se sobrescribe ni elimina: se anula o revierte;
+- `payments.view/manage` son la pareja inicial; separar permiso de cobro sólo si existe un
+  cargo operativo diferente.
+
+Aceptación mínima futura: creación de pendientes autorizada, resumen acotado en perfil,
+vista operativa de cobro, movimiento de caja, reverso, aislamiento de sede, precisión
+decimal y pruebas transaccionales.
+
+## 6. Decisión para PDFs: carnet, ticket y reportes A4
+
+Evidencia:
+
+- Aeduca v7 genera PDF de servidor con Dompdf y Simple QrCode.
+- Coedula genera PDF con `pdf-lib` y QR con `qrcode`.
+- `pdf-lib` es la biblioteca JavaScript de Coedula; no es el producto comercial PDFlib ni
+  una integración propia de Laravel.
+- [Laravel entrega archivos y streams](https://laravel.com/docs/13.x/responses), pero no
+  incluye un motor de creación PDF.
+- [Dompdf](https://github.com/dompdf/dompdf) convierte HTML/CSS a PDF, admite A4 y tamaños
+  personalizados y se instala directamente con Composer. No implementa Flexbox ni Grid.
+- [pdf-lib](https://pdf-lib.js.org/) crea o modifica PDFs en navegador o Node mediante una
+  API de dibujo por coordenadas; es especialmente útil para editar, completar o combinar
+  documentos existentes.
+- QR contiene el DNI.
+- El carnet necesita foto, nombre, DNI, `roll_code`, ciclo, grado, sección y sede, y sólo
+  aplica con matrícula activa.
+
+Decisión técnica para Aeduca v8:
+
+- Laravel será propietario de autorización, consulta, composición y generación.
+- La opción inicial común para carnet, ticket de Caja y reportes A4 será
+  `dompdf/dompdf:^3.1`, usado directamente. Un wrapper Laravel no aporta valor probado para
+  este alcance.
+- El QR se generará en servidor con `endroid/qr-code:^6.1`.
+- No se añadirá `pdf-lib`, runtime Node ni generación crítica en el navegador. En Coedula
+  encaja con SvelteKit/Node; aquí duplicaría la composición que ya pertenece a Laravel y
+  haría el resultado dependiente del dispositivo del usuario.
+
+Razones prácticas:
+
+- Para documentos estructurados, Dompdf permite una plantilla HTML mantenible y una sola
+  ruta de datos autorizada. Carnet y ticket usan dimensiones explícitas; los reportes usan
+  A4 y reglas de salto de página.
+- Las plantillas de impresión usarán CSS deliberadamente simple —bloques, tablas y medidas
+  físicas—, fuentes y assets locales. No dependerán de Flexbox, Grid o recursos remotos.
+- Cada respuesta construirá una instancia nueva del renderer. Un carnet, ticket o reporte
+  pequeño puede generarse sincrónicamente; lotes o reportes grandes deberán medirse y pasar
+  a cola o a una exportación tabular, no cargar miles de filas en una petición web.
+- Los documentos serán privados, con autorización de servidor y `no-store`; el QR y los
+  campos saldrán de una lectura acotada, no de datos enviados por el cliente.
+- Cada tipo de documento tendrá un compositor enfocado y una plantilla propia, compartiendo
+  sólo tokens/partials de impresión demostrados. No se creará un servicio PDF genérico.
+
+`pdf-lib` sólo se reconsiderará si aparece un requisito real de rellenar, modificar o unir
+un PDF existente con control vectorial por coordenadas. Un diseño HTML moderno que exceda
+las capacidades medidas de Dompdf justificaría evaluar un renderer Chromium de servidor,
+no trasladar por defecto el documento al navegador.
+
+Las dependencias siguen sin instalarse: requieren un `TASK.md` propio que implemente y
+pruebe al menos un documento real. No se crea botón, ruta o HTML que finja carnet, ticket o
+reporte antes de ese corte.
+
+## 7. Capacidades futuras y límite
+
+- Inactivos: página independiente, no filtro del padrón activo.
+- Asistencia: referencia matrícula y turno seleccionado; página/consultas propias.
+- Evaluaciones/OMR: usa Nextya sólo como evidencia especializada.
+- Archivos: vínculos directos al alumno o compartidos por grupo mediante FK explícitas.
+- Contactos pueden evolucionar a un dominio de apoderados sólo cuando sus workflows lo
+  demuestren.
+
+No crear tabs vacíos, permisos, tablas, acciones o navegación anticipada para estas
+capacidades.
+
+## 8. Incertidumbre restante
+
+- Dependencias PDF/QR: dirección técnica definida; instalación e implementación pendientes
+  de un entregable propio.
+- Semántica exacta de Pagos/Caja: pendiente de investigación operacional.
+- Alcance de futuros apoderados/archivos: no confirmado.
+
+La estructura actual de identidad, búsqueda, foto, acceso, matrícula y padrón no depende de
+resolver esas incertidumbres.
+
+## 9. Verificación del corte consolidado
+
+- `php artisan migrate:fresh --seed --env=testing`: aprobado contra `aeduca_test`.
+- `composer run format`: aprobado.
+- `composer run check`: 135 pruebas, 661 aserciones, TypeScript estricto, Oxlint y
+  Prettier aprobados.
+- `pnpm run build`: build de producción aprobado sin advertencias de Svelte.
+- La base local `aeduca` no fue migrada ni sembrada.

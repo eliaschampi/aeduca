@@ -36,17 +36,31 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $account->loadMissing('user.employeeRole');
-        $employee = $account->user;
+        $account->loadMissing(['user.employeeRole', 'student']);
 
+        if ($account->student) {
+            return [
+                'actor' => 'student',
+                'student' => [
+                    'code' => $account->student->code,
+                    'first_name' => $account->student->first_name,
+                    'last_name' => $account->student->last_name,
+                ],
+                'branches' => [],
+                'current_branch' => null,
+                'permissions' => [],
+            ];
+        }
+
+        $employee = $account->user;
         if (! $employee) {
             return null;
         }
-
         $branches = $this->branchContext->authorizedBranches($account);
         $currentBranch = $this->branchContext->currentBranch($account);
 
         return [
+            'actor' => 'employee',
             'employee' => [
                 'first_name' => $employee->first_name,
                 'last_name' => $employee->last_name,

@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Actions\LogoutEmployee;
+use App\Actions\LogoutAccount;
 use App\Models\AuthAccount;
 use App\Support\Branches\BranchContext;
 use Closure;
@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureActiveAccount
 {
     public function __construct(
-        private readonly LogoutEmployee $logoutEmployee,
+        private readonly LogoutAccount $logoutAccount,
         private readonly BranchContext $branchContext,
     ) {}
 
@@ -28,12 +28,15 @@ class EnsureActiveAccount
             );
         }
 
-        $account->loadMissing('user.employeeRole');
+        $account->loadMissing(['user.employeeRole', 'student']);
 
         if (
             ! $account->is_active
-            || ! $account->user?->is_active
-            || ! $account->user->employeeRole?->is_active
+            || ($account->user_code !== null && (
+                ! $account->user?->is_active
+                || ! $account->user->employeeRole?->is_active
+            ))
+            || ($account->student_code !== null && ! $account->student?->is_active)
         ) {
             return $this->reject(
                 $request,
@@ -41,21 +44,26 @@ class EnsureActiveAccount
             );
         }
 
-        if ($this->branchContext->authorizedBranches($account)->isEmpty()) {
+        if (
+            $account->user_code !== null
+            && $this->branchContext->authorizedBranches($account)->isEmpty()
+        ) {
             return $this->reject(
                 $request,
                 'Tu cuenta no tiene una sede activa asignada. Contacta a un administrador.',
             );
         }
 
-        $this->branchContext->currentBranch($account);
+        if ($account->user_code !== null) {
+            $this->branchContext->currentBranch($account);
+        }
 
         return $next($request);
     }
 
     private function reject(Request $request, string $message): RedirectResponse
     {
-        $this->logoutEmployee->handle($request);
+        $this->logoutAccount->handle($request);
 
         return to_route('login')->withErrors([
             'login' => $message,

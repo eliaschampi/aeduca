@@ -6,6 +6,7 @@ use App\Models\AuthAccount;
 use App\Models\Branch;
 use App\Models\EmployeeRole;
 use App\Models\Permission;
+use App\Models\Student;
 use App\Models\User;
 use App\Support\Authorization\PermissionDependency;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +55,25 @@ abstract class TestCase extends BaseTestCase
         }
 
         return $account->load('user.employeeRole', 'user.branches');
+    }
+
+    /**
+     * @param  array<string, mixed>  $accountAttributes
+     * @param  array<string, mixed>  $studentAttributes
+     */
+    protected function createStudentAccount(
+        array $accountAttributes = [],
+        array $studentAttributes = [],
+    ): AuthAccount {
+        $student = Student::factory()->create($studentAttributes);
+
+        return AuthAccount::factory()->create([
+            ...$accountAttributes,
+            'user_code' => null,
+            'student_code' => $student->code,
+            'login' => $student->dni,
+            'password' => $accountAttributes['password'] ?? $this->validPassword,
+        ])->load('student');
     }
 
     protected function loginAndContinueSession(AuthAccount $account): string

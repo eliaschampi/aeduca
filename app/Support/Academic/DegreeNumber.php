@@ -19,13 +19,18 @@ final class DegreeNumber
         return range(self::MIN, self::MAX);
     }
 
+    public static function label(int $number): string
+    {
+        return "{$number}°";
+    }
+
     /**
      * @return list<array{number: int, label: string}>
      */
     public static function options(): array
     {
         return array_map(
-            fn (int $number): array => ['number' => $number, 'label' => "{$number}°"],
+            fn (int $number): array => ['number' => $number, 'label' => self::label($number)],
             self::values(),
         );
     }

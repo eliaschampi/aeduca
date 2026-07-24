@@ -14,6 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
     'login',
     'password',
     'user_code',
+    'student_code',
     'is_active',
     'last_login_at',
 ])]
@@ -28,6 +29,11 @@ class AuthAccount extends Authenticatable
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_code', 'code');
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class, 'student_code', 'code');
     }
 
     protected function casts(): array

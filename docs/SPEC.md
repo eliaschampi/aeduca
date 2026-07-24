@@ -357,6 +357,9 @@ enrollment.academic_group_code
 - UUID `code` is the PK; DNI is mandatory, unique, searchable, and remains an attribute.
 - Core profile includes names, birth date, phone, address, observation, photo, and active/inactive state.
 - Student photo is a real managed profile asset, not a generic placeholder. Reuse the application file/storage owner established by the vertical; do not create a second media system.
+- Create/edit establishes identity first; photo selection and replacement belong to the existing student's profile, not the registration form.
+- Photo interaction uses a quiet square browser crop, produces one bounded optimized image, and sends only the processed result. It does not require a second client media library.
+- Student photo reads follow registry/self-ownership authorization and use private responses; replacement removes the prior managed asset only after the profile write succeeds.
 - Contacts are owned rows, initially name, phone, and a free relationship/note. Do not recreate the full legacy guardian domain before its workflows require it.
 - Student, account, and enrollment states remain separate and visible.
 
@@ -371,9 +374,11 @@ Student identity and the enrollment read model jointly provide two complementary
 /students/search    institution-wide directory, recent students, and global lookup
 ```
 
-The enrollment vertical owns the academic roster and its current-branch filters: cycle, degree, section/group, shift, enrollment state, and text. Search covers DNI, name, and active `roll_code`. Filter state belongs in the URL and results are paginated or otherwise explicitly bounded.
+The enrollment vertical owns the active academic roster. It requires a valid current-branch cycle, degree, and section/group before querying; text then searches only inside that selected section. It does not offer “all”, shift, or state filters, and inactive enrollment history belongs to a separate future entry point. Filter state belongs in the URL and results are paginated or otherwise explicitly bounded. The last complete academic context may be remembered in the authenticated server session per branch only to restore navigation; it must be revalidated against the active catalog and redirected to a canonical URL before use. Search text and page are not persistent preferences.
 
 The global directory searches identity independently of an active enrollment and returns enough latest/current academic context to distinguish results. Exact DNI or human-code matches rank before fuzzy names.
+
+Authorized staff can open the bounded student lookup from the authenticated shell; it reuses the institutional directory contract instead of inventing a second search meaning.
 
 Global people search may group students, teachers, and staff behind one interaction, but it does not require a generic `people` table or manual polymorphism. Each domain keeps its explicit identity owner and authorization.
 
@@ -391,6 +396,8 @@ The profile is the institutional hub, not an enlarged CRUD form. It composes bou
 
 Specialized history pages load their own data. The profile must not become a service god or one unbounded aggregate query.
 
+The staff profile uses one compact identity card with cover, photo, personal details, and observations. That card keeps its own height beside the content column; primary record actions use one compact header menu.
+
 ## 6. Enrollment, academic roster, and payments
 
 ### Enrollment model and workflow
@@ -399,6 +406,7 @@ Specialized history pages load their own data. The profile must not become a ser
 enrollments
   code UUID PK
   student_code FK
+  cycle_code FK
   academic_group_code FK
   roll_code human identifier
   is_active, observation, timestamps
@@ -409,13 +417,16 @@ enrollment_shifts
   PRIMARY KEY(enrollment_code, cycle_shift_code)
 ```
 
-- One active enrollment per student system-wide, protected by PostgreSQL.
-- An enrollment references one academic group and one or both shifts belonging to that cycle.
-- `roll_code` is a human identifier used for active search, OMR, and card display; active-code uniqueness is database-protected.
+- One enrollment row exists per student and cycle, protected by `UNIQUE(student_code, cycle_code)`. A retry in that cycle edits the existing row; it never creates another identity or `roll_code`.
+- `cycle_code` is derived from the selected group on the server. An enrollment references one academic group and one or both shifts belonging to that same cycle.
+- While an existing enrollment's cycle has not ended, the student cannot be enrolled in another cycle. `SaveEnrollment` locks the student and enforces this in the aggregate transaction.
+- `roll_code` is exactly four numeric digits (`0001`–`9999`), as required by the confirmed OMR contract. It is used for active search and card display; uniqueness and atomic reservation are protected per cycle by PostgreSQL.
 - Card QR contains DNI for compatibility.
-- Creating or activating an enrollment handles the previous active enrollment explicitly in the same transaction; it is never a hidden observer consequence.
-- Create, edit, activate/deactivate, and history are visible operational actions.
-- Branch/group may change directly in the initial version; a separate transfer-history subsystem is deferred.
+- Enrollment and student activity remain explicit booleans. Cycle finalization is derived at read time from `academic_cycles.end_date`; it is not a persisted enrollment status, scheduled transition, or automatic rewrite.
+- A newly created enrollment is active by definition. Deactivation and reactivation are explicit later edits; the create contract does not accept an activity state from the client.
+- Creating or activating an enrollment never deactivates or replaces another row. Editing section, shifts, observation, or activity inside the same cycle preserves enrollment `code` and `roll_code`.
+- Create, edit, activate/deactivate, derived finalized history, and read-only finished cycles are visible operational behavior.
+- An enrollment cannot change cycle. Transfers and their formal history are deferred.
 - Enrollment never reconstructs branch, cycle, degree, section, or shift from encoded identifiers.
 - Reads enforce confirmed branch visibility; a global student identity does not automatically expose all academic history.
 
@@ -495,6 +506,7 @@ Student attendance and employee attendance live in the same platform and reporti
 - Spanish, calm administration UI with the operational density needed by staff.
 - One dashboard shell, navigation source, notification owner, and frontend `can()` helper.
 - Lumi public components/classes only; no local visual system.
+- Data-entry forms use meaningful placeholders and `Fieldset` grouping when they contain more than one conceptual section.
 - Indexes show useful summaries and real filters; details show one subject/profile with bounded domain summaries.
 - Add tabs, wizards, bulk actions, or dashboards only for demonstrated workflows.
 - Do not let visual minimalism remove primary actions or operational context.

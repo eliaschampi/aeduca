@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureActiveAccount;
+use App\Http\Middleware\EnsureEmployeeActor;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,10 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'employee.active' => EnsureActiveAccount::class,
+            'account.active' => EnsureActiveAccount::class,
+            'employee.actor' => EnsureEmployeeActor::class,
         ]);
 
-        $middleware->redirectUsersTo('/branches');
+        $middleware->redirectUsersTo(
+            fn (Request $request): string => $request->user()?->student_code
+                ? route('students.show', $request->user()->student_code)
+                : route('branches.index'),
+        );
 
         $middleware->web(append: [
             HandleInertiaRequests::class,

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" role="img" aria-labelledby="title description">
+  <title id="title">Portada académica</title>
+  <desc id="description">Composición abstracta inspirada en cuadernos, aprendizaje y crecimiento.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#edf7f4"/>
+      <stop offset="1" stop-color="#eef1fb"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9dbdae"/>
+      <stop offset="1" stop-color="#6f968b"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="240" fill="url(#sky)"/>
+  <circle cx="790" cy="58" r="25" fill="#f5c96b" opacity=".78"/>
+  <path d="M0 187c122-37 226-28 347 5 113 31 205 31 321-7 103-34 194-26 292 5v50H0z" fill="#c8d8cf"/>
+  <path d="M0 215c147-31 276-12 405 15 143 30 326-28 555-13v23H0z" fill="url(#hill)"/>
+  <g fill="none" stroke="#526d67" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M126 165v-56l43-25 43 25v56"/>
+    <path d="M145 165v-41h48v41M158 124v41M180 124v41M134 108h70"/>
+    <path d="M702 175V91l44-22 44 22v84M723 175v-54h46v54M702 104h88"/>
+    <path d="M746 69V48"/>
+    <path d="M728 48h36"/>
+  </g>
+  <g fill="#78998f">
+    <circle cx="100" cy="170" r="11"/>
+    <circle cx="231" cy="169" r="14"/>
+    <circle cx="674" cy="178" r="12"/>
+    <circle cx="818" cy="177" r="15"/>
+  </g>
+  <g fill="#ffffff" opacity=".72">
+    <rect x="310" y="48" width="124" height="18" rx="9"/>
+    <rect x="333" y="75" width="76" height="12" rx="6"/>
+    <rect x="520" y="34" width="98" height="15" rx="7.5"/>
+  </g>
+</svg>

@@ -18,6 +18,7 @@ class AuthAccountFactory extends Factory
             'login' => Str::lower(fake()->unique()->userName()),
             'password' => Str::password(32),
             'user_code' => User::factory(),
+            'student_code' => null,
             'is_active' => true,
             'last_login_at' => null,
         ];
