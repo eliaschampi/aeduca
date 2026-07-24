@@ -1,44 +1,50 @@
 /**
  * Aeduca theme seeds (v8) — identity + surfaces only.
+ *
+ * All seeds are OKLCH so they flow through Lumi's derivation pipeline
+ * (surfaces, borders, tints, gradients) instead of bypassing it as sRGB.
  * Lumi derives fills, glass, borders, and shell. No component overrides.
  *
- * Dark: re-seed canvas/neutral under [data-theme='dark'] so light :root
- * values cannot win the cascade (muddy “vintage” dark).
+ * Identity: indigo × amber on cool porcelain — scholarly, modern, calm.
+ * Dark: canvas re-seeded under [data-theme='dark'] so light :root values
+ * cannot win the cascade (muddy "vintage" dark).
  */
 :root {
-    /* Brand — v7 trust blue + refined coral */
-    --lumi-brand-primary: #1557b0;
-    --lumi-brand-secondary: #c44732;
+    /* Brand — indigo (primary) × warm amber (secondary), high-legibility pair */
+    --lumi-brand-primary: oklch(0.52 0.19 268);
+    --lumi-brand-secondary: oklch(0.7 0.15 58);
 
-    /* Status — distinct roles, AA on white text */
-    --lumi-status-success: #137a55;
-    --lumi-status-warning: #a85b0a;
-    --lumi-status-danger: #b8325c;
-    --lumi-status-info: #147a9e;
+    /* Status — shared ~0.55 lightness band, chroma by urgency; info ≠ primary hue */
+    --lumi-status-success: oklch(0.56 0.13 155);
+    --lumi-status-warning: oklch(0.68 0.15 75);
+    --lumi-status-danger: oklch(0.56 0.19 22);
+    --lumi-status-info: oklch(0.6 0.11 220);
 
-    /* Light surfaces — cool admin paper */
-    --lumi-color-canvas: #f3f6fb;
-    --lumi-color-neutral: #172033;
+    /* Light surfaces — cool porcelain paper, neutral ink with faint brand cast */
+    --lumi-color-canvas: oklch(0.985 0.004 250);
+    --lumi-color-neutral: oklch(0.29 0.02 268);
 
     --lumi-app-background-accent: radial-gradient(
-        ellipse 80% 55% at 12% -10%,
-        color-mix(in oklch, var(--lumi-brand-primary) 14%, transparent),
-        transparent 62%
+        ellipse 85% 60% at 8% -12%,
+        color-mix(in oklch, var(--lumi-brand-primary) 13%, transparent),
+        transparent 60%
     );
     --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-brand-primary) 6%, transparent);
 }
 
 [data-theme='dark'] {
-    --lumi-color-canvas: #0b1322;
-    --lumi-color-neutral: #e7edf6;
+    /* Brand — lifted for legible fills on deep surfaces */
+    --lumi-brand-primary-dark: oklch(0.72 0.16 268);
+    --lumi-brand-secondary-dark: oklch(0.78 0.13 62);
+
+    /* Dark surfaces — deep indigo-slate tied to brand hue; cool paper ink */
+    --lumi-color-canvas: oklch(0.19 0.02 268);
+    --lumi-color-neutral: oklch(0.94 0.006 250);
 
     --lumi-app-background-accent: radial-gradient(
-        ellipse 70% 50% at 10% -8%,
-        color-mix(in oklch, var(--lumi-brand-primary) 22%, transparent),
-        transparent 58%
+        ellipse 75% 55% at 6% -10%,
+        color-mix(in oklch, var(--lumi-brand-primary) 26%, transparent),
+        transparent 56%
     );
-    --lumi-app-pattern-line-color: color-mix(in oklch, white 4.5%, transparent);
-
-    --lumi-brand-primary-dark: color-mix(in oklch, var(--lumi-brand-primary) 62%, white);
-    --lumi-brand-secondary-dark: color-mix(in oklch, var(--lumi-brand-secondary) 58%, white);
+    --lumi-app-pattern-line-color: color-mix(in oklch, white 5%, transparent);
 }
