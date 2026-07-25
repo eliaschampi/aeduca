@@ -14,7 +14,8 @@ class PermissionFactory extends Factory
     {
         return [
             'name' => fake()->unique()->bothify('module_##.action_##'),
-            'description' => fake()->optional()->sentence(),
+            'group_label' => fake()->word(),
+            'description' => fake()->sentence(),
         ];
     }
 }

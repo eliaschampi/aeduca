@@ -268,7 +268,9 @@
         <section class="lumi-layout--content-right lumi-min-width--0">
             <Card spaced>
                 <div class="lumi-stack lumi-stack--md">
-                    <div class="lumi-filter-summary lumi-filter-summary--secondary">
+                    <div
+                        class="lumi-filter-summary lumi-filter-summary--split lumi-filter-summary--secondary"
+                    >
                         <div class="lumi-filter-summary__copy">
                             <p class="lumi-filter-summary__eyebrow">Matrículas activas</p>
                             <h2 class="lumi-filter-summary__title">{appliedContextTitle}</h2>

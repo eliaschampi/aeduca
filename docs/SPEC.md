@@ -167,6 +167,7 @@ superadministrator = all known permissions
 - `*.manage` requires matching `*.view` and is normalized on persistence.
 - Never authorize by role name/code.
 - `is_super_admin` is controlled technical escalation, not a normal form field.
+- Every permission stores its mandatory Spanish `group_label` and description. The role editor groups and presents that database data directly; the UI never derives user-facing labels from technical permission names.
 
 Stable implemented vocabulary:
 

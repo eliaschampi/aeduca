@@ -94,31 +94,24 @@ class RoleController extends Controller
     }
 
     /**
-     * @return list<array{group: string, permissions: list<array{code: string, name: string, description: ?string}>}>
+     * @return list<array{label: string, permissions: list<array{code: string, name: string, description: string}>}>
      */
     private function permissionGroups(): array
     {
-        $permissions = Permission::query()
+        return Permission::query()
+            ->orderBy('group_label')
             ->orderBy('name')
-            ->get(['code', 'name', 'description']);
-
-        $groups = [];
-
-        foreach ($permissions as $permission) {
-            $group = explode('.', $permission->name, 2)[0] ?: 'otros';
-            $groups[$group][] = [
-                'code' => $permission->code,
-                'name' => $permission->name,
-                'description' => $permission->description,
-            ];
-        }
-
-        ksort($groups);
-
-        return collect($groups)
-            ->map(fn (array $items, string $group): array => [
-                'group' => $group,
-                'permissions' => $items,
+            ->get(['code', 'name', 'group_label', 'description'])
+            ->groupBy('group_label')
+            ->map(fn ($permissions, string $groupLabel): array => [
+                'label' => $groupLabel,
+                'permissions' => $permissions
+                    ->map(fn (Permission $permission): array => [
+                        'code' => $permission->code,
+                        'name' => $permission->name,
+                        'description' => $permission->description,
+                    ])
+                    ->all(),
             ])
             ->values()
             ->all();

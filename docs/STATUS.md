@@ -2,9 +2,9 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** July 24, 2026.
+**Implementation inventory reviewed:** July 25, 2026.
 
-**Last full automated verification:** July 24, 2026.
+**Last full automated verification:** July 25, 2026.
 
 ## 1. Completed implementation
 
@@ -43,6 +43,7 @@ session current_branch_code → validated active membership
 - Employee administration exclusively writes `user_branches`.
 - Branch administration writes branch attributes only.
 - Authorization is semantic and enforced before form handling.
+- Each permission stores its required Spanish group label and description; the role editor consumes that database contract without frontend translation maps or labels derived from technical names.
 - Shared Inertia auth is actor-discriminated. Employees receive branches and effective permissions; students receive neither.
 - Login normalizes the identifier, throttles by identifier plus IP, checks the relevant account/identity activity with a non-enumerating failure, rehashes when needed, and records `last_login_at`.
 - Zero active branches blocks login; one is selected automatically; multiple branches use the authenticated shell selector.
@@ -122,7 +123,7 @@ enrollment_shifts
 - Unified branch picker/catalog.
 - Cycle and catalog indexes load summaries.
 - Employee creation is one form; employee profile panels are General, Access, Permissions.
-- Role scope editor represents assignable permissions, not grants.
+- Role scope editor represents assignable permissions, not grants, and renders its Spanish groups from the database catalog.
 - Student navigation opens the institutional directory; the shell also exposes student lookup globally to authorized employees.
 - Student create/edit uses placeholders and cohesive fieldsets; photo management exists only in the profile.
 - The profile uses a non-stretching cover/identity card, compact data, identity state beside the student, one action menu, and focused access/contact/enrollment panels.
@@ -146,7 +147,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including 137 PHPUnit tests / 680 assertions, strict TypeScript, Oxlint, and Prettier.
+- `composer run check`: passed, including 140 PHPUnit tests / 708 assertions, strict TypeScript, Oxlint, and Prettier.
 - `pnpm run build`: passed production build.
 
-The local `aeduca` database was not migrated or seeded.
+The local `aeduca` database was rebuilt and seeded on July 25, 2026, after explicit project-owner approval.

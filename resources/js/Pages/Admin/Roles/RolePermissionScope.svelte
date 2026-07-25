@@ -18,11 +18,11 @@
     interface PermissionItem {
         code: string;
         name: string;
-        description: string | null;
+        description: string;
     }
 
     interface PermissionGroup {
-        group: string;
+        label: string;
         permissions: PermissionItem[];
     }
 
@@ -35,15 +35,8 @@
 
     let { permission_groups, selectedCodes = $bindable(), canEdit, error = null }: Props = $props();
 
-    const groupLabels: Record<string, string> = {
-        dashboard: 'Inicio',
-        branches: 'Sedes',
-        employees: 'Usuarios',
-        roles: 'Roles',
-    };
-
     let query = $state('');
-    let activeGroup = $state<string>(untrack(() => permission_groups[0]?.group ?? ''));
+    let activeGroup = $state<string>(untrack(() => permission_groups[0]?.label ?? ''));
     let showSelectedOnly = $state(false);
 
     const catalogCount = $derived(
@@ -65,14 +58,6 @@
     const normalizedQuery = $derived(query.trim().toLowerCase());
     const isSearching = $derived(normalizedQuery.length > 0);
 
-    function groupTitle(group: string): string {
-        return groupLabels[group] ?? group.charAt(0).toUpperCase() + group.slice(1);
-    }
-
-    function permissionLabel(permission: PermissionItem): string {
-        return permission.description?.trim() || permission.name;
-    }
-
     function selectedInGroup(group: PermissionGroup): number {
         return group.permissions.filter((p) => selectedSet.has(p.code)).length;
     }
@@ -85,21 +70,28 @@
 
     const domainOptions = $derived(
         permission_groups.map((group) => ({
-            value: group.group,
-            label: `${groupTitle(group.group)} · ${selectedInGroup(group)}/${group.permissions.length}`,
+            value: group.label,
+            label: `${group.label} · ${selectedInGroup(group)}/${group.permissions.length}`,
         })),
+    );
+
+    const activeGroupData = $derived(
+        permission_groups.find((group) => group.label === activeGroup),
     );
 
     const visibleRows = $derived.by(() => {
         const source = isSearching
-            ? permission_groups.flatMap((g) =>
-                  g.permissions
+            ? permission_groups.flatMap((group) =>
+                  group.permissions
                       .filter(matchesQuery)
-                      .map((p) => ({ permission: p, groupKey: g.group })),
+                      .map((permission) => ({ permission, groupLabel: group.label })),
               )
-            : (permission_groups.find((g) => g.group === activeGroup)?.permissions ?? []).map(
-                  (p) => ({ permission: p, groupKey: activeGroup }),
-              );
+            : activeGroupData
+              ? activeGroupData.permissions.map((permission) => ({
+                    permission,
+                    groupLabel: activeGroupData.label,
+                }))
+              : [];
 
         if (!showSelectedOnly) return source;
         return source.filter(({ permission }) => selectedSet.has(permission.code));
@@ -108,7 +100,9 @@
     const listTitle = $derived(
         isSearching
             ? `Resultados · ${visibleRows.length}`
-            : `${groupTitle(activeGroup)} · ${visibleRows.length}`,
+            : activeGroupData
+              ? `${activeGroupData.label} · ${visibleRows.length}`
+              : '',
     );
 
     function isViewLockedByManage(name: string): boolean {
@@ -203,15 +197,15 @@
                         {#each visibleRows as row (row.permission.code)}
                             {@const permission = row.permission}
                             <ListItem
-                                title={permissionLabel(permission)}
+                                title={permission.description}
                                 subtitle={isSearching
-                                    ? `${groupTitle(row.groupKey)} · ${permission.name}`
+                                    ? `${row.groupLabel} · ${permission.name}`
                                     : permission.name}
                             >
                                 <Checkbox
                                     checked={selectedSet.has(permission.code)}
                                     disabled={!canEdit || isViewLockedByManage(permission.name)}
-                                    aria-label={permissionLabel(permission)}
+                                    aria-label={permission.description}
                                     onchange={(checked) =>
                                         togglePermission(permission.code, checked)}
                                 />

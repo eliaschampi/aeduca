@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['name', 'description'])]
+#[Fillable(['name', 'group_label', 'description'])]
 class Permission extends Model
 {
     /** @use HasFactory<PermissionFactory> */

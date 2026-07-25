@@ -109,12 +109,7 @@ abstract class TestCase extends BaseTestCase
         $expanded = PermissionDependency::expandNames($names);
 
         $permissions = collect($expanded)->map(
-            function (string $name): Permission {
-                return Permission::query()->firstOrCreate(
-                    ['name' => $name],
-                    ['description' => null],
-                );
-            },
+            fn (string $name): Permission => $this->findOrCreatePermission($name),
         );
 
         $codes = $permissions->pluck('code')->all();
@@ -135,16 +130,17 @@ abstract class TestCase extends BaseTestCase
         $expanded = PermissionDependency::expandNames($names);
 
         $permissions = collect($expanded)->map(
-            function (string $name): Permission {
-                return Permission::query()->firstOrCreate(
-                    ['name' => $name],
-                    ['description' => null],
-                );
-            },
+            fn (string $name): Permission => $this->findOrCreatePermission($name),
         );
 
         $role->permissionScopes()->syncWithoutDetaching($permissions->pluck('code'));
 
         return $permissions->all();
+    }
+
+    private function findOrCreatePermission(string $name): Permission
+    {
+        return Permission::query()->where('name', $name)->first()
+            ?? Permission::factory()->create(['name' => $name]);
     }
 }

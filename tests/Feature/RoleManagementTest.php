@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\EmployeeRole;
 use App\Models\Permission;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -31,6 +32,27 @@ class RoleManagementTest extends TestCase
         $this->actingAs($account)
             ->get(route('admin.roles.index'))
             ->assertForbidden();
+    }
+
+    public function test_role_form_uses_ordered_spanish_permission_groups_from_the_catalog(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['roles.manage']);
+
+        $this->actingAs($account)
+            ->get(route('admin.roles.create'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Roles/Form')
+                ->has('permission_groups', 7)
+                ->where('permission_groups.0.label', 'Alumnos')
+                ->where('permission_groups.1.label', 'Ciclos')
+                ->where('permission_groups.2.label', 'Inicio')
+                ->where('permission_groups.3.label', 'Matrículas')
+                ->where('permission_groups.4.label', 'Roles')
+                ->where('permission_groups.5.label', 'Sedes')
+                ->where('permission_groups.6.label', 'Usuarios'));
     }
 
     public function test_a_manager_can_create_a_role_with_permission_scope(): void

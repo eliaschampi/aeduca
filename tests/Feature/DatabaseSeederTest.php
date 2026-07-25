@@ -22,6 +22,27 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame(13, Permission::query()->count());
         $this->assertSame(
             [
+                'Alumnos',
+                'Ciclos',
+                'Inicio',
+                'Matrículas',
+                'Roles',
+                'Sedes',
+                'Usuarios',
+            ],
+            Permission::query()
+                ->select('group_label')
+                ->distinct()
+                ->orderBy('group_label')
+                ->pluck('group_label')
+                ->all(),
+        );
+        $this->assertSame(
+            'Alumnos',
+            Permission::query()->where('name', 'students.view')->value('group_label'),
+        );
+        $this->assertSame(
+            [
                 'enrollments.manage',
                 'enrollments.view',
                 'students.manage',

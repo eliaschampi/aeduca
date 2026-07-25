@@ -35,14 +35,19 @@ return new class extends Migration
         Schema::create('permissions', function (Blueprint $table) {
             $table->uuid('code')->primary();
             $table->string('name', 100)->unique();
-            $table->string('description')->nullable();
+            $table->string('group_label', 100);
+            $table->string('description');
             $table->timestampsTz();
         });
 
         DB::statement(<<<'SQL'
             ALTER TABLE permissions
             ADD CONSTRAINT permissions_name_format_check
-            CHECK (name ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$')
+            CHECK (name ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'),
+            ADD CONSTRAINT permissions_group_label_not_blank_check
+            CHECK (btrim(group_label) <> ''),
+            ADD CONSTRAINT permissions_description_not_blank_check
+            CHECK (btrim(description) <> '')
             SQL);
 
         Schema::create('employee_role_permission_scopes', function (Blueprint $table) {

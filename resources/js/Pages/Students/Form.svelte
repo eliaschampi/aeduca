@@ -95,14 +95,13 @@
     {/if}
 
     <form
-        class="lumi-centered-layout"
+        class="lumi-stack lumi-stack--lg"
         onsubmit={(event) => {
             event.preventDefault();
             submit();
         }}
     >
         <Card
-            class="lumi-centered-card lumi-centered-card--xl"
             title="Ficha del alumno"
             subtitle="Los campos obligatorios identifican al alumno en toda la institución."
             spaced

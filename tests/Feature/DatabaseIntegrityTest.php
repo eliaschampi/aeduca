@@ -40,6 +40,20 @@ class DatabaseIntegrityTest extends TestCase
         Permission::factory()->create(['name' => 'Users Create']);
     }
 
+    public function test_permission_description_must_not_be_blank(): void
+    {
+        $this->expectException(QueryException::class);
+
+        Permission::factory()->create(['description' => '   ']);
+    }
+
+    public function test_permission_group_label_must_not_be_blank(): void
+    {
+        $this->expectException(QueryException::class);
+
+        Permission::factory()->create(['group_label' => '   ']);
+    }
+
     public function test_branch_membership_rejects_unknown_foreign_keys(): void
     {
         $this->expectException(QueryException::class);
