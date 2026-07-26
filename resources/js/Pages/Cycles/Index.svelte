@@ -3,7 +3,6 @@
     import {
         Button,
         Card,
-        Chip,
         EmptyState,
         PageHeader,
         Progress,
@@ -33,13 +32,17 @@
     }
 
     const { cycles, can_manage = false }: Props = $props();
+    const dateFormatter = new Intl.DateTimeFormat('es-PE', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
 
-    function formatDate(date: string): string {
-        return new Date(`${date}T00:00:00`).toLocaleDateString('es-PE', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        });
+    function formatDateRange(startDate: string, endDate: string): string {
+        return dateFormatter.formatRange(
+            new Date(`${startDate}T00:00:00`),
+            new Date(`${endDate}T00:00:00`),
+        );
     }
 
     function openCycle(code: string): void {
@@ -107,7 +110,7 @@
             {#each cycles as cycle (cycle.code)}
                 <div role="listitem">
                     <Card spaced class="lumi-width--full lumi-h--full">
-                        <div class="lumi-stack lumi-stack--md">
+                        <div class="lumi-stack lumi-stack--sm">
                             <div
                                 class="lumi-flex lumi-justify--between lumi-align-items--start lumi-flex--gap-md"
                             >
@@ -115,44 +118,44 @@
                                 <div
                                     class="lumi-flex lumi-align-items--center lumi-flex--gap-2xs lumi-text--xs lumi-text--muted"
                                 >
-                                    <StatusIndicator
-                                        active={cycle.is_active}
-                                        pulse={cycle.is_active}
-                                    />
+                                    <StatusIndicator active={cycle.is_active} />
                                     <span>{cycle.is_active ? 'Activo' : 'Inactivo'}</span>
                                 </div>
                             </div>
 
-                            <div class="lumi-flex lumi-flex--wrap lumi-flex--gap-xs">
-                                <Chip color="info" size="sm">{cycle.modality_label}</Chip>
-                            </div>
+                            <p class="lumi-margin--none lumi-text--xs lumi-text--muted">
+                                <span class="lumi-font--medium">{cycle.modality_label}</span>
+                                · {formatDateRange(cycle.start_date, cycle.end_date)}
+                            </p>
 
-                            <div class="lumi-stack lumi-stack--2xs">
+                            <div class="lumi-stack lumi-stack--xs">
                                 <div
-                                    class="lumi-flex lumi-flex--wrap lumi-align-items--center lumi-justify--between lumi-flex--gap-xs"
+                                    class="lumi-flex lumi-align-items--center lumi-justify--between lumi-flex--gap-sm"
                                 >
-                                    <Chip icon="calendar" color="secondary" size="sm">
-                                        {formatDate(cycle.start_date)} – {formatDate(
-                                            cycle.end_date,
-                                        )}
-                                    </Chip>
-                                    <span class="lumi-text--sm lumi-text--muted">
+                                    <span
+                                        class="lumi-flex-item--grow lumi-min-width--0 lumi-text--sm lumi-text--muted"
+                                    >
                                         {cycle.timeline.label}
+                                    </span>
+                                    <span
+                                        class="lumi-flex-item--auto lumi-text--sm lumi-font--medium"
+                                    >
+                                        {Math.round(cycle.timeline.percentage)}%
                                     </span>
                                 </div>
 
                                 <Progress
                                     value={cycle.timeline.percentage}
                                     color={progressColor(cycle)}
-                                    striped={cycle.timeline.status === 'active' && cycle.is_active}
-                                    animated={cycle.timeline.status === 'active' && cycle.is_active}
-                                    showLabel
+                                    size="sm"
                                     aria-label={`Avance de ${cycle.name}: ${cycle.timeline.label}`}
                                 />
                             </div>
+                        </div>
 
+                        {#snippet footer()}
                             <div
-                                class="lumi-flex lumi-flex--wrap lumi-justify--between lumi-align-items--center lumi-flex--gap-sm"
+                                class="lumi-flex lumi-justify--between lumi-align-items--center lumi-flex--gap-sm"
                             >
                                 <p class="lumi-margin--none lumi-text--sm lumi-text--muted">
                                     {cycle.degrees_count}
@@ -168,11 +171,9 @@
                                     color="info"
                                     aria-label={`${can_manage ? 'Editar' : 'Ver'} ${cycle.name}`}
                                     onclick={() => openCycle(cycle.code)}
-                                >
-                                    {can_manage ? 'Editar' : 'Ver'}
-                                </Button>
+                                />
                             </div>
-                        </div>
+                        {/snippet}
                     </Card>
                 </div>
             {/each}

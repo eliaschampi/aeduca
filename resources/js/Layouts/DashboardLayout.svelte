@@ -18,6 +18,7 @@
     import { colorScheme, colorSchemeOptions } from '@/lib/color-scheme.svelte';
     import { APP_NAVIGATION } from '@/lib/navigation';
     import { can } from '@/lib/permissions';
+    import BranchCover from '@/components/BranchCover.svelte';
     import StudentSearchDialog from '@/Pages/Students/components/StudentSearchDialog.svelte';
 
     interface Props {
@@ -86,6 +87,10 @@
             : auth?.actor === 'employee'
               ? auth.employee.role_name
               : 'Carrión',
+    );
+    const sidebarBranch = $derived(auth?.actor === 'employee' ? auth.current_branch : null);
+    const sidebarCoverLabel = $derived(
+        sidebarBranch?.name ?? (auth?.actor === 'student' ? 'Portal del alumno' : 'Administración'),
     );
 
     onMount(() => {
@@ -156,7 +161,14 @@
                 userName="Aeduca"
                 userMeta={actorMeta}
                 avatarText="AE"
-            />
+            >
+                {#snippet cover()}
+                    <BranchCover
+                        label={sidebarCoverLabel}
+                        seed={sidebarBranch?.code ?? sidebarCoverLabel}
+                    />
+                {/snippet}
+            </SidebarHeader>
         {/snippet}
 
         {#each availableNavigation as item (item.href)}

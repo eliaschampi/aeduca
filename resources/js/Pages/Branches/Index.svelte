@@ -11,8 +11,8 @@
         Input,
         PageHeader,
         Switch,
-        Title,
     } from '@lumi-ui/svelte';
+    import BranchCover from '@/components/BranchCover.svelte';
     import type { AuthenticatedContext, BranchSummary } from '@/types/auth';
 
     interface CatalogBranch {
@@ -220,22 +220,24 @@
                         spaced
                         hoverable
                         selected={isCurrent}
+                        imageHeight={88}
                         class="lumi-width--full lumi-h--full"
                     >
+                        {#snippet media()}
+                            <BranchCover label={branch.name} seed={branch.code} />
+                        {/snippet}
+
                         <div class="lumi-stack lumi-stack--md">
-                            <div
-                                class="lumi-flex lumi-justify--between lumi-align-items--start lumi-flex--gap-md"
-                            >
-                                <Title size="sm" icon="building2" title={branch.name} />
-                                {#if branch.is_active !== null}
+                            {#if branch.is_active !== null}
+                                <div class="lumi-flex lumi-justify--end">
                                     <Chip
                                         color={branch.is_active ? 'success' : 'secondary'}
                                         size="sm"
                                     >
                                         {branch.is_active ? 'Habilitada' : 'Deshabilitada'}
                                     </Chip>
-                                {/if}
-                            </div>
+                                </div>
+                            {/if}
 
                             {#if branch.employees_count !== null}
                                 <InfoItem

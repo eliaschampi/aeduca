@@ -30,6 +30,13 @@
         transparent 60%
     );
     --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-brand-primary) 6%, transparent);
+
+    /* Keep the workspace bounded while allowing the shell texture to breathe. */
+    --lumi-dashboard-content-bg: color-mix(
+        in oklch,
+        var(--lumi-color-background-secondary) 78%,
+        transparent
+    );
 }
 
 [data-theme='dark'] {

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { untrack } from 'svelte';
-    import { router } from '@inertiajs/svelte';
+    import { page, router } from '@inertiajs/svelte';
     import {
         Alert,
         Button,
@@ -18,6 +18,7 @@
     import StudentPhotoCropper from './components/StudentPhotoCropper.svelte';
     import StudentContactsPanel from './panels/StudentContactsPanel.svelte';
     import StudentEnrollmentsPanel from './panels/StudentEnrollmentsPanel.svelte';
+    import BranchCover from '@/components/BranchCover.svelte';
     import type {
         EnrollmentSummary,
         StudentAccess,
@@ -73,6 +74,12 @@
         enrollments.find(
             (enrollment) => enrollment.is_current_branch && enrollment.status !== 'finalized',
         ) ?? null,
+    );
+    const profileBranch = $derived(
+        page.props.auth?.actor === 'employee' ? page.props.auth.current_branch : null,
+    );
+    const profileCoverLabel = $derived(
+        profileBranch?.name ?? currentEnrollment?.branch_name ?? 'Perfil del alumno',
     );
     const tabs = $derived([
         { value: 'summary', label: 'Acceso', icon: 'key' },
@@ -260,7 +267,14 @@
 
     <div class="lumi-layout--two-columns">
         <aside class="lumi-layout--sidebar-left lumi-stack">
-            <Card image="/images/student-profile-cover.svg" imageAlt="" imageHeight={104} spaced>
+            <Card imageHeight={104} spaced>
+                {#snippet media()}
+                    <BranchCover
+                        label={profileCoverLabel}
+                        seed={profileBranch?.code ?? profileCoverLabel}
+                    />
+                {/snippet}
+
                 <div class="lumi-stack lumi-stack--md">
                     <UserInfo
                         name={student.first_name}
