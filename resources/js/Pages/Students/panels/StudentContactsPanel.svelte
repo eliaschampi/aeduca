@@ -2,7 +2,7 @@
     import { router } from '@inertiajs/svelte';
     import {
         Button,
-        Card,
+        DashboardSection,
         Dialog,
         EmptyState,
         Input,
@@ -96,58 +96,56 @@
     }
 </script>
 
-<Card title="Contactos" subtitle="Personas de referencia del alumno." spaced>
-    <div class="lumi-stack lumi-stack--md">
+<DashboardSection title="Contactos" subtitle="Personas de referencia del alumno.">
+    {#snippet actions()}
         {#if canManage}
-            <div class="lumi-flex lumi-justify--end">
-                <Button type="button" size="sm" icon="plus" onclick={openCreate}>
-                    Agregar contacto
-                </Button>
-            </div>
+            <Button type="button" size="sm" icon="plus" onclick={openCreate}>
+                Agregar contacto
+            </Button>
         {/if}
+    {/snippet}
 
-        {#if contacts.length === 0}
-            <EmptyState
-                icon="users"
-                title="Sin contactos"
-                description="Todavía no se han registrado personas de contacto."
-            />
-        {:else}
-            <List>
-                {#each contacts as contact (contact.code)}
-                    <ListItem
-                        title={contact.name}
-                        subtitle={[contact.phone, contact.note].filter(Boolean).join(' · ') ||
-                            'Sin teléfono ni nota'}
-                        icon="user"
-                    >
-                        {#if canManage}
-                            <div class="lumi-flex lumi-flex--gap-xs">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="flat"
-                                    icon="edit"
-                                    aria-label={`Editar ${contact.name}`}
-                                    onclick={() => openEdit(contact)}
-                                />
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="flat"
-                                    color="danger"
-                                    icon="trash"
-                                    aria-label={`Eliminar ${contact.name}`}
-                                    onclick={() => confirmDelete(contact)}
-                                />
-                            </div>
-                        {/if}
-                    </ListItem>
-                {/each}
-            </List>
-        {/if}
-    </div>
-</Card>
+    {#if contacts.length === 0}
+        <EmptyState
+            icon="users"
+            title="Sin contactos"
+            description="Todavía no se han registrado personas de contacto."
+        />
+    {:else}
+        <List>
+            {#each contacts as contact (contact.code)}
+                <ListItem
+                    title={contact.name}
+                    subtitle={[contact.phone, contact.note].filter(Boolean).join(' · ') ||
+                        'Sin teléfono ni nota'}
+                    icon="user"
+                >
+                    {#if canManage}
+                        <div class="lumi-flex lumi-flex--gap-xs">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="flat"
+                                icon="edit"
+                                aria-label={`Editar ${contact.name}`}
+                                onclick={() => openEdit(contact)}
+                            />
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="flat"
+                                color="danger"
+                                icon="trash"
+                                aria-label={`Eliminar ${contact.name}`}
+                                onclick={() => confirmDelete(contact)}
+                            />
+                        </div>
+                    {/if}
+                </ListItem>
+            {/each}
+        </List>
+    {/if}
+</DashboardSection>
 
 <Dialog
     open={formOpen}

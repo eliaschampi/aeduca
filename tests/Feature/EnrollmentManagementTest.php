@@ -459,6 +459,70 @@ class EnrollmentManagementTest extends TestCase
             ->assertRedirect(route('students.show', $student));
     }
 
+    public function test_delete_permission_removes_a_finished_enrollment_and_its_shifts(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['students.view', 'enrollments.delete']);
+        $student = Student::factory()->create();
+        [$group, $shifts, $cycle] = $this->academicStructure($branch);
+        $enrollment = Enrollment::factory()->create([
+            'student_code' => $student->code,
+            'academic_group_code' => $group->code,
+        ]);
+        $enrollment->shifts()->attach($shifts->first());
+        $cycle->update([
+            'start_date' => CarbonImmutable::now('America/Lima')->subYear()->toDateString(),
+            'end_date' => CarbonImmutable::now('America/Lima')->subDay()->toDateString(),
+        ]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->delete(route('enrollments.destroy', $enrollment))
+            ->assertRedirect(route('students.show', $student))
+            ->assertInertiaFlash('success', 'Matrícula eliminada');
+
+        $this->assertDatabaseMissing('enrollments', ['code' => $enrollment->code]);
+        $this->assertDatabaseMissing('enrollment_shifts', [
+            'enrollment_code' => $enrollment->code,
+        ]);
+        $this->assertDatabaseHas('students', ['code' => $student->code]);
+    }
+
+    public function test_manage_permission_does_not_allow_enrollment_deletion(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['enrollments.manage']);
+        [$group] = $this->academicStructure($branch);
+        $enrollment = Enrollment::factory()->create(['academic_group_code' => $group->code]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->delete(route('enrollments.destroy', $enrollment))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('enrollments', ['code' => $enrollment->code]);
+    }
+
+    public function test_enrollment_deletion_is_restricted_to_the_current_branch(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['enrollments.delete']);
+        [$foreignGroup] = $this->academicStructure();
+        $enrollment = Enrollment::factory()->create([
+            'academic_group_code' => $foreignGroup->code,
+        ]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->delete(route('enrollments.destroy', $enrollment))
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('enrollments', ['code' => $enrollment->code]);
+    }
+
     public function test_roster_is_branch_scoped_and_lists_only_active_section_enrollments(): void
     {
         $account = $this->createEmployeeAccount();
@@ -468,6 +532,7 @@ class EnrollmentManagementTest extends TestCase
             'dni' => '12344321',
             'first_name' => 'Lucía',
             'last_name' => 'Ramos',
+            'phone' => '987654321',
         ]);
         [$group, $shifts, $cycle, $degree] = $this->academicStructure($branch);
         $enrollment = Enrollment::factory()->create([
@@ -503,6 +568,7 @@ class EnrollmentManagementTest extends TestCase
             ->component('Students/Roster')
             ->has('enrollments.data', 1)
             ->where('enrollments.data.0.code', $enrollment->code)
+            ->where('enrollments.data.0.phone', '987654321')
             ->where('context_complete', true)
             ->where('filters.group', $group->code));
     }

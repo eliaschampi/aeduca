@@ -205,7 +205,8 @@ return new class extends Migration
                 seo.cycle_code,
                 seo.cycle_name,
                 seo.branch_code,
-                seo.shift_names
+                seo.shift_names,
+                s.phone
             FROM student_enrollment_overview seo
             INNER JOIN students s ON s.code = seo.student_code
             SQL);

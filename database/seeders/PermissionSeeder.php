@@ -16,7 +16,8 @@ final class PermissionSeeder extends Seeder
     private const CATALOG = [
         'Alumnos' => [
             'students.view' => 'Ver el directorio y los perfiles de alumnos.',
-            'students.manage' => 'Registrar y administrar alumnos, contactos y acceso.',
+            'students.manage' => 'Registrar y editar alumnos, contactos y acceso.',
+            'students.delete' => 'Eliminar alumnos sin historial de matrículas.',
         ],
         'Ciclos' => [
             'cycles.view' => 'Ver los ciclos académicos de la sede actual.',
@@ -28,6 +29,7 @@ final class PermissionSeeder extends Seeder
         'Matrículas' => [
             'enrollments.view' => 'Ver matrículas e inscritos de la sede actual.',
             'enrollments.manage' => 'Crear y editar matrículas vigentes.',
+            'enrollments.delete' => 'Eliminar matrículas sin pagos de la sede actual.',
         ],
         'Roles' => [
             'roles.view' => 'Ver los roles y el alcance de permisos.',

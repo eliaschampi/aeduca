@@ -1,6 +1,16 @@
 <script lang="ts">
     import { router } from '@inertiajs/svelte';
-    import { Alert, Button, Card, Chip, EmptyState, Table } from '@lumi-ui/svelte';
+    import {
+        Alert,
+        Button,
+        Card,
+        Chip,
+        Dialog,
+        Dropdown,
+        DropdownItem,
+        EmptyState,
+        Table,
+    } from '@lumi-ui/svelte';
     import type { EnrollmentSummary } from '@/types/student';
 
     interface Props {
@@ -8,15 +18,21 @@
         enrollments: EnrollmentSummary[];
         enrollmentCount: number;
         canManage: boolean;
+        canDelete: boolean;
         isSelf: boolean;
     }
 
-    const { studentCode, enrollments, enrollmentCount, canManage, isSelf }: Props = $props();
-    const editableEnrollment = $derived(
-        enrollments.find((enrollment) => enrollment.status !== 'finalized') ?? null,
+    const { studentCode, enrollments, enrollmentCount, canManage, canDelete, isSelf }: Props =
+        $props();
+    const currentBranchEnrollment = $derived(
+        enrollments.find(
+            (enrollment) => enrollment.is_current_branch && enrollment.status !== 'finalized',
+        ) ?? null,
     );
 
     let processingCode = $state<string | null>(null);
+    let deleteOpen = $state(false);
+    let pendingDelete = $state<EnrollmentSummary | null>(null);
 
     function updateState(enrollment: EnrollmentSummary, isActive: boolean): void {
         if (processingCode) return;
@@ -33,6 +49,47 @@
                     processingCode = null;
                 },
             },
+        );
+    }
+
+    function confirmDelete(enrollment: EnrollmentSummary): void {
+        if (!enrollment.is_current_branch || processingCode) return;
+
+        pendingDelete = enrollment;
+        deleteOpen = true;
+    }
+
+    function closeDelete(): void {
+        if (processingCode) return;
+
+        deleteOpen = false;
+        pendingDelete = null;
+    }
+
+    function remove(): void {
+        if (!pendingDelete || processingCode) return;
+
+        const enrollment = pendingDelete;
+
+        router.delete(`/enrollments/${enrollment.code}`, {
+            preserveScroll: true,
+            onStart: () => {
+                processingCode = enrollment.code;
+            },
+            onSuccess: () => {
+                deleteOpen = false;
+                pendingDelete = null;
+            },
+            onFinish: () => {
+                processingCode = null;
+            },
+        });
+    }
+
+    function hasActions(enrollment: EnrollmentSummary): boolean {
+        return (
+            enrollment.is_current_branch &&
+            (canDelete || (canManage && enrollment.status !== 'finalized'))
         );
     }
 
@@ -53,20 +110,15 @@
     spaced
 >
     <div class="lumi-stack lumi-stack--md">
-        {#if canManage}
+        {#if canManage && !currentBranchEnrollment}
             <div class="lumi-flex lumi-justify--end">
                 <Button
                     type="button"
                     size="sm"
-                    icon={editableEnrollment ? 'edit' : 'plus'}
-                    onclick={() =>
-                        router.visit(
-                            editableEnrollment
-                                ? `/enrollments/${editableEnrollment.code}/edit`
-                                : `/students/${studentCode}/enrollments/create`,
-                        )}
+                    icon="plus"
+                    onclick={() => router.visit(`/students/${studentCode}/enrollments/create`)}
                 >
-                    {editableEnrollment ? 'Editar matrícula' : 'Nueva matrícula'}
+                    Nueva matrícula
                 </Button>
             </div>
         {/if}
@@ -97,7 +149,7 @@
                     <th scope="col">Ubicación académica</th>
                     <th scope="col">Turnos</th>
                     <th scope="col">Estado</th>
-                    {#if canManage}<th scope="col">Acciones</th>{/if}
+                    {#if canManage || canDelete}<th scope="col">Acciones</th>{/if}
                 {/snippet}
 
                 {#snippet row({ row }: { row: EnrollmentSummary })}
@@ -123,32 +175,52 @@
                             {row.status_label}
                         </Chip>
                     </td>
-                    {#if canManage}
+                    {#if canManage || canDelete}
                         <td>
-                            {#if row.status !== 'finalized'}
-                                <div class="lumi-flex lumi-flex--wrap lumi-flex--gap-xs">
-                                    <Button
-                                        type="button"
-                                        variant="flat"
-                                        size="sm"
-                                        icon="edit"
-                                        onclick={() =>
-                                            router.visit(`/enrollments/${row.code}/edit`)}
-                                    >
-                                        Editar
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="flat"
-                                        size="sm"
-                                        color={row.is_active ? 'danger' : 'success'}
-                                        icon={row.is_active ? 'lock' : 'key'}
-                                        loading={processingCode === row.code}
-                                        onclick={() => updateState(row, !row.is_active)}
-                                    >
-                                        {row.is_active ? 'Desactivar' : 'Activar'}
-                                    </Button>
-                                </div>
+                            {#if hasActions(row)}
+                                <Dropdown
+                                    placement="bottom-end"
+                                    disabled={processingCode === row.code}
+                                    aria-label={`Acciones de matrícula ${row.roll_code}`}
+                                >
+                                    {#snippet triggerContent()}
+                                        <Button
+                                            type="button"
+                                            variant="flat"
+                                            size="sm"
+                                            icon="moreVertical"
+                                            loading={processingCode === row.code}
+                                            aria-label={`Abrir acciones de matrícula ${row.roll_code}`}
+                                        />
+                                    {/snippet}
+                                    {#snippet content()}
+                                        {#if canManage && row.status !== 'finalized'}
+                                            <DropdownItem
+                                                icon="edit"
+                                                onclick={() =>
+                                                    router.visit(`/enrollments/${row.code}/edit`)}
+                                            >
+                                                Editar matrícula
+                                            </DropdownItem>
+                                            <DropdownItem
+                                                icon={row.is_active ? 'lock' : 'key'}
+                                                color={row.is_active ? 'warning' : 'success'}
+                                                onclick={() => updateState(row, !row.is_active)}
+                                            >
+                                                {row.is_active ? 'Desactivar' : 'Activar'}
+                                            </DropdownItem>
+                                        {/if}
+                                        {#if canDelete}
+                                            <DropdownItem
+                                                icon="trash"
+                                                color="danger"
+                                                onclick={() => confirmDelete(row)}
+                                            >
+                                                Eliminar matrícula
+                                            </DropdownItem>
+                                        {/if}
+                                    {/snippet}
+                                </Dropdown>
                             {:else}
                                 <span class="lumi-text--sm lumi-text--muted">Sólo lectura</span>
                             {/if}
@@ -159,3 +231,38 @@
         {/if}
     </div>
 </Card>
+
+<Dialog
+    open={deleteOpen}
+    title="Eliminar matrícula"
+    size="sm"
+    persistent={processingCode !== null}
+    onclose={closeDelete}
+>
+    <div class="lumi-stack lumi-stack--md">
+        <p class="lumi-margin--none">
+            Se eliminará definitivamente la matrícula
+            <strong>{pendingDelete?.roll_code}</strong> del ciclo
+            <strong>{pendingDelete?.cycle_name}</strong>. Esta acción no se puede deshacer.
+        </p>
+        <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
+            <Button
+                type="button"
+                variant="border"
+                disabled={processingCode !== null}
+                onclick={closeDelete}
+            >
+                Cancelar
+            </Button>
+            <Button
+                type="button"
+                color="danger"
+                icon="trash"
+                loading={processingCode !== null}
+                onclick={remove}
+            >
+                Eliminar
+            </Button>
+        </div>
+    </div>
+</Dialog>

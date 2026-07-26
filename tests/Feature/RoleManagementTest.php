@@ -213,6 +213,29 @@ class RoleManagementTest extends TestCase
         ]);
     }
 
+    public function test_saving_delete_scope_requires_view_without_granting_manage(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['roles.manage']);
+        $view = Permission::factory()->create(['name' => 'enrollments.view']);
+        $manage = Permission::factory()->create(['name' => 'enrollments.manage']);
+        $delete = Permission::factory()->create(['name' => 'enrollments.delete']);
+
+        $this->actingAs($account)
+            ->post(route('admin.roles.store'), [
+                'name' => 'Depuración académica',
+                'description' => null,
+                'is_active' => true,
+                'permission_codes' => [$delete->code],
+            ])
+            ->assertRedirect();
+
+        $role = EmployeeRole::query()->where('name', 'Depuración académica')->firstOrFail();
+        $this->assertTrue($role->permissionScopes()->whereKey($delete->code)->exists());
+        $this->assertTrue($role->permissionScopes()->whereKey($view->code)->exists());
+        $this->assertFalse($role->permissionScopes()->whereKey($manage->code)->exists());
+    }
+
     public function test_role_name_is_required(): void
     {
         $account = $this->createEmployeeAccount();

@@ -164,7 +164,7 @@ superadministrator = all known permissions
 - Role scope does not grant access.
 - Grants outside role scope are ineffective.
 - Changing role or reducing scope prunes incompatible grants transactionally.
-- `*.manage` requires matching `*.view` and is normalized on persistence.
+- `*.manage` and confirmed `*.delete` capabilities require matching `*.view` and are normalized on persistence. `manage` never grants `delete`.
 - Never authorize by role name/code.
 - `is_super_admin` is controlled technical escalation, not a normal form field.
 - Every permission stores its mandatory Spanish `group_label` and description. The role editor groups and presents that database data directly; the UI never derives user-facing labels from technical permission names.
@@ -217,6 +217,7 @@ UNIQUE(student_code) where present
 ```
 
 - Student login uses DNI for compatibility and has a managed password.
+- Enabling or re-enabling access issues a new temporary credential. Password reset requires an active account and never silently re-enables disabled access.
 - Account state controls authentication; student state controls institutional availability; enrollment state controls current academic placement.
 - Do not deny authentication solely because the student has no active enrollment. Authorization may expose historical information while excluding current operations.
 - Student self-service is authorized by account ownership, not administrative `students.view`.
@@ -364,7 +365,11 @@ enrollment.academic_group_code
 - Contacts are owned rows, initially name, phone, and a free relationship/note. Do not recreate the full legacy guardian domain before its workflows require it.
 - Student, account, and enrollment states remain separate and visible.
 
-`students.view` reads the staff registry/profile. `students.manage` creates and edits identity, photo, contacts, and student state. Access reset belongs to this capability unless a distinct operational role is confirmed.
+`students.view` reads the staff registry/profile. `students.manage` creates and edits identity, photo, contacts, and student state. Access reset belongs to this capability unless a distinct operational role is confirmed. `students.delete` is a separate destructive capability; it does not belong to `students.manage`.
+
+- An authorized employee may permanently delete a student only when no enrollment exists in any branch. Enrollment history is never cascaded merely to remove the identity.
+- Student deletion removes owned contacts, authentication account, active sessions, and the managed private photo. PostgreSQL cascades database-owned dependents; the student deletion Action owns the transactional history check and storage cleanup.
+- Future attendance, payments, evaluations, or files must preserve this boundary through explicit references and deletion rules; they must not be bypassed by application-only checks.
 
 ### Operational list and global search
 
@@ -426,12 +431,15 @@ enrollment_shifts
 - Enrollment and student activity remain explicit booleans. Cycle finalization is derived at read time from `academic_cycles.end_date`; it is not a persisted enrollment status, scheduled transition, or automatic rewrite.
 - A newly created enrollment is active by definition. Deactivation and reactivation are explicit later edits; the create contract does not accept an activity state from the client.
 - Creating or activating an enrollment never deactivates or replaces another row. Editing section, shifts, observation, or activity inside the same cycle preserves enrollment `code` and `roll_code`.
-- Create, edit, activate/deactivate, derived finalized history, and read-only finished cycles are visible operational behavior.
+- Create, edit, activate/deactivate, derived finalized history, and read-only finished-cycle fields are visible operational behavior.
+- `enrollments.delete` is independent from `enrollments.manage`. It permanently removes a selected current-branch enrollment as a corrective action; active, inactive, or derived finalized presentation does not independently block deletion.
+- Enrollment deletion preserves the student and lets the existing FK cascade remove `enrollment_shifts`. It never removes payments to make deletion possible.
+- Once Payments exists, any associated payment, including a pending one, blocks enrollment deletion. PostgreSQL owns the referential backstop and Laravel owns the clear operational failure.
 - An enrollment cannot change cycle. Transfers and their formal history are deferred.
 - Enrollment never reconstructs branch, cycle, degree, section, or shift from encoded identifiers.
 - Reads enforce confirmed branch visibility; a global student identity does not automatically expose all academic history.
 
-`enrollments.view` reads academic assignment and history. `enrollments.manage` changes enrollment state and assignment. These are staff permissions; student history is authorized by self ownership.
+`enrollments.view` reads academic assignment and history. `enrollments.manage` changes enrollment state and assignment. `enrollments.delete` authorizes the distinct destructive correction and requires `enrollments.view`, not `enrollments.manage`. These are staff permissions; student history is authorized by self ownership.
 
 ### Payments vocabulary and behavior
 

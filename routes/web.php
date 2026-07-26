@@ -56,6 +56,9 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::put('/students/{student}', [StudentController::class, 'update'])
         ->middleware('can:students.manage')
         ->name('students.update');
+    Route::delete('/students/{student}', [StudentController::class, 'destroy'])
+        ->middleware('can:students.delete')
+        ->name('students.destroy');
     Route::put('/students/{student}/photo', [StudentController::class, 'updatePhoto'])
         ->middleware('can:students.manage')
         ->name('students.photo.update');
@@ -90,6 +93,9 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::patch('/enrollments/{enrollment}/state', [EnrollmentController::class, 'updateState'])
         ->middleware('can:enrollments.manage')
         ->name('enrollments.state');
+    Route::delete('/enrollments/{enrollment}', [EnrollmentController::class, 'destroy'])
+        ->middleware('can:enrollments.delete')
+        ->name('enrollments.destroy');
     Route::prefix('admin')->name('admin.')->group(function () {
         // Branch catalog lives on /branches; these routes only write catalog attributes.
         Route::post('/branches', [AdminBranchController::class, 'store'])

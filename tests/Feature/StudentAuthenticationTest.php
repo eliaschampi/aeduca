@@ -67,13 +67,20 @@ class StudentAuthenticationTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->missing('temporary_password'));
     }
 
-    public function test_reset_replaces_hash_and_disable_does_not_change_student_state(): void
+    public function test_student_access_operations_keep_distinct_state_transitions(): void
     {
         $manager = $this->createEmployeeAccount();
         $this->grantPermissions($manager, ['students.manage']);
         $studentAccount = $this->createStudentAccount();
         $student = $studentAccount->student;
         $oldHash = $studentAccount->password;
+
+        $this->actingAs($manager)
+            ->postJson(route('students.access.update', $student), [
+                'operation' => 'enable',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('access');
 
         $response = $this->actingAs($manager)
             ->postJson(route('students.access.update', $student), [
@@ -96,6 +103,30 @@ class StudentAuthenticationTest extends TestCase
 
         $this->assertFalse((bool) $studentAccount->fresh()->is_active);
         $this->assertTrue((bool) $student->fresh()->is_active);
+
+        $disabledHash = $studentAccount->fresh()->password;
+
+        $this->actingAs($manager)
+            ->postJson(route('students.access.update', $student), [
+                'operation' => 'reset',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('access');
+
+        $this->assertFalse((bool) $studentAccount->fresh()->is_active);
+        $this->assertSame($disabledHash, $studentAccount->fresh()->password);
+
+        $response = $this->actingAs($manager)
+            ->postJson(route('students.access.update', $student), [
+                'operation' => 'enable',
+            ])
+            ->assertOk();
+
+        $this->assertTrue((bool) $studentAccount->fresh()->is_active);
+        $this->assertTrue(Hash::check(
+            $response->json('credential.temporary_password'),
+            $studentAccount->fresh()->password,
+        ));
     }
 
     public function test_student_can_login_without_enrollment_and_is_redirected_to_own_profile(): void

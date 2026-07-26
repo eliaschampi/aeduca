@@ -76,12 +76,10 @@ class EnrollmentController extends Controller
                     'dni',
                     'first_name',
                     'last_name',
+                    'phone',
                     'photo_path',
                     'student_is_active',
                     'roll_code',
-                    'group_name',
-                    'degree_number',
-                    'cycle_name',
                     'shift_names',
                 ]);
 
@@ -102,14 +100,12 @@ class EnrollmentController extends Controller
                         'dni' => $row->dni,
                         'first_name' => $row->first_name,
                         'last_name' => $row->last_name,
+                        'phone' => $row->phone,
                         'photo_url' => $row->photo_path
                             ? route('students.photo', $row->student_code)
                             : null,
                         'student_is_active' => (bool) $row->student_is_active,
                         'roll_code' => $row->roll_code,
-                        'cycle_name' => $row->cycle_name,
-                        'degree_label' => DegreeNumber::label((int) $row->degree_number),
-                        'group_name' => $row->group_name,
                         'shift_names' => $row->shift_names,
                     ])
                     ->all(),
@@ -292,7 +288,31 @@ class EnrollmentController extends Controller
             $request->boolean('is_active') ? 'Matrícula activada' : 'Matrícula desactivada',
         );
 
-        return to_route('students.show', $enrollment->student);
+        return $this->afterEnrollmentWrite($enrollment->student);
+    }
+
+    public function destroy(
+        Request $request,
+        Enrollment $enrollment,
+        BranchContext $context,
+    ): RedirectResponse {
+        $branch = $this->currentBranch($request, $context);
+        if (! $branch) {
+            return to_route('branches.index');
+        }
+
+        $enrollment->loadMissing([
+            'cycle:code,branch_code',
+            'student:code',
+        ]);
+        abort_unless($enrollment->cycle?->branch_code === $branch->code, 404);
+
+        $student = $enrollment->student;
+        $enrollment->delete();
+
+        Inertia::flash('success', 'Matrícula eliminada');
+
+        return $this->afterEnrollmentWrite($student);
     }
 
     /**

@@ -19,17 +19,25 @@ final class ManageStudentAccess
             $account = $student->authAccount()->lockForUpdate()->first();
 
             if ($operation === 'disable') {
-                if ($account) {
+                if ($account?->is_active) {
                     $account->update(['is_active' => false]);
                 }
 
                 return null;
             }
 
-            if ($operation === 'reset' && ! $account) {
-                throw ValidationException::withMessages([
-                    'access' => 'El alumno todavía no tiene acceso habilitado.',
-                ]);
+            if ($operation === 'enable' && $account?->is_active) {
+                $this->fail('El alumno ya tiene acceso habilitado. Restablece la clave si es necesario.');
+            }
+
+            if ($operation === 'reset') {
+                if (! $account) {
+                    $this->fail('El alumno todavía no tiene acceso habilitado.');
+                }
+
+                if (! $account->is_active) {
+                    $this->fail('El acceso está deshabilitado. Habilítalo para generar una nueva clave.');
+                }
             }
 
             if (
@@ -49,11 +57,16 @@ final class ManageStudentAccess
             $password = $this->temporaryPassword();
 
             if ($account) {
-                $account->update([
+                $attributes = [
                     'login' => $student->dni,
                     'password' => $password,
-                    'is_active' => true,
-                ]);
+                ];
+
+                if ($operation === 'enable') {
+                    $attributes['is_active'] = true;
+                }
+
+                $account->update($attributes);
             } else {
                 AuthAccount::query()->create([
                     'student_code' => $student->code,
@@ -68,6 +81,13 @@ final class ManageStudentAccess
                 'temporary_password' => $password,
             ];
         });
+    }
+
+    private function fail(string $message): never
+    {
+        throw ValidationException::withMessages([
+            'access' => $message,
+        ]);
     }
 
     private function temporaryPassword(): string

@@ -8,17 +8,17 @@
 
 ## 1. Completed implementation
 
-| Vertical           | Implemented                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation             |
-| Branches           | Unified branch selection and minimal branch catalog                                                           |
-| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                     |
-| Roles              | Role CRUD and assignable permission scope                                                                     |
-| Authorization      | Direct grants intersected with role scope, superadministrator, manage→view dependency, student self ownership |
-| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                            |
-| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history     |
-| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster       |
-| Quality            | Pint, PHPUnit, strict TypeScript, Oxlint, Prettier, production build                                          |
+| Vertical           | Implemented                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation              |
+| Branches           | Unified branch selection and minimal branch catalog                                                            |
+| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                      |
+| Roles              | Role CRUD and assignable permission scope                                                                      |
+| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                             |
+| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history      |
+| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster        |
+| Quality            | Pint, PHPUnit, strict TypeScript, Oxlint, Prettier, production build                                           |
 
 ## 2. Access implementation
 
@@ -49,7 +49,7 @@ session current_branch_code → validated active membership
 - Zero active branches blocks login; one is selected automatically; multiple branches use the authenticated shell selector.
 - Employee requests revalidate identity, role, and branch state. Student requests revalidate account/student state and are limited to their own profile.
 - Student login does not require an active enrollment.
-- Enabling or resetting student access returns a cryptographically random temporary password only in the immediate no-store response; only its hash is persisted.
+- Enabling/re-enabling and resetting student access are distinct: reset requires an active account, while disabled access must be enabled explicitly. Both credential operations return a cryptographically random temporary password only in the immediate no-store response; only its hash is persisted.
 - Logout invalidates the session and regenerates the CSRF token.
 - `BranchContext` memoizes authorized branches only inside the current request; no persistent branch or permission cache exists.
 
@@ -103,6 +103,7 @@ enrollment_shifts
 - The authenticated employee shell exposes a debounced, ten-result student lookup that reuses `student_directory`.
 - The profile composes identity, access, contacts, and at most ten authorized enrollment summaries. Employee history is restricted to authorized branches; student self-service sees only its owner.
 - `students.view` / `students.manage` own staff registry access. Contacts and credentials do not create button-level permissions.
+- `students.delete` is independent from management. `DeleteStudent` locks the identity, rejects any enrollment in any branch, deletes database-owned contacts/account/sessions through FKs, and removes the private photo after commit.
 - `SaveEnrollment` owns the aggregate transaction, locks the student, validates current branch and group/shift cycle, and never deactivates or replaces another enrollment.
 - PostgreSQL protects one enrollment per `(student_code, cycle_code)` and one `roll_code` per cycle. `cycle_code` is derived from the server-validated group.
 - `reserve_enrollment_roll_code(cycle_code)` serializes reservation per cycle and returns a four-digit code from `0001` to `9999`.
@@ -114,7 +115,9 @@ enrollment_shifts
 - `/students` reads only active rows from `student_roster` after cycle, degree, and section are complete and valid for the current branch. Text and pagination stay within that section; no broad, shift, state, or “all” roster mode is exposed.
 - The last valid cycle/degree/section is remembered in the authenticated session per branch. A bare return to `/students` revalidates it and redirects to the complete canonical URL; stale contexts are discarded.
 - Unfinished inactive enrollments retain their group/shift context for editing; ended cycle history is read-only.
-- Physical enrollment deletion and Payments were deliberately omitted.
+- `enrollments.delete` is independent from management and removes active, inactive, or finalized current-branch enrollment rows; PostgreSQL cascades their `enrollment_shifts` while preserving the student.
+- Profile enrollment rows retain authorized cross-branch visibility but expose write/delete actions only for the current branch.
+- Payments remains unimplemented; no provisional payment table, relation, or runtime check exists.
 
 ## 5. Application UI
 
@@ -130,7 +133,8 @@ enrollment_shifts
 - The current-branch active roster uses a responsive Lumi sidebar, requires cycle/degree/section, and paginates on the server.
 - Student access credentials exist only in the one-time browser dialog and are cleared when it closes.
 - Student self-service reuses the authenticated shell with only **Mi perfil** navigation.
-- No physical employee/enrollment deletion, fake card action, or empty future tabs.
+- No physical employee deletion, fake card action, or empty future tabs.
+- Student and enrollment destructive actions use compact Lumi dropdowns and explicit confirmation dialogs; management permissions do not expose them.
 
 ## 6. Not implemented
 
@@ -147,7 +151,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including 140 PHPUnit tests / 708 assertions, strict TypeScript, Oxlint, and Prettier.
+- `composer run check`: passed, including 148 PHPUnit tests / 773 assertions, strict TypeScript, Oxlint, and Prettier.
 - `pnpm run build`: passed production build.
 
 The local `aeduca` database was rebuilt and seeded on July 25, 2026, after explicit project-owner approval.

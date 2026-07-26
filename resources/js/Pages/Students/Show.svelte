@@ -47,7 +47,9 @@
         enrollment_count: number;
         is_self?: boolean;
         can_manage?: boolean;
+        can_delete?: boolean;
         can_manage_enrollments?: boolean;
+        can_delete_enrollments?: boolean;
     }
 
     const {
@@ -58,15 +60,19 @@
         enrollment_count,
         is_self = false,
         can_manage = false,
+        can_delete = false,
         can_manage_enrollments = false,
+        can_delete_enrollments = false,
     }: Props = $props();
 
     const fullName = $derived(`${student.first_name} ${student.last_name}`.trim());
     const currentEnrollment = $derived(
         enrollments.find((enrollment) => enrollment.status === 'active') ?? null,
     );
-    const editableEnrollment = $derived(
-        enrollments.find((enrollment) => enrollment.status !== 'finalized') ?? null,
+    const currentBranchEnrollment = $derived(
+        enrollments.find(
+            (enrollment) => enrollment.is_current_branch && enrollment.status !== 'finalized',
+        ) ?? null,
     );
     const tabs = $derived([
         { value: 'summary', label: 'Acceso', icon: 'key' },
@@ -76,13 +82,16 @@
 
     let activeTab = $state<ProfileTab>('summary');
     let accessState = $state<StudentAccess | null>(untrack(() => (access ? { ...access } : null)));
-    let accessProcessing = $state(false);
+    let accessOperation = $state<AccessOperation | null>(null);
     let accessMessage = $state<string | null>(null);
     let accessError = $state<string | null>(null);
     let credential = $state<TemporaryCredential | null>(null);
     let credentialOpen = $state(false);
     let copied = $state(false);
     let photoEditorOpen = $state(false);
+    let deleteOpen = $state(false);
+    let deleteProcessing = $state(false);
+    let deleteError = $state<string | null>(null);
 
     function formatDate(value: string | null): string {
         if (!value) return '—';
@@ -102,8 +111,8 @@
     }
 
     async function manageAccess(operation: AccessOperation): Promise<void> {
-        if (accessProcessing) return;
-        accessProcessing = true;
+        if (accessOperation) return;
+        accessOperation = operation;
         accessMessage = null;
         accessError = null;
 
@@ -147,7 +156,7 @@
         } catch {
             accessError = 'No se pudo actualizar el acceso. Inténtalo nuevamente.';
         } finally {
-            accessProcessing = false;
+            accessOperation = null;
         }
     }
 
@@ -169,6 +178,35 @@
         credentialOpen = false;
         credential = null;
         copied = false;
+    }
+
+    function confirmDelete(): void {
+        deleteError = null;
+        deleteOpen = true;
+    }
+
+    function closeDelete(): void {
+        if (deleteProcessing) return;
+
+        deleteOpen = false;
+        deleteError = null;
+    }
+
+    function removeStudent(): void {
+        if (deleteProcessing) return;
+
+        router.delete(`/students/${student.code}`, {
+            onStart: () => {
+                deleteProcessing = true;
+                deleteError = null;
+            },
+            onError: (errors) => {
+                deleteError = errors.student ?? 'No se pudo eliminar el alumno.';
+            },
+            onFinish: () => {
+                deleteProcessing = false;
+            },
+        });
     }
 </script>
 
@@ -203,17 +241,9 @@
                                 Editar datos
                             </DropdownItem>
                         {/if}
-                        {#if can_manage_enrollments}
-                            <DropdownItem
-                                icon={editableEnrollment ? 'edit' : 'plus'}
-                                onclick={() =>
-                                    router.visit(
-                                        editableEnrollment
-                                            ? `/enrollments/${editableEnrollment.code}/edit`
-                                            : `/students/${student.code}/enrollments/create`,
-                                    )}
-                            >
-                                {editableEnrollment ? 'Editar matrícula' : 'Nueva matrícula'}
+                        {#if can_delete}
+                            <DropdownItem icon="trash" color="danger" onclick={confirmDelete}>
+                                Eliminar alumno
                             </DropdownItem>
                         {/if}
                         <DropdownItem
@@ -325,10 +355,15 @@
                 {:else if can_manage_enrollments}
                     <Button
                         type="button"
-                        icon="plus"
-                        onclick={() => router.visit(`/students/${student.code}/enrollments/create`)}
+                        icon={currentBranchEnrollment ? 'edit' : 'plus'}
+                        onclick={() =>
+                            router.visit(
+                                currentBranchEnrollment
+                                    ? `/enrollments/${currentBranchEnrollment.code}/edit`
+                                    : `/students/${student.code}/enrollments/create`,
+                            )}
                     >
-                        Registrar matrícula
+                        {currentBranchEnrollment ? 'Editar matrícula' : 'Registrar matrícula'}
                     </Button>
                 {/if}
             </Card>
@@ -374,32 +409,46 @@
                                 {#if !accessState || !accessState.is_active}
                                     <Button
                                         type="button"
+                                        size="sm"
                                         icon="key"
-                                        loading={accessProcessing}
+                                        loading={accessOperation === 'enable'}
                                         onclick={() => manageAccess('enable')}
                                     >
                                         Habilitar acceso
                                     </Button>
                                 {:else}
-                                    <Button
-                                        type="button"
-                                        variant="border"
-                                        icon="refreshCw"
-                                        loading={accessProcessing}
-                                        onclick={() => manageAccess('reset')}
+                                    <Dropdown
+                                        placement="bottom-start"
+                                        disabled={accessOperation !== null}
+                                        aria-label="Gestionar acceso del alumno"
                                     >
-                                        Restablecer clave
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="flat"
-                                        color="danger"
-                                        icon="lock"
-                                        loading={accessProcessing}
-                                        onclick={() => manageAccess('disable')}
-                                    >
-                                        Deshabilitar acceso
-                                    </Button>
+                                        {#snippet triggerContent()}
+                                            <Button
+                                                type="button"
+                                                variant="border"
+                                                size="sm"
+                                                icon="key"
+                                                loading={accessOperation !== null}
+                                            >
+                                                Gestionar acceso
+                                            </Button>
+                                        {/snippet}
+                                        {#snippet content()}
+                                            <DropdownItem
+                                                icon="refreshCw"
+                                                onclick={() => manageAccess('reset')}
+                                            >
+                                                Restablecer clave
+                                            </DropdownItem>
+                                            <DropdownItem
+                                                icon="lock"
+                                                color="danger"
+                                                onclick={() => manageAccess('disable')}
+                                            >
+                                                Deshabilitar acceso
+                                            </DropdownItem>
+                                        {/snippet}
+                                    </Dropdown>
                                 {/if}
                             </div>
                         {/if}
@@ -417,6 +466,7 @@
                     {enrollments}
                     enrollmentCount={enrollment_count}
                     canManage={can_manage_enrollments}
+                    canDelete={can_delete_enrollments}
                     isSelf={is_self}
                 />
             {/if}
@@ -429,6 +479,43 @@
     studentCode={student.code}
     studentName={fullName}
 />
+
+<Dialog
+    open={deleteOpen}
+    title="Eliminar alumno"
+    size="sm"
+    persistent={deleteProcessing}
+    onclose={closeDelete}
+>
+    <div class="lumi-stack lumi-stack--md">
+        {#if deleteError}
+            <Alert color="danger">{deleteError}</Alert>
+        {/if}
+        <p class="lumi-margin--none">
+            Se eliminará definitivamente a <strong>{fullName}</strong>, sus contactos y su acceso al
+            sistema. Sólo es posible si no tiene matrículas registradas.
+        </p>
+        <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
+            <Button
+                type="button"
+                variant="border"
+                disabled={deleteProcessing}
+                onclick={closeDelete}
+            >
+                Cancelar
+            </Button>
+            <Button
+                type="button"
+                color="danger"
+                icon="trash"
+                loading={deleteProcessing}
+                onclick={removeStudent}
+            >
+                Eliminar
+            </Button>
+        </div>
+    </div>
+</Dialog>
 
 <Dialog
     open={credentialOpen}

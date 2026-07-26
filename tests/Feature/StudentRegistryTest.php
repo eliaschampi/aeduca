@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AcademicCycle;
 use App\Models\AcademicGroup;
+use App\Models\AuthAccount;
 use App\Models\Branch;
 use App\Models\CycleDegree;
 use App\Models\Enrollment;
@@ -12,6 +13,7 @@ use App\Models\StudentContact;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -221,6 +223,125 @@ class StudentRegistryTest extends TestCase
                 ->component('Students/Show')
                 ->has('enrollments', 1)
                 ->where('enrollments.0.roll_code', '0001'));
+    }
+
+    public function test_profile_marks_only_current_branch_enrollments_as_actionable(): void
+    {
+        $account = $this->createEmployeeAccount(branchCount: 2);
+        [$currentBranch, $otherBranch] = $account->user->branches;
+        $this->grantPermissions($account, [
+            'students.view',
+            'enrollments.manage',
+            'enrollments.delete',
+        ]);
+        $student = Student::factory()->create();
+        [$currentGroup] = $this->academicGroup($currentBranch);
+        [$otherGroup] = $this->academicGroup($otherBranch);
+        Enrollment::factory()->create([
+            'student_code' => $student->code,
+            'academic_group_code' => $currentGroup->code,
+            'roll_code' => '0001',
+        ]);
+        Enrollment::factory()->create([
+            'student_code' => $student->code,
+            'academic_group_code' => $otherGroup->code,
+            'roll_code' => '0002',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $currentBranch->code])
+            ->get(route('students.show', $student))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('can_manage_enrollments', true)
+                ->where('can_delete_enrollments', true)
+                ->where('enrollments.0.roll_code', '0001')
+                ->where('enrollments.0.is_current_branch', true)
+                ->where('enrollments.1.roll_code', '0002')
+                ->where('enrollments.1.is_current_branch', false));
+    }
+
+    public function test_delete_permission_removes_a_student_aggregate_and_private_photo(): void
+    {
+        Storage::fake('local');
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['students.delete']);
+        $student = Student::factory()->create([
+            'photo_path' => 'student-photos/delete-me.webp',
+        ]);
+        Storage::disk('local')->put($student->photo_path, 'photo');
+        $contact = StudentContact::factory()->create(['student_code' => $student->code]);
+        $studentAccount = AuthAccount::factory()->create([
+            'user_code' => null,
+            'student_code' => $student->code,
+            'login' => $student->dni,
+        ]);
+        $sessionId = (string) Str::uuid();
+        DB::table('sessions')->insert([
+            'id' => $sessionId,
+            'user_id' => $studentAccount->code,
+            'ip_address' => null,
+            'user_agent' => null,
+            'payload' => '',
+            'last_activity' => now()->getTimestamp(),
+        ]);
+
+        $this->actingAs($account)
+            ->delete(route('students.destroy', $student))
+            ->assertRedirect(route('students.search'))
+            ->assertInertiaFlash('success', 'Alumno eliminado');
+
+        $this->assertDatabaseMissing('students', ['code' => $student->code]);
+        $this->assertDatabaseMissing('student_contacts', ['code' => $contact->code]);
+        $this->assertDatabaseMissing('auth_accounts', ['code' => $studentAccount->code]);
+        $this->assertDatabaseMissing('sessions', ['id' => $sessionId]);
+        Storage::disk('local')->assertMissing('student-photos/delete-me.webp');
+    }
+
+    public function test_student_deletion_is_blocked_by_any_enrollment_without_side_effects(): void
+    {
+        Storage::fake('local');
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['students.delete']);
+        $student = Student::factory()->create([
+            'photo_path' => 'student-photos/keep-me.webp',
+        ]);
+        Storage::disk('local')->put($student->photo_path, 'photo');
+        $contact = StudentContact::factory()->create(['student_code' => $student->code]);
+        $studentAccount = AuthAccount::factory()->create([
+            'user_code' => null,
+            'student_code' => $student->code,
+            'login' => $student->dni,
+        ]);
+        [$foreignGroup] = $this->academicGroup();
+        $enrollment = Enrollment::factory()->create([
+            'student_code' => $student->code,
+            'academic_group_code' => $foreignGroup->code,
+        ]);
+
+        $this->actingAs($account)
+            ->delete(route('students.destroy', $student))
+            ->assertSessionHasErrors('student');
+
+        $this->assertDatabaseHas('students', ['code' => $student->code]);
+        $this->assertDatabaseHas('student_contacts', ['code' => $contact->code]);
+        $this->assertDatabaseHas('auth_accounts', ['code' => $studentAccount->code]);
+        $this->assertDatabaseHas('enrollments', ['code' => $enrollment->code]);
+        Storage::disk('local')->assertExists('student-photos/keep-me.webp');
+    }
+
+    public function test_manage_permission_does_not_allow_student_deletion(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['students.manage']);
+        $student = Student::factory()->create();
+
+        $this->actingAs($account)
+            ->delete(route('students.destroy', $student))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('students', ['code' => $student->code]);
     }
 
     public function test_contact_updates_cannot_cross_student_ownership(): void

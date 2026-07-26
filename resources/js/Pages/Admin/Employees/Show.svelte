@@ -204,32 +204,32 @@
 <div class="lumi-stack lumi-stack--lg lumi-min-width--0">
     <PageHeader title={fullName} subtitle={employee.role_name ?? 'Sin rol'} icon="user" size="xl">
         {#snippet actions()}
-            <div class="lumi-flex lumi-align-items--center lumi-flex--gap-sm">
-                {#if employee.is_super_admin}
-                    <Chip color="warning" size="sm">Superadmin</Chip>
-                {/if}
-                <Chip color={employee.is_active ? 'success' : 'secondary'} size="sm">
-                    {employee.is_active ? 'Activo' : 'Inactivo'}
-                </Chip>
-                <Button
-                    type="button"
-                    variant="border"
-                    icon="arrowLeft"
-                    onclick={() => router.visit('/admin/employees')}
-                >
-                    Volver
-                </Button>
-            </div>
+            <Button
+                type="button"
+                variant="border"
+                icon="arrowLeft"
+                onclick={() => router.visit('/admin/employees')}
+            >
+                Volver
+            </Button>
         {/snippet}
     </PageHeader>
 
-    <div class="lumi-flex lumi-align-items--center lumi-flex--gap-md">
+    <div class="lumi-flex lumi-align-items--center lumi-flex--gap-md lumi-flex--wrap">
         <Avatar text={fullName} size="lg" color="primary" />
-        <div class="lumi-stack lumi-stack--2xs">
+        <div class="lumi-stack lumi-stack--2xs lumi-flex-item--grow">
             <span class="lumi-text--sm lumi-text--muted">{employee.login ?? 'Sin login'}</span>
             <span class="lumi-text--sm lumi-text--muted">
                 {employee.branches.map((b) => b.name).join(' · ') || 'Sin sedes'}
             </span>
+        </div>
+        <div class="lumi-flex lumi-flex--gap-sm lumi-flex--wrap">
+            {#if employee.is_super_admin}
+                <Chip color="warning" size="sm">Superadmin</Chip>
+            {/if}
+            <Chip color={employee.is_active ? 'success' : 'secondary'} size="sm">
+                {employee.is_active ? 'Activo' : 'Inactivo'}
+            </Chip>
         </div>
     </div>
 

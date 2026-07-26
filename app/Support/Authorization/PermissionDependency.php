@@ -7,12 +7,15 @@ use Illuminate\Support\Collection;
 use LogicException;
 
 /**
- * Domain invariant: *.manage requires the matching *.view.
+ * Domain invariant: write capabilities require the matching domain view.
  */
 final class PermissionDependency
 {
+    /** @var list<string> */
+    private const VIEW_DEPENDENT_SUFFIXES = ['.manage', '.delete'];
+
     /**
-     * Expand permission names so every manage includes its view.
+     * Expand permission names so every write capability includes its view.
      *
      * @param  list<string>  $names
      * @return list<string>
@@ -22,11 +25,15 @@ final class PermissionDependency
         $set = array_fill_keys($names, true);
 
         foreach ($names as $name) {
-            if (! str_ends_with($name, '.manage')) {
-                continue;
-            }
+            foreach (self::VIEW_DEPENDENT_SUFFIXES as $suffix) {
+                if (! str_ends_with($name, $suffix)) {
+                    continue;
+                }
 
-            $set[substr($name, 0, -strlen('.manage')).'.view'] = true;
+                $set[substr($name, 0, -strlen($suffix)).'.view'] = true;
+
+                break;
+            }
         }
 
         $expanded = array_keys($set);

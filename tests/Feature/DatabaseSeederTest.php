@@ -19,7 +19,7 @@ class DatabaseSeederTest extends TestCase
 
         $this->seed();
 
-        $this->assertSame(13, Permission::query()->count());
+        $this->assertSame(15, Permission::query()->count());
         $this->assertSame(
             [
                 'Alumnos',
@@ -43,8 +43,10 @@ class DatabaseSeederTest extends TestCase
         );
         $this->assertSame(
             [
+                'enrollments.delete',
                 'enrollments.manage',
                 'enrollments.view',
+                'students.delete',
                 'students.manage',
                 'students.view',
             ],
@@ -52,8 +54,10 @@ class DatabaseSeederTest extends TestCase
                 ->whereIn('name', [
                     'students.view',
                     'students.manage',
+                    'students.delete',
                     'enrollments.view',
                     'enrollments.manage',
+                    'enrollments.delete',
                 ])
                 ->orderBy('name')
                 ->pluck('name')

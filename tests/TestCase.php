@@ -99,7 +99,7 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * Put names in the role scope and as direct grants (effective access).
-     * Expands manage → view.
+     * Expands write capabilities → view.
      *
      * @param  list<string>  $names
      * @return list<Permission>

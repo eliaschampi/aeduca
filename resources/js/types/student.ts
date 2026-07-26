@@ -35,6 +35,7 @@ export interface EnrollmentSummary {
     group_name: string;
     degree_label: string;
     cycle_name: string;
+    is_current_branch: boolean;
     branch_name: string;
     shift_names: string;
     created_at: string;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\DeleteStudent;
 use App\Actions\SaveStudentProfile;
 use App\Actions\UpdateStudentPhoto;
 use App\Http\Requests\StudentPhotoRequest;
@@ -110,6 +111,10 @@ class StudentController extends Controller
             $enrollmentsQuery->whereIn('branch_code', $branchCodes);
         }
 
+        $currentBranchCode = $isSelf
+            ? null
+            : $branchContext->currentBranch($account)?->code;
+
         $enrollmentCount = (clone $enrollmentsQuery)->count();
         $enrollments = $enrollmentsQuery
             ->orderByRaw(<<<'SQL'
@@ -122,7 +127,7 @@ class StudentController extends Controller
             ->orderByDesc('created_at')
             ->limit(10)
             ->get()
-            ->map(fn (object $row): array => $this->enrollmentRow($row))
+            ->map(fn (object $row): array => $this->enrollmentRow($row, $currentBranchCode))
             ->all();
 
         $student->loadMissing('authAccount:code,student_code,login,is_active,last_login_at');
@@ -152,7 +157,9 @@ class StudentController extends Controller
             'enrollment_count' => $enrollmentCount,
             'is_self' => $isSelf,
             'can_manage' => ! $isSelf && Gate::check('students.manage'),
+            'can_delete' => ! $isSelf && Gate::check('students.delete'),
             'can_manage_enrollments' => ! $isSelf && Gate::check('enrollments.manage'),
+            'can_delete_enrollments' => ! $isSelf && Gate::check('enrollments.delete'),
         ]);
     }
 
@@ -176,6 +183,15 @@ class StudentController extends Controller
         Inertia::flash('success', 'Alumno actualizado');
 
         return to_route('students.show', $student);
+    }
+
+    public function destroy(Student $student, DeleteStudent $deleteStudent): RedirectResponse
+    {
+        $deleteStudent->handle($student);
+
+        Inertia::flash('success', 'Alumno eliminado');
+
+        return to_route('students.search');
     }
 
     public function updatePhoto(
@@ -330,7 +346,7 @@ class StudentController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function enrollmentRow(object $row): array
+    private function enrollmentRow(object $row, ?string $currentBranchCode): array
     {
         return [
             'code' => $row->enrollment_code,
@@ -343,6 +359,7 @@ class StudentController extends Controller
             'group_name' => $row->group_name,
             'degree_label' => DegreeNumber::label((int) $row->degree_number),
             'cycle_name' => $row->cycle_name,
+            'is_current_branch' => $row->branch_code === $currentBranchCode,
             'branch_name' => $row->branch_name,
             'shift_names' => $row->shift_names,
             'created_at' => $row->created_at,

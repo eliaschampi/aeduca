@@ -23,12 +23,10 @@
         dni: string;
         first_name: string;
         last_name: string;
+        phone: string | null;
         photo_url: string | null;
         student_is_active: boolean;
         roll_code: string;
-        cycle_name: string;
-        degree_label: string;
-        group_name: string;
         shift_names: string;
     }
 
@@ -156,16 +154,6 @@
     function openProfile(row: RosterRow): void {
         if (!can_view_profiles) return;
         router.visit(`/students/${row.student_code}`);
-    }
-
-    function editEnrollment(event: MouseEvent, row: RosterRow): void {
-        event.stopPropagation();
-        router.visit(`/enrollments/${row.code}/edit`);
-    }
-
-    function viewProfile(event: MouseEvent, row: RosterRow): void {
-        event.stopPropagation();
-        openProfile(row);
     }
 </script>
 
@@ -324,6 +312,7 @@
                         >
                             {#snippet thead()}
                                 <th scope="col">Alumno</th>
+                                <th scope="col">Celular</th>
                                 <th scope="col">Código</th>
                                 <th scope="col">Turnos</th>
                                 {#if can_manage || can_view_profiles}
@@ -348,6 +337,7 @@
                                         {/if}
                                     </div>
                                 </td>
+                                <td>{row.phone || '—'}</td>
                                 <td><strong>{row.roll_code}</strong></td>
                                 <td>{row.shift_names || '—'}</td>
                                 {#if can_manage || can_view_profiles}
@@ -363,14 +353,13 @@
                                                     size="sm"
                                                     icon="moreVertical"
                                                     aria-label={`Abrir acciones de ${row.first_name} ${row.last_name}`}
-                                                    onclick={(event) => event.stopPropagation()}
                                                 />
                                             {/snippet}
                                             {#snippet content()}
                                                 {#if can_view_profiles}
                                                     <DropdownItem
                                                         icon="user"
-                                                        onclick={(event) => viewProfile(event, row)}
+                                                        onclick={() => openProfile(row)}
                                                     >
                                                         Ver perfil
                                                     </DropdownItem>
@@ -378,8 +367,10 @@
                                                 {#if can_manage}
                                                     <DropdownItem
                                                         icon="edit"
-                                                        onclick={(event) =>
-                                                            editEnrollment(event, row)}
+                                                        onclick={() =>
+                                                            router.visit(
+                                                                `/enrollments/${row.code}/edit`,
+                                                            )}
                                                     >
                                                         Editar matrícula
                                                     </DropdownItem>
