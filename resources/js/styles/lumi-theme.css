@@ -1,9 +1,10 @@
 /**
- * Aeduca theme seeds (v8) — identity + surfaces only.
+ * Aeduca theme (v8) — identity seeds plus its dashboard canvas choice.
  *
  * All seeds are OKLCH so they flow through Lumi's derivation pipeline
  * (surfaces, borders, tints, gradients) instead of bypassing it as sRGB.
- * Lumi derives fills, glass, borders, and shell. No component overrides.
+ * Lumi derives fills, glass, borders, and component styling. The dashboard
+ * shell opts into Lumi's public transparent workspace token.
  *
  * Identity: indigo × amber on cool porcelain — scholarly, modern, calm.
  * Dark: canvas re-seeded under [data-theme='dark'] so light :root values
@@ -30,13 +31,10 @@
         transparent 60%
     );
     --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-brand-primary) 6%, transparent);
+}
 
-    /* Keep the workspace bounded while allowing the shell texture to breathe. */
-    --lumi-dashboard-content-bg: color-mix(
-        in oklch,
-        var(--lumi-color-background-secondary) 78%,
-        transparent
-    );
+.lumi-dashboard-layout {
+    --lumi-dashboard-content-bg: transparent;
 }
 
 [data-theme='dark'] {
