@@ -26,9 +26,10 @@
     --lumi-color-neutral: oklch(0.29 0.02 268);
 
     --lumi-app-background-accent: radial-gradient(
-        ellipse 85% 60% at 8% -12%,
-        color-mix(in oklch, var(--lumi-brand-primary) 13%, transparent),
-        transparent 60%
+        farthest-side at 8% -12%,
+        color-mix(in oklch, var(--lumi-brand-primary) 14%, transparent),
+        color-mix(in oklch, var(--lumi-brand-primary) 7%, transparent) 38%,
+        transparent 72%
     );
     --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-brand-primary) 6%, transparent);
 }
@@ -47,9 +48,10 @@
     --lumi-color-neutral: oklch(0.94 0.006 250);
 
     --lumi-app-background-accent: radial-gradient(
-        ellipse 75% 55% at 6% -10%,
-        color-mix(in oklch, var(--lumi-brand-primary) 26%, transparent),
-        transparent 56%
+        farthest-side at 6% -10%,
+        color-mix(in oklch, var(--lumi-brand-primary-dark) 30%, transparent),
+        color-mix(in oklch, var(--lumi-brand-primary-dark) 14%, transparent) 38%,
+        transparent 72%
     );
     --lumi-app-pattern-line-color: color-mix(in oklch, white 5%, transparent);
 }
