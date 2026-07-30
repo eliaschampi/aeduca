@@ -398,7 +398,7 @@ The profile is the institutional hub, not an enlarged CRUD form. It composes bou
 - payments and cashbox history summary;
 - contacts;
 - direct/shared files;
-- links to attendance, evaluations, reports, and card/QR behavior when implemented.
+- links to attendance, evaluations, reports, and individual card generation when implemented.
 
 Specialized history pages load their own data. The profile must not become a service god or one unbounded aggregate query.
 
@@ -427,7 +427,8 @@ enrollment_shifts
 - `cycle_code` is derived from the selected group on the server. An enrollment references one academic group and one or both shifts belonging to that same cycle.
 - While an existing enrollment's cycle has not ended, the student cannot be enrolled in another cycle. `SaveEnrollment` locks the student and enforces this in the aggregate transaction.
 - `roll_code` is exactly four numeric digits (`0001`–`9999`), as required by the confirmed OMR contract. It is used for active search and card display; uniqueness and atomic reservation are protected per cycle by PostgreSQL.
-- Card QR contains DNI for compatibility.
+- An authorized employee generates an individual card on demand from the existing student profile. The browser composes it with the private profile photo, the active enrollment, and the institutional template; it creates no server PDF, storage record, route, or new authorization surface.
+- The card uses the CR80 physical size (85.6 × 53.98 mm) for Evolis printing. Its QR contains the plain eight-digit DNI for compatibility.
 - Enrollment and student activity remain explicit booleans. Cycle finalization is derived at read time from `academic_cycles.end_date`; it is not a persisted enrollment status, scheduled transition, or automatic rewrite.
 - A newly created enrollment is active by definition. Deactivation and reactivation are explicit later edits; the create contract does not accept an activity state from the client.
 - Creating or activating an enrollment never deactivates or replaces another row. Editing section, shifts, observation, or activity inside the same cycle preserves enrollment `code` and `roll_code`.

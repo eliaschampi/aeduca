@@ -20,6 +20,7 @@
     import StudentContactsPanel from './panels/StudentContactsPanel.svelte';
     import StudentEnrollmentsPanel from './panels/StudentEnrollmentsPanel.svelte';
     import BranchCover from '@/components/BranchCover.svelte';
+    import { generateStudentCardPdf } from '@/lib/student-card-pdf';
     import type {
         EnrollmentSummary,
         StudentAccess,
@@ -71,6 +72,9 @@
     const currentEnrollment = $derived(
         enrollments.find((enrollment) => enrollment.status === 'active') ?? null,
     );
+    const canGenerateCard = $derived(
+        !is_self && student.is_active && student.photo_url !== null && currentEnrollment !== null,
+    );
     const currentBranchEnrollment = $derived(
         enrollments.find(
             (enrollment) => enrollment.is_current_branch && enrollment.status !== 'finalized',
@@ -100,6 +104,8 @@
     let deleteOpen = $state(false);
     let deleteProcessing = $state(false);
     let deleteError = $state<string | null>(null);
+    let cardGenerating = $state(false);
+    let cardError = $state<string | null>(null);
 
     function formatDate(value: string | null): string {
         if (!value) return '—';
@@ -215,6 +221,25 @@
             },
         });
     }
+
+    async function generateCard(): Promise<void> {
+        if (!canGenerateCard || !currentEnrollment || cardGenerating) return;
+
+        cardGenerating = true;
+        cardError = null;
+
+        try {
+            await generateStudentCardPdf({
+                ...student,
+                enrollment: currentEnrollment,
+            });
+        } catch (error) {
+            cardError =
+                error instanceof Error ? error.message : 'No se pudo generar el carnet del alumno.';
+        } finally {
+            cardGenerating = false;
+        }
+    }
 </script>
 
 <svelte:head>
@@ -240,6 +265,16 @@
                         />
                     {/snippet}
                     {#snippet content()}
+                        {#if canGenerateCard}
+                            <DropdownItem
+                                icon="creditCard"
+                                color="success"
+                                disabled={cardGenerating}
+                                onclick={() => void generateCard()}
+                            >
+                                {cardGenerating ? 'Generando carnet…' : 'Generar carnet'}
+                            </DropdownItem>
+                        {/if}
                         {#if can_manage}
                             <DropdownItem
                                 icon="edit"
@@ -264,6 +299,10 @@
             {/if}
         {/snippet}
     </PageHeader>
+
+    {#if cardError}
+        <Alert color="danger">{cardError}</Alert>
+    {/if}
 
     <div class="lumi-layout--two-columns">
         <aside class="lumi-layout--sidebar-left lumi-stack">

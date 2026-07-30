@@ -2,9 +2,9 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** July 25, 2026.
+**Implementation inventory reviewed:** July 30, 2026.
 
-**Last full automated verification:** July 25, 2026.
+**Last full automated verification:** July 30, 2026.
 
 ## 1. Completed implementation
 
@@ -132,13 +132,13 @@ enrollment_shifts
 - The profile uses a non-stretching cover/identity card, compact data, identity state beside the student, one action menu, and focused access/contact/enrollment panels.
 - The current-branch active roster uses a responsive Lumi sidebar, requires cycle/degree/section, and paginates on the server.
 - Student access credentials exist only in the one-time browser dialog and are cleared when it closes.
+- From the employee profile's existing action menu, an active student with a private photo and active enrollment can generate an individual CR80 (85.6 × 53.98 mm) card in a new browser tab. The client loads the PDF/QR code only after the click, embeds the institutional template and authorized photo, and encodes the plain DNI in the QR; no server PDF, route, or stored artifact exists.
 - Student self-service reuses the authenticated shell with only **Mi perfil** navigation.
 - No physical employee deletion, fake card action, or empty future tabs.
 - Student and enrollment destructive actions use compact Lumi dropdowns and explicit confirmation dialogs; management permissions do not expose them.
 
 ## 6. Not implemented
 
-- individual student card/PDF and QR;
 - payments, cashbox, or payment reporting;
 - student or employee attendance;
 - evaluations, OMR, or score reports;
