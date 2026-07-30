@@ -6,6 +6,7 @@
         Button,
         Card,
         Chip,
+        DashboardSection,
         Dialog,
         Divider,
         Dropdown,
@@ -169,7 +170,6 @@
 
     async function copyCredential(): Promise<void> {
         if (!credential) return;
-
         try {
             await navigator.clipboard.writeText(
                 `Usuario: ${credential.login}\nContraseña temporal: ${credential.temporary_password}`,
@@ -385,39 +385,14 @@
             <Tabs bind:value={activeTab} {tabs} aria-label="Secciones del perfil" />
 
             {#if activeTab === 'summary'}
-                <Card
+                <DashboardSection
                     title="Acceso al sistema"
                     subtitle={is_self
                         ? 'Tu cuenta usa el mismo ingreso de Aeduca.'
                         : 'La cuenta no modifica el estado del alumno ni su matrícula.'}
                     spaced
                 >
-                    <div class="lumi-stack lumi-stack--md">
-                        {#if accessMessage}
-                            <Alert color="success">{accessMessage}</Alert>
-                        {/if}
-                        {#if accessError}
-                            <Alert color="danger">{accessError}</Alert>
-                        {/if}
-
-                        <div class="lumi-grid lumi-grid--responsive lumi-grid--gap-md">
-                            <InfoItem
-                                label="Usuario"
-                                value={accessState?.login ?? 'Sin acceso habilitado'}
-                                icon="user"
-                            />
-                            <InfoItem
-                                label="Estado"
-                                value={accessState?.is_active ? 'Habilitado' : 'Deshabilitado'}
-                                icon="key"
-                            />
-                            <InfoItem
-                                label="Último ingreso"
-                                value={lastLogin(accessState?.last_login_at ?? null)}
-                                icon="clock"
-                            />
-                        </div>
-
+                    {#snippet actions()}
                         {#if can_manage}
                             <div class="lumi-flex lumi-flex--wrap lumi-flex--gap-sm">
                                 {#if !accessState || !accessState.is_active}
@@ -439,7 +414,6 @@
                                         {#snippet triggerContent()}
                                             <Button
                                                 type="button"
-                                                variant="border"
                                                 size="sm"
                                                 icon="key"
                                                 loading={accessOperation !== null}
@@ -466,8 +440,33 @@
                                 {/if}
                             </div>
                         {/if}
+                    {/snippet}
+                    <div class="lumi-stack lumi-stack--md">
+                        {#if accessMessage}
+                            <Alert color="success">{accessMessage}</Alert>
+                        {/if}
+                        {#if accessError}
+                            <Alert color="danger">{accessError}</Alert>
+                        {/if}
+                        <div class="lumi-grid lumi-grid--responsive lumi-grid--gap-md">
+                            <InfoItem
+                                label="Usuario"
+                                value={accessState?.login ?? 'Sin acceso habilitado'}
+                                icon="user"
+                            />
+                            <InfoItem
+                                label="Estado"
+                                value={accessState?.is_active ? 'Habilitado' : 'Deshabilitado'}
+                                icon="key"
+                            />
+                            <InfoItem
+                                label="Último ingreso"
+                                value={lastLogin(accessState?.last_login_at ?? null)}
+                                icon="clock"
+                            />
+                        </div>
                     </div>
-                </Card>
+                </DashboardSection>
             {:else if activeTab === 'contacts'}
                 <StudentContactsPanel
                     studentCode={student.code}

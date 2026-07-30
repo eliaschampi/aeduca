@@ -84,7 +84,6 @@
 
             {#snippet row({ row }: { row: RoleRow })}
                 <td>
-                    <!-- lumi-stack--2xs is the tightest public stack (there is no --3xs). -->
                     <div class="lumi-stack lumi-stack--2xs">
                         <span class="lumi-font--medium">{row.name}</span>
                         {#if row.description}

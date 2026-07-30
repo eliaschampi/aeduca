@@ -3,8 +3,8 @@
     import {
         Alert,
         Button,
-        Card,
         Chip,
+        DashboardSection,
         Dialog,
         Dropdown,
         DropdownItem,
@@ -102,34 +102,32 @@
     }
 </script>
 
-<Card
+<DashboardSection
     title="Matrículas"
     subtitle={isSelf
         ? 'Tu ubicación académica actual e historial visible.'
         : 'Asignación actual e historial académico autorizado.'}
     spaced
 >
-    <div class="lumi-stack lumi-stack--md">
+    {#snippet actions()}
         {#if canManage && !currentBranchEnrollment}
-            <div class="lumi-flex lumi-justify--end">
-                <Button
-                    type="button"
-                    size="sm"
-                    icon="plus"
-                    onclick={() => router.visit(`/students/${studentCode}/enrollments/create`)}
-                >
-                    Nueva matrícula
-                </Button>
-            </div>
+            <Button
+                type="button"
+                size="sm"
+                icon="plus"
+                onclick={() => router.visit(`/students/${studentCode}/enrollments/create`)}
+            >
+                Nueva matrícula
+            </Button>
         {/if}
-
+    {/snippet}
+    <div class="lumi-stack lumi-stack--md">
         {#if enrollmentCount > enrollments.length}
             <Alert color="info">
                 Se muestran las {enrollments.length} matrículas más recientes de
                 {enrollmentCount}.
             </Alert>
         {/if}
-
         {#if enrollments.length === 0}
             <EmptyState
                 icon="bookOpen"
@@ -230,7 +228,7 @@
             </Table>
         {/if}
     </div>
-</Card>
+</DashboardSection>
 
 <Dialog
     open={deleteOpen}

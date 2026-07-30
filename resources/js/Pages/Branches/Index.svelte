@@ -222,32 +222,20 @@
                         selected={isCurrent}
                         imageHeight={88}
                         class="lumi-width--full lumi-h--full"
+                        title={branch.name}
+                        subtitle={branch.is_active ? 'Sede habilitada' : 'Deshabilitada'}
                     >
                         {#snippet media()}
                             <BranchCover label={branch.name} seed={branch.code} />
                         {/snippet}
 
                         <div class="lumi-stack lumi-stack--md">
-                            {#if branch.is_active !== null}
-                                <div class="lumi-flex lumi-justify--end">
-                                    <Chip
-                                        color={branch.is_active ? 'success' : 'secondary'}
-                                        size="sm"
-                                    >
-                                        {branch.is_active ? 'Habilitada' : 'Deshabilitada'}
-                                    </Chip>
-                                </div>
-                            {/if}
-
-                            {#if branch.employees_count !== null}
-                                <InfoItem
-                                    icon="users"
-                                    iconColor="info"
-                                    label="Usuarios asignados"
-                                    value={`${branch.employees_count}`}
-                                />
-                            {/if}
-
+                            <InfoItem
+                                icon="users"
+                                iconColor="info"
+                                label="Usuarios asignados"
+                                value={`${branch.employees_count || 0}`}
+                            />
                             <div
                                 class="lumi-flex lumi-justify--end lumi-align-items--center lumi-flex--gap-xs"
                             >
@@ -268,7 +256,6 @@
                                         Usar sede
                                     </Button>
                                 {/if}
-
                                 {#if branch.editable && branch.source}
                                     <Button
                                         type="button"
