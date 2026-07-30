@@ -24,10 +24,8 @@
 
     const { studentCode, enrollments, enrollmentCount, canManage, canDelete, isSelf }: Props =
         $props();
-    const currentBranchEnrollment = $derived(
-        enrollments.find(
-            (enrollment) => enrollment.is_current_branch && enrollment.status !== 'finalized',
-        ) ?? null,
+    const hasUnfinishedEnrollment = $derived(
+        enrollments.some((enrollment) => enrollment.status !== 'finalized'),
     );
 
     let processingCode = $state<string | null>(null);
@@ -110,7 +108,7 @@
     spaced
 >
     {#snippet actions()}
-        {#if canManage && !currentBranchEnrollment}
+        {#if canManage && !hasUnfinishedEnrollment}
             <Button
                 type="button"
                 size="sm"

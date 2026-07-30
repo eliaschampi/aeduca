@@ -80,6 +80,9 @@
             (enrollment) => enrollment.is_current_branch && enrollment.status !== 'finalized',
         ) ?? null,
     );
+    const hasUnfinishedEnrollment = $derived(
+        enrollments.some((enrollment) => enrollment.status !== 'finalized'),
+    );
     const profileBranch = $derived(
         page.props.auth?.actor === 'employee' ? page.props.auth.current_branch : null,
     );
@@ -405,7 +408,7 @@
                             value={currentEnrollment.status_label}
                         />
                     </div>
-                {:else if can_manage_enrollments}
+                {:else if can_manage_enrollments && (currentBranchEnrollment || !hasUnfinishedEnrollment)}
                     <Button
                         type="button"
                         icon={currentBranchEnrollment ? 'edit' : 'plus'}

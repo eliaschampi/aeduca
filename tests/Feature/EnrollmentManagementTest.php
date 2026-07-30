@@ -437,6 +437,31 @@ class EnrollmentManagementTest extends TestCase
         $this->assertSame(1, $student->enrollments()->count());
     }
 
+    public function test_new_enrollment_entry_returns_to_the_profile_when_another_branch_has_an_unfinished_enrollment(): void
+    {
+        $account = $this->createEmployeeAccount(branchCount: 2);
+        [$enrollmentBranch, $currentBranch] = $account->user->branches;
+        $this->grantPermissions($account, ['students.view', 'enrollments.manage']);
+        $student = Student::factory()->create();
+        [$group] = $this->academicStructure($enrollmentBranch);
+        Enrollment::factory()->create([
+            'student_code' => $student->code,
+            'academic_group_code' => $group->code,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $currentBranch->code])
+            ->get(route('enrollments.create', $student))
+            ->assertRedirect(route('students.show', $student))
+            ->assertInertiaFlash(
+                'info',
+                'El alumno ya tiene una matrícula en un ciclo vigente. Edita esa matrícula.',
+            );
+
+        $this->assertSame(1, $student->enrollments()->count());
+    }
+
     public function test_finished_enrollment_edit_is_read_only(): void
     {
         $account = $this->createEmployeeAccount();
