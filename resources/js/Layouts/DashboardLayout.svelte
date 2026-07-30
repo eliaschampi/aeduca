@@ -41,6 +41,7 @@
 
     const auth = $derived(page.props.auth);
     const pathname = $derived(page.url.split('?')[0] ?? '/');
+    const hasSelectedBranch = $derived(auth?.actor === 'employee' && auth.current_branch !== null);
     const resolvedSidebarCollapsed = $derived(sidebarCollapsed && !isMobile);
     const resolvedSidebarMobileOpen = $derived(sidebarMobileOpen && isMobile);
     const availableNavigation = $derived(
@@ -52,7 +53,11 @@
                       icon: 'user' as const,
                   },
               ]
-            : APP_NAVIGATION.filter((item) => !item.permission || can(item.permission)),
+            : APP_NAVIGATION.filter(
+                  (item) =>
+                      (!item.permission || can(item.permission)) &&
+                      (!item.requiresBranch || hasSelectedBranch),
+              ),
     );
     // Prefer the longest matching path so /admin/employees wins over /.
     const activeNavigation = $derived.by(() => {

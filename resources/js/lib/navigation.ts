@@ -5,6 +5,7 @@ export interface NavigationItem {
     href: string;
     icon: IconName;
     permission?: string;
+    requiresBranch?: boolean;
     exact?: boolean;
     activePrefixes?: readonly string[];
 }
@@ -31,6 +32,7 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         href: '/admin/cycles',
         icon: 'bookOpen',
         permission: 'cycles.view',
+        requiresBranch: true,
     },
     {
         label: 'Alumnos',
@@ -44,6 +46,7 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         href: '/students',
         icon: 'listChecks',
         permission: 'enrollments.view',
+        requiresBranch: true,
         exact: true,
         activePrefixes: ['/enrollments/'],
     },
