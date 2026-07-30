@@ -14,8 +14,7 @@
         SidebarHeader,
         SidebarItem,
     } from '@lumi-ui/svelte';
-    import { ColorSchemeScript } from '@lumi-ui/svelte/color-scheme';
-    import { colorScheme, colorSchemeOptions } from '@/lib/color-scheme.svelte';
+    import { colorScheme } from '@/lib/color-scheme.svelte';
     import { APP_NAVIGATION } from '@/lib/navigation';
     import { can } from '@/lib/permissions';
     import BranchCover from '@/components/BranchCover.svelte';
@@ -94,7 +93,6 @@
     );
 
     onMount(() => {
-        const stopScheme = colorScheme.start();
         const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
 
         const syncViewport = (): void => {
@@ -106,7 +104,6 @@
         mediaQuery.addEventListener('change', syncViewport);
 
         return () => {
-            stopScheme();
             mediaQuery.removeEventListener('change', syncViewport);
         };
     });
@@ -133,8 +130,6 @@
         router.delete('/logout');
     }
 </script>
-
-<ColorSchemeScript {...colorSchemeOptions} />
 
 <div
     class="lumi-dashboard-layout"

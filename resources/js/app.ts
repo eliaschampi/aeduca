@@ -2,12 +2,13 @@ import { createInertiaApp, type ResolvedComponent } from '@inertiajs/svelte';
 import { mount } from 'svelte';
 import '@lumi-ui/svelte/styles';
 import './styles/lumi-theme.css';
+import AppLayout from './Layouts/AppLayout.svelte';
 import DashboardLayout from './Layouts/DashboardLayout.svelte';
 import { installInertiaLinkDelegation } from '@/lib/inertia-links';
 
 interface PageModule {
     default: ResolvedComponent['default'];
-    layout?: ResolvedComponent['layout'] | false;
+    layout?: false;
 }
 
 const pages = import.meta.glob<PageModule>('./Pages/**/*.svelte');
@@ -25,11 +26,10 @@ createInertiaApp({
 
         const page = await loadPage();
 
-        if (page.layout === false) {
-            return { default: page.default };
-        }
-
-        return { default: page.default, layout: page.layout ?? DashboardLayout };
+        return {
+            default: page.default,
+            layout: page.layout === false ? AppLayout : [AppLayout, DashboardLayout],
+        };
     },
     setup({ el, App, props }) {
         mount(App, { target: el!, props });
