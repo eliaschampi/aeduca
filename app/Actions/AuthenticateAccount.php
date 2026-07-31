@@ -46,10 +46,14 @@ final class AuthenticateAccount
             $this->fail($throttleKey);
         }
 
+        $currentBranchCode = null;
+
         if ($account->user_code) {
+            $employee = $account->user;
+
             if (
-                ! $account->user?->is_active
-                || ! $account->user->employeeRole?->is_active
+                ! $employee?->is_active
+                || ! $employee->employeeRole?->is_active
             ) {
                 $this->fail($throttleKey);
             }
@@ -63,6 +67,15 @@ final class AuthenticateAccount
                     'login' => 'Tu cuenta no tiene una sede activa asignada. Contacta a un administrador.',
                 ]);
             }
+
+            $preferredBranch = $branches->firstWhere('code', $employee->preferred_branch_code);
+
+            if ($employee->preferred_branch_code && ! $preferredBranch) {
+                $employee->update(['preferred_branch_code' => null]);
+            }
+
+            $currentBranchCode = $preferredBranch?->code
+                ?? ($branches->count() === 1 ? $branches->sole()->code : null);
         } elseif (! $account->student?->is_active) {
             $this->fail($throttleKey);
         }
@@ -79,11 +92,8 @@ final class AuthenticateAccount
         $request->session()->regenerate();
         $request->session()->forget('current_branch_code');
 
-        if ($account->user_code) {
-            $branches = $this->branchContext->authorizedBranches($account);
-            if ($branches->count() === 1) {
-                $request->session()->put('current_branch_code', $branches->first()->code);
-            }
+        if ($currentBranchCode !== null) {
+            $request->session()->put('current_branch_code', $currentBranchCode);
         }
 
         RateLimiter::clear($throttleKey);

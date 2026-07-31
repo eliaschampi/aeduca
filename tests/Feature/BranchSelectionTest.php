@@ -30,6 +30,39 @@ class BranchSelectionTest extends TestCase
             ->put('/current-branch', ['branch_code' => $branch->code])
             ->assertRedirect(route('branches.index'))
             ->assertSessionHas('current_branch_code', $branch->code);
+
+        $this->assertSame($branch->code, $account->user->fresh()->preferred_branch_code);
+    }
+
+    public function test_login_restores_a_valid_preferred_branch(): void
+    {
+        $account = $this->createEmployeeAccount(branchCount: 2);
+        $preferredBranch = $account->user->branches->last();
+        $account->user->update(['preferred_branch_code' => $preferredBranch->code]);
+
+        $this->post('/login', [
+            'login' => $account->login,
+            'password' => $this->validPassword,
+        ])
+            ->assertRedirect(route('branches.index'))
+            ->assertSessionHas('current_branch_code', $preferredBranch->code);
+    }
+
+    public function test_invalid_preference_is_cleared_and_multiple_branches_remain_unselected(): void
+    {
+        $account = $this->createEmployeeAccount(branchCount: 3);
+        $revokedBranch = $account->user->branches->first();
+        $account->user->update(['preferred_branch_code' => $revokedBranch->code]);
+        $account->user->branches()->detach($revokedBranch);
+
+        $this->post('/login', [
+            'login' => $account->login,
+            'password' => $this->validPassword,
+        ])
+            ->assertRedirect(route('branches.index'))
+            ->assertSessionMissing('current_branch_code');
+
+        $this->assertNull($account->user->fresh()->preferred_branch_code);
     }
 
     public function test_unauthorized_branch_is_rejected_without_changing_context(): void

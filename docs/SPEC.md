@@ -189,8 +189,11 @@ New staff domains normally use `domain.view` and `domain.manage`. A permission r
 
 - Employee administration is the only writer of `user_branches`.
 - Branch administration edits branch attributes only.
+- `users.preferred_branch_code` remembers the employee's last explicit valid branch choice for future logins; it is not the effective context of an open session.
 - Session key `current_branch_code` is validated against active membership.
+- Login restores a valid preferred branch, clears an invalid preference, and otherwise selects only a sole active branch; an automatic sole-branch selection does not become a preference.
 - Stale or unauthorized session selection is cleared.
+- `BranchContext` never restores the persistent preference during ordinary requests, so simultaneous sessions may retain different valid branch contexts.
 - Branch selection is membership-based, not a permission.
 - Deactivation preserves membership but blocks operational selection.
 - Global identity search does not imply global access to academic, attendance, or payment detail; each read enforces its confirmed branch scope.

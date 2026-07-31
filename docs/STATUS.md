@@ -35,6 +35,7 @@ partial UNIQUE per owner
 effective permission = user grant ∩ role scope
 superadministrator = all known permissions
 session current_branch_code → validated active membership
+user preferred_branch_code → future-login preference only
 ```
 
 - `AuthAccount` authenticates exactly one employee or student owner.
@@ -46,12 +47,13 @@ session current_branch_code → validated active membership
 - Each permission stores its required Spanish group label and description; the role editor consumes that database contract without frontend translation maps or labels derived from technical names.
 - Shared Inertia auth is actor-discriminated. Employees receive branches and effective permissions; students receive neither.
 - Login normalizes the identifier, throttles by identifier plus IP, checks the relevant account/identity activity with a non-enumerating failure, rehashes when needed, and records `last_login_at`.
-- Zero active branches blocks login; one is selected automatically; multiple branches use the authenticated shell selector.
+- Zero active branches blocks login. A valid explicit preference is restored; otherwise one active branch is selected automatically, while multiple branches use the authenticated shell selector.
+- Explicit branch selection updates the persistent preference and only the current session. Invalid preferences are cleared at login or when employee administration revokes that active membership.
 - Employee requests revalidate identity, role, and branch state. Student requests revalidate account/student state and are limited to their own profile.
 - Student login does not require an active enrollment.
 - Enabling/re-enabling and resetting student access are distinct: reset requires an active account, while disabled access must be enabled explicitly. Both credential operations return a cryptographically random temporary password only in the immediate no-store response; only its hash is persisted.
 - Logout invalidates the session and regenerates the CSRF token.
-- `BranchContext` memoizes authorized branches only inside the current request; no persistent branch or permission cache exists.
+- `BranchContext` memoizes authorized branches only inside the current request, validates the session context without restoring the preference, and creates no persistent branch or permission cache.
 
 ## 3. Academic implementation
 
@@ -123,6 +125,7 @@ enrollment_shifts
 
 - One authenticated dashboard shell.
 - One navigation source and global Inertia flash owner.
+- Branch-dependent navigation is hidden without an effective session branch and reappears when login restores one; direct Laravel guards remain authoritative.
 - Unified branch picker/catalog.
 - Cycle and catalog indexes load summaries.
 - Employee creation is one form; employee profile panels are General, Access, Permissions.
@@ -151,7 +154,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including 148 PHPUnit tests / 773 assertions, strict TypeScript, Oxlint, and Prettier.
+- `composer run check`: passed, including 152 PHPUnit tests / 791 assertions, strict TypeScript, Oxlint, and Prettier.
 - `pnpm run build`: passed production build.
 
 The local `aeduca` database was rebuilt and seeded on July 25, 2026, after explicit project-owner approval.

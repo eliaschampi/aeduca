@@ -28,6 +28,13 @@ final class UpdateEmployee
 
             $employee->branches()->sync($branchCodes);
 
+            if (
+                $employee->preferred_branch_code
+                && ! in_array($employee->preferred_branch_code, $branchCodes, true)
+            ) {
+                $employee->update(['preferred_branch_code' => null]);
+            }
+
             return $employee->refresh();
         });
     }

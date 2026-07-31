@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'last_name',
     'email',
     'phone',
+    'preferred_branch_code',
     'employee_role_code',
     'is_active',
     'is_super_admin',

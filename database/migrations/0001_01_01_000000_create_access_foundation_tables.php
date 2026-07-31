@@ -72,12 +72,17 @@ return new class extends Migration
             $table->string('last_name', 100);
             $table->string('email', 254)->nullable();
             $table->string('phone', 30)->nullable();
+            $table->uuid('preferred_branch_code')->nullable();
             $table->uuid('employee_role_code');
             $table->boolean('is_active')->default(true);
             $table->boolean('is_super_admin')->default(false);
             $table->timestampsTz();
 
             $table->index('employee_role_code');
+            $table->foreign('preferred_branch_code')
+                ->references('code')
+                ->on('branches')
+                ->nullOnDelete();
             $table->foreign('employee_role_code')
                 ->references('code')
                 ->on('employee_roles')

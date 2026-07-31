@@ -124,6 +124,9 @@ class EmployeeManagementTest extends TestCase
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['employees.manage']);
         $target = $this->createEmployeeAccount()->user;
+        $target->update([
+            'preferred_branch_code' => $target->branches->sole()->code,
+        ]);
         $newRole = EmployeeRole::factory()->create(['is_active' => true]);
         $newBranch = Branch::factory()->create(['is_active' => true]);
 
@@ -150,6 +153,38 @@ class EmployeeManagementTest extends TestCase
             'branch_code' => $newBranch->code,
         ]);
         $this->assertSame(1, DB::table('user_branches')->where('user_code', $target->code)->count());
+        $this->assertNull($target->fresh()->preferred_branch_code);
+    }
+
+    public function test_profile_update_preserves_inactive_branch_membership(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['employees.manage']);
+        $target = $this->createEmployeeAccount()->user;
+        $inactiveBranch = Branch::factory()->create(['is_active' => false]);
+        $target->branches()->attach($inactiveBranch);
+        $branchCodes = $target->branches()->pluck('branches.code')->all();
+
+        $this->actingAs($account)
+            ->put(route('admin.employees.update', $target), [
+                'first_name' => 'Nombre actualizado',
+                'last_name' => $target->last_name,
+                'email' => $target->email,
+                'phone' => $target->phone,
+                'employee_role_code' => $target->employee_role_code,
+                'is_active' => $target->is_active,
+                'branch_codes' => $branchCodes,
+            ])
+            ->assertRedirect(route('admin.employees.show', $target));
+
+        $this->assertDatabaseHas('users', [
+            'code' => $target->code,
+            'first_name' => 'Nombre actualizado',
+        ]);
+        $this->assertEqualsCanonicalizing(
+            $branchCodes,
+            $target->fresh()->branches()->pluck('branches.code')->all(),
+        );
     }
 
     public function test_a_manager_can_change_password_and_set_access_idempotently(): void

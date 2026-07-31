@@ -19,9 +19,14 @@ final class SelectBranch
         $branch = $this->branchContext
             ->authorizedBranches($account)
             ->firstWhere('code', $branchCode);
+        $employee = $account->user;
 
-        if (! $branch) {
+        if (! $branch || ! $employee) {
             throw new AuthorizationException('No tienes acceso a esta sede.');
+        }
+
+        if ($employee->preferred_branch_code !== $branch->code) {
+            $employee->update(['preferred_branch_code' => $branch->code]);
         }
 
         $session->put('current_branch_code', $branch->code);
