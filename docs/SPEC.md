@@ -181,6 +181,14 @@ employees.view
 employees.manage
 roles.view
 roles.manage
+students.view
+students.manage
+students.delete
+enrollments.view
+enrollments.manage
+enrollments.delete
+attendance.view
+attendance.manage
 ```
 
 New staff domains normally use `domain.view` and `domain.manage`. A permission represents a stable capability, not a field, button, tab, or routine action. Add a narrower permission only when a distinct employee responsibility is confirmed.
@@ -437,8 +445,8 @@ enrollment_shifts
 - Creating or activating an enrollment never deactivates or replaces another row. Editing section, shifts, observation, or activity inside the same cycle preserves enrollment `code` and `roll_code`.
 - Create, edit, activate/deactivate, derived finalized history, and read-only finished-cycle fields are visible operational behavior.
 - `enrollments.delete` is independent from `enrollments.manage`. It permanently removes a selected current-branch enrollment as a corrective action; active, inactive, or derived finalized presentation does not independently block deletion.
-- Enrollment deletion preserves the student and lets the existing FK cascade remove `enrollment_shifts`. It never removes payments to make deletion possible.
-- Once Payments exists, any associated payment, including a pending one, blocks enrollment deletion. PostgreSQL owns the referential backstop and Laravel owns the clear operational failure.
+- An enrollment with recorded student attendance cannot be deleted or lose the enrolled shift that owns a fact. PostgreSQL owns that referential backstop and Laravel returns the clear operational failure; deletion otherwise preserves the student and lets the existing FK cascade remove `enrollment_shifts`.
+- Once Payments exists, any associated payment, including a pending one, also blocks enrollment deletion. The workflow never removes dependent history to make deletion possible.
 - An enrollment cannot change cycle. Transfers and their formal history are deferred.
 - Enrollment never reconstructs branch, cycle, degree, section, or shift from encoded identifiers.
 - Reads enforce confirmed branch visibility; a global student identity does not automatically expose all academic history.
@@ -470,14 +478,31 @@ The Carrión product vocabulary is **Payments / Pagos**. Do not introduce `Payme
 
 Student attendance and employee attendance live in the same platform and reporting experience but keep different domain records because their schedules and consequences differ.
 
-### Students
+### Students — implemented fact model
 
-- Attendance references enrollment and one selected enrollment shift.
-- Monday through Saturday in the initial version; no initial holiday calendar.
-- Present through entry time; late after entry and through tolerance.
-- After tolerance, automatic reading does not create normal attendance; absence is derived.
-- Authorized manual correction remains possible.
-- No cron mass-inserts absence rows.
+```text
+student_attendances
+  (enrollment_code, cycle_shift_code) FK -> enrollment_shifts
+  attendance_date
+  state: present | late | permission | justified
+  arrival_at, recording_method scan|manual, reason, actors
+  UNIQUE(enrollment_code, cycle_shift_code, attendance_date)
+```
+
+- Attendance references one selected enrollment shift through the composite `(enrollment_code, cycle_shift_code)` relation. There is **no** temporal slot/SCD table; expected students are derived from active enrollments + `enrollment_shifts` + cycle/shift clocks.
+- Stored states only: `present`, `late`, `permission`, `justified`. **`pending` and `absent`/`falta` are never stored**; they are derived at read time from entry time + tolerance via `student_attendance_effective_state`.
+- Monday through Saturday; no holiday calendar. Business timezone: `America/Lima` (`config/aeduca.business_timezone`).
+- Scan resolves only from entry−tolerance through entry+tolerance, inclusive. Inside that window it records present through entry time and late afterwards.
+- After tolerance, automatic scan does not create a fact; absence is derived on the daily list.
+- Continuous **scan is DNI-only** (QR/keyboard). Server resolves branch, active enrollment, and open shift window. No cycle/shift selectors on the scan page.
+- Dual open windows for the same student reject with a clear message; use padrón or manual registration.
+- Manual ops are semantic: arrival, permission (before entry), justify (after window), correct (existing fact + reason).
+- An operational attendance context requires an active cycle, group, shift, and enrollment. The daily roster may still identify an inactive student when that active enrollment remains; physical DNI scan rejects that identity. Historical facts remain readable under their own branch/ownership scope.
+- Daily list uses the same roster layout pattern: date + cycle + degree + section + shift filters, expected rows with LEFT JOIN facts, server pagination and summary counts.
+- Student history is a specialized page (`/students/{student}/attendance`), not an unbounded profile payload. Staff are limited to the current branch; self-service sees own history.
+- Permissions: `attendance.view`, `attendance.manage` (manage expands view). No per-button attendance permissions.
+- No cron mass-inserts absence rows. No employee attendance in the student vertical.
+- v7 migration maps stored rows into facts; derived faltas do not require importing absence rows.
 
 ### Employees and teachers
 

@@ -88,7 +88,7 @@
     let activeTab = $state<CycleTab>('general');
 
     const selectedNumbers = $derived(new Set(form.degrees.map((degree) => degree.number)));
-    const sortedDegrees = $derived([...form.degrees].sort((a, b) => a.number - b.number));
+    const sortedDegrees = $derived(form.degrees.toSorted((a, b) => a.number - b.number));
     const tabs = $derived([
         {
             value: 'general',

@@ -9,7 +9,7 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "lint": "oxlint --deny-warnings .",
-        "lint:fix": "oxlint --fix .",
+        "lint:fix": "oxlint --fix --deny-warnings .",
         "typecheck": "tsc --noEmit -p tsconfig.json"
     },
     "devDependencies": {
@@ -30,6 +30,7 @@
     "dependencies": {
         "@lumi-ui/svelte": "file:../lumi-ui",
         "pdf-lib": "^1.17.1",
+        "qr-scanner": "^1.4.2",
         "qrcode": "^1.5.4"
     }
 }

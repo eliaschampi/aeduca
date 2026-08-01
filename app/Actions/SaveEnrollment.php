@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\CycleShift;
 use App\Models\Enrollment;
 use App\Models\Student;
+use App\Models\StudentAttendance;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +41,7 @@ final class SaveEnrollment
                 ->with('cycleDegree.cycle')
                 ->find($academicGroupCode);
             $cycle = $group?->cycleDegree?->cycle;
-            $today = CarbonImmutable::now('America/Lima')->startOfDay();
+            $today = CarbonImmutable::now(config('aeduca.business_timezone'))->startOfDay();
 
             if (! $group || ! $cycle || $cycle->branch_code !== $branch->code) {
                 throw ValidationException::withMessages([
@@ -125,6 +126,27 @@ final class SaveEnrollment
                 throw ValidationException::withMessages([
                     'shift_codes' => 'Selecciona uno o dos turnos activos del mismo ciclo.',
                 ]);
+            }
+
+            if ($enrollment) {
+                $assignedShiftCodes = DB::table('enrollment_shifts')
+                    ->where('enrollment_code', $enrollment->code)
+                    ->lockForUpdate()
+                    ->pluck('cycle_shift_code')
+                    ->all();
+                $removedShiftCodes = array_values(array_diff($assignedShiftCodes, $uniqueShiftCodes));
+
+                if (
+                    $removedShiftCodes !== []
+                    && StudentAttendance::query()
+                        ->where('enrollment_code', $enrollment->code)
+                        ->whereIn('cycle_shift_code', $removedShiftCodes)
+                        ->exists()
+                ) {
+                    throw ValidationException::withMessages([
+                        'shift_codes' => 'No puedes quitar un turno que ya tiene asistencia registrada.',
+                    ]);
+                }
             }
 
             if (! $enrollment) {

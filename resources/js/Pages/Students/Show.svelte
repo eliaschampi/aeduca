@@ -53,6 +53,7 @@
         can_delete?: boolean;
         can_manage_enrollments?: boolean;
         can_delete_enrollments?: boolean;
+        can_view_attendance?: boolean;
     }
 
     const {
@@ -66,6 +67,7 @@
         can_delete = false,
         can_manage_enrollments = false,
         can_delete_enrollments = false,
+        can_view_attendance = false,
     }: Props = $props();
 
     const fullName = $derived(`${student.first_name} ${student.last_name}`.trim());
@@ -257,6 +259,16 @@
         size="xl"
     >
         {#snippet actions()}
+            {#if is_self && can_view_attendance}
+                <Button
+                    type="button"
+                    variant="border"
+                    icon="clipboardCheck"
+                    onclick={() => router.visit(`/students/${student.code}/attendance`)}
+                >
+                    Mi asistencia
+                </Button>
+            {/if}
             {#if !is_self}
                 <Dropdown placement="bottom-end" aria-label="Gestionar alumno">
                     {#snippet triggerContent()}
@@ -276,6 +288,14 @@
                                 onclick={() => void generateCard()}
                             >
                                 {cardGenerating ? 'Generando carnet…' : 'Generar carnet'}
+                            </DropdownItem>
+                        {/if}
+                        {#if can_view_attendance}
+                            <DropdownItem
+                                icon="clipboardCheck"
+                                onclick={() => router.visit(`/students/${student.code}/attendance`)}
+                            >
+                                Historial de asistencia
                             </DropdownItem>
                         {/if}
                         {#if can_manage}

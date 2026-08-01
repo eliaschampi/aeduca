@@ -308,7 +308,36 @@ class EnrollmentController extends Controller
         abort_unless($enrollment->cycle?->branch_code === $branch->code, 404);
 
         $student = $enrollment->student;
-        $enrollment->delete();
+
+        $deleted = DB::transaction(function () use ($enrollment): bool {
+            $lockedEnrollment = Enrollment::query()
+                ->whereKey($enrollment->code)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            DB::table('enrollment_shifts')
+                ->where('enrollment_code', $lockedEnrollment->code)
+                ->select('enrollment_code')
+                ->lockForUpdate()
+                ->get();
+
+            if ($lockedEnrollment->attendances()->exists()) {
+                return false;
+            }
+
+            $lockedEnrollment->delete();
+
+            return true;
+        });
+
+        if (! $deleted) {
+            Inertia::flash(
+                'info',
+                'No se puede eliminar una matrícula que ya tiene asistencia registrada.',
+            );
+
+            return $this->afterEnrollmentWrite($student);
+        }
 
         Inertia::flash('success', 'Matrícula eliminada');
 
@@ -536,6 +565,6 @@ class EnrollmentController extends Controller
 
     private function businessDate(): string
     {
-        return CarbonImmutable::now('America/Lima')->toDateString();
+        return CarbonImmutable::now(config('aeduca.business_timezone'))->toDateString();
     }
 }

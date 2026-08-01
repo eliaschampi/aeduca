@@ -13,4 +13,12 @@ return [
         'login' => env('AEDUCA_SEED_ADMIN_LOGIN'),
         'password' => env('AEDUCA_SEED_ADMIN_PASSWORD'),
     ],
+
+    /** Carrión business calendar and attendance clocks. */
+    'business_timezone' => 'America/Lima',
+
+    'attendance' => [
+        'history_default_days' => 30,
+        'history_max_days' => 93,
+    ],
 ];

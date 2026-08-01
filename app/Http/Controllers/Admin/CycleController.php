@@ -20,8 +20,6 @@ use Inertia\Response;
 
 class CycleController extends Controller
 {
-    private const string BUSINESS_TIMEZONE = 'America/Lima';
-
     public function index(Request $request, BranchContext $context): Response|RedirectResponse
     {
         $branch = $this->currentBranch($request, $context);
@@ -30,7 +28,7 @@ class CycleController extends Controller
             return redirect()->route('branches.index');
         }
 
-        $today = CarbonImmutable::now(self::BUSINESS_TIMEZONE)->startOfDay();
+        $today = CarbonImmutable::now($this->timezone())->startOfDay();
         $cycles = $branch->cycles()
             ->withCount(['degrees', 'groups'])
             ->orderByDesc('start_date')
@@ -149,8 +147,8 @@ class CycleController extends Controller
      */
     private function timeline(AcademicCycle $cycle, CarbonImmutable $today): array
     {
-        $start = CarbonImmutable::parse($cycle->start_date->toDateString(), self::BUSINESS_TIMEZONE);
-        $end = CarbonImmutable::parse($cycle->end_date->toDateString(), self::BUSINESS_TIMEZONE);
+        $start = CarbonImmutable::parse($cycle->start_date->toDateString(), $this->timezone());
+        $end = CarbonImmutable::parse($cycle->end_date->toDateString(), $this->timezone());
         $totalDays = max((int) $start->diffInDays($end), 1);
 
         if ($today->lessThanOrEqualTo($start)) {
@@ -185,6 +183,11 @@ class CycleController extends Controller
     private function dayCount(int $days): string
     {
         return "{$days} día".($days === 1 ? '' : 's');
+    }
+
+    private function timezone(): string
+    {
+        return (string) config('aeduca.business_timezone', 'America/Lima');
     }
 
     /**

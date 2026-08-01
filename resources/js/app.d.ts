@@ -22,5 +22,3 @@ declare module '@inertiajs/core' {
 
 declare module '@lumi-ui/svelte/styles';
 declare module '*.css';
-
-export {};

@@ -19,6 +19,10 @@ final class PermissionSeeder extends Seeder
             'students.manage' => 'Registrar y editar alumnos, contactos y acceso.',
             'students.delete' => 'Eliminar alumnos sin historial de matrículas.',
         ],
+        'Asistencia' => [
+            'attendance.view' => 'Ver el padrón diario y el historial de asistencia.',
+            'attendance.manage' => 'Escanear, registrar y corregir asistencia estudiantil.',
+        ],
         'Ciclos' => [
             'cycles.view' => 'Ver los ciclos académicos de la sede actual.',
             'cycles.manage' => 'Crear y editar ciclos, grados, secciones y turnos.',
@@ -29,7 +33,7 @@ final class PermissionSeeder extends Seeder
         'Matrículas' => [
             'enrollments.view' => 'Ver matrículas e inscritos de la sede actual.',
             'enrollments.manage' => 'Crear y editar matrículas vigentes.',
-            'enrollments.delete' => 'Eliminar matrículas sin pagos de la sede actual.',
+            'enrollments.delete' => 'Eliminar matrículas sin pagos ni asistencia registrada de la sede actual.',
         ],
         'Roles' => [
             'roles.view' => 'Ver los roles y el alcance de permisos.',

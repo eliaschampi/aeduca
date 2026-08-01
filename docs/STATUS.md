@@ -2,23 +2,24 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** July 30, 2026.
+**Implementation inventory reviewed:** July 31, 2026.
 
-**Last full automated verification:** July 30, 2026.
+**Last complete verification:** July 31, 2026.
 
 ## 1. Completed implementation
 
-| Vertical           | Implemented                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation              |
-| Branches           | Unified branch selection and minimal branch catalog                                                            |
-| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                      |
-| Roles              | Role CRUD and assignable permission scope                                                                      |
-| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership |
-| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                             |
-| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history      |
-| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster        |
-| Quality            | Pint, PHPUnit, strict TypeScript, Oxlint, Prettier, production build                                           |
+| Vertical           | Implemented                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                |
+| Branches           | Unified branch selection and minimal branch catalog                                                              |
+| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                        |
+| Roles              | Role CRUD and assignable permission scope                                                                        |
+| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership   |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                               |
+| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history        |
+| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster          |
+| Attendance         | DNI-only scan, roster-like daily list, manual arrival/permission/justify/correct, student history, derived falta |
+| Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                  |
 
 ## 2. Access implementation
 
@@ -84,7 +85,7 @@ cycle_shifts
 
 - Index uses one branch-scoped query with degree/group counts and no nested eager loading.
 - Each card shows identity, state, modality, dates, counts, and derived timeline progress.
-- Timeline status/percentage/label is computed in Laravel from loaded dates using `America/Lima`; it adds no query and is not persisted.
+- Timeline status/percentage/label is computed in Laravel from loaded dates using `aeduca.business_timezone`; it adds no query and is not persisted.
 - Detail loads one cycle with ordered degrees/groups/shifts.
 - One Lumi-tab form owns General, Turnos, and Grados y secciones.
 - Form state survives tab changes; validation reveals and marks affected tabs.
@@ -106,7 +107,7 @@ enrollment_shifts
 - The profile composes identity, access, contacts, and at most ten authorized enrollment summaries. Employee history is restricted to authorized branches; student self-service sees only its owner.
 - `students.view` / `students.manage` own staff registry access. Contacts and credentials do not create button-level permissions.
 - `students.delete` is independent from management. `DeleteStudent` locks the identity, rejects any enrollment in any branch, deletes database-owned contacts/account/sessions through FKs, and removes the private photo after commit.
-- `SaveEnrollment` owns the aggregate transaction, locks the student, validates current branch and group/shift cycle, and never deactivates or replaces another enrollment.
+- `SaveEnrollment` owns the aggregate transaction, locks the student, validates current branch and group/shift cycle, prevents detaching a shift with recorded attendance, and never deactivates or replaces another enrollment.
 - PostgreSQL protects one enrollment per `(student_code, cycle_code)` and one `roll_code` per cycle. `cycle_code` is derived from the server-validated group.
 - `reserve_enrollment_roll_code(cycle_code)` serializes reservation per cycle and returns a four-digit code from `0001` to `9999`.
 - Retrying enrollment in the same cycle redirects to editing the existing row; another unfinished cycle is rejected. Editing preserves enrollment and roll identities and cannot move the row to another cycle.
@@ -117,15 +118,33 @@ enrollment_shifts
 - `/students` reads only active rows from `student_roster` after cycle, degree, and section are complete and valid for the current branch. Text and pagination stay within that section; no broad, shift, state, or “all” roster mode is exposed.
 - The last valid cycle/degree/section is remembered in the authenticated session per branch. A bare return to `/students` revalidates it and redirects to the complete canonical URL; stale contexts are discarded.
 - Unfinished inactive enrollments retain their group/shift context for editing; ended cycle history is read-only.
-- `enrollments.delete` is independent from management and removes active, inactive, or finalized current-branch enrollment rows; PostgreSQL cascades their `enrollment_shifts` while preserving the student.
+- `enrollments.delete` is independent from management and removes active, inactive, or finalized current-branch enrollment rows only when they have no attendance facts; PostgreSQL protects the attendance relation and otherwise cascades `enrollment_shifts` while preserving the student.
 - Profile enrollment rows retain authorized cross-branch visibility but expose write/delete actions only for the current branch.
 - Payments remains unimplemented; no provisional payment table, relation, or runtime check exists.
+
+### Student attendance
+
+```text
+student_attendances
+  FK(enrollment_code, cycle_shift_code) -> enrollment_shifts
+  UNIQUE(enrollment_code, cycle_shift_code, attendance_date)
+  states: present | late | permission | justified
+  pending/absent derived only
+```
+
+- `SaveStudentAttendance` is the sole fact write owner (scan + manual ops). An operational expectation requires active enrollment, cycle, section, and shift; there is no slot/SCD table. `SaveEnrollment` only protects a referenced shift from detachment.
+- Scan is camera-first (`qr-scanner`, continuous decode; no primary submit button on the hot path) plus optional plain eight-digit DNI keyboard/wedge input that auto-registers at 8 digits. Server resolves branch and exactly one entry−tolerance through entry+tolerance window. Outside or across dual windows it rejects without inserting. Repeat scans return _Ya registrada_ without `UPDATE`.
+- Daily list mirrors Matriculados (Lumi `Table` server pagination, `UserInfo`, sidebar filters): date/cycle/degree/section/shift, expected rows with LEFT JOIN facts, and all derived/stored state summary counts. It retains an inactive identity when its enrollment remains active; DNI scan does not.
+- Manual dialog: arrival, permission (before entry), justify (after close), or correction of an existing fact (reason + corrector).
+- History at `/students/{student}/attendance` (staff: current branch; student self: own rows). Profile links when `attendance.view` or self.
+- Permissions: `attendance.view` / `attendance.manage`.
 
 ## 5. Application UI
 
 - One authenticated dashboard shell.
 - One navigation source and global Inertia flash owner.
 - Branch-dependent navigation is hidden without an effective session branch and reappears when login restores one; direct Laravel guards remain authoritative.
+- **Asistencia** navigation opens the daily padrón; **Escanear** is a separate camera/DNI page with no academic selectors.
 - Unified branch picker/catalog.
 - Cycle and catalog indexes load summaries.
 - Employee creation is one form; employee profile panels are General, Access, Permissions.
@@ -143,10 +162,11 @@ enrollment_shifts
 ## 6. Not implemented
 
 - payments, cashbox, or payment reporting;
-- student or employee attendance;
+- employee/teacher attendance;
 - evaluations, OMR, or score reports;
 - attentions;
-- shared-file access.
+- shared-file access;
+- v7 attendance data import runner (schema is migration-ready).
 
 ## 7. Verification record
 
@@ -154,7 +174,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including 152 PHPUnit tests / 791 assertions, strict TypeScript, Oxlint, and Prettier.
-- `pnpm run build`: passed production build.
+- `composer run check`: passed, including Pint, 170 PHPUnit tests / 923 assertions, TypeScript, Oxlint and Prettier.
+- `pnpm run build`: passed.
 
 The local `aeduca` database was rebuilt and seeded on July 25, 2026, after explicit project-owner approval.

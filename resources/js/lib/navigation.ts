@@ -51,6 +51,14 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         activePrefixes: ['/enrollments/'],
     },
     {
+        label: 'Asistencia',
+        href: '/attendance',
+        icon: 'clipboardCheck',
+        permission: 'attendance.view',
+        requiresBranch: true,
+        activePrefixes: ['/attendance/'],
+    },
+    {
         label: 'Usuarios',
         href: '/admin/employees',
         icon: 'users',

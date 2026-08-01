@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BranchController as AdminBranchController;
 use App\Http\Controllers\Admin\CycleController as AdminCycleController;
 use App\Http\Controllers\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\EnrollmentController;
@@ -25,6 +26,9 @@ Route::middleware(['auth', 'account.active'])->group(function () {
     Route::get('/students/{student}/photo', [StudentController::class, 'photo'])
         ->whereUuid('student')
         ->name('students.photo');
+    Route::get('/students/{student}/attendance', [AttendanceController::class, 'history'])
+        ->whereUuid('student')
+        ->name('students.attendance');
     Route::get('/students/{student}', [StudentController::class, 'show'])
         ->whereUuid('student')
         ->name('students.show');
@@ -37,6 +41,19 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::put('/current-branch', [BranchController::class, 'update'])
         ->name('current-branch.update');
+
+    Route::get('/attendance', [AttendanceController::class, 'index'])
+        ->middleware('can:attendance.view')
+        ->name('attendance.index');
+    Route::get('/attendance/scan', [AttendanceController::class, 'scan'])
+        ->middleware('can:attendance.manage')
+        ->name('attendance.scan');
+    Route::post('/attendance/scan', [AttendanceController::class, 'storeScan'])
+        ->middleware('can:attendance.manage')
+        ->name('attendance.scan.store');
+    Route::post('/attendance/manual', [AttendanceController::class, 'storeManual'])
+        ->middleware('can:attendance.manage')
+        ->name('attendance.manual.store');
 
     Route::get('/students/search', [StudentController::class, 'search'])
         ->middleware('can:students.view')
