@@ -149,7 +149,7 @@ student_attendances
 - One authenticated dashboard shell.
 - One navigation source and global Inertia flash owner.
 - Branch-dependent navigation is hidden without an effective session branch and reappears when login restores one; direct Laravel guards remain authoritative.
-- **Asistencia** navigation opens the daily padrón; **Escanear** is a separate camera/DNI page with no academic selectors.
+- **Asistencia** navigation opens the daily list; **Escanear** is a separate camera/DNI page with no academic selectors.
 - Unified branch picker/catalog.
 - Cycle and catalog indexes load summaries.
 - Employee creation is one form; employee profile panels are General, Access, Permissions.

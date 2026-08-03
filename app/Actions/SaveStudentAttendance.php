@@ -52,7 +52,7 @@ final class SaveStudentAttendance
 
             if ($open->count() > 1) {
                 throw ValidationException::withMessages([
-                    'dni' => 'Hay más de un turno abierto para este alumno. Usa el padrón o el registro manual.',
+                    'dni' => 'Hay más de un turno abierto para este alumno. Usa la lista del día o el registro manual.',
                 ]);
             }
 

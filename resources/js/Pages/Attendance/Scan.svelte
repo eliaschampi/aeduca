@@ -102,7 +102,7 @@
                 icon="listChecks"
                 onclick={() => router.visit('/attendance')}
             >
-                Padrón
+                Asistencia
             </Button>
         {/snippet}
     </PageHeader>

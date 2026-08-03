@@ -499,7 +499,7 @@ student_attendances
 - Scan resolves only from entry−tolerance through entry+tolerance, inclusive. Inside that window it records present through entry time and late afterwards.
 - After tolerance, automatic scan does not create a fact; absence is derived on the daily list.
 - Continuous **scan is DNI-only** (QR/keyboard). Server resolves branch, active enrollment, and open shift window. No cycle/shift selectors on the scan page.
-- Dual open windows for the same student reject with a clear message; use padrón or manual registration.
+- Dual open windows for the same student reject with a clear message; use the daily list or manual registration.
 - Manual ops are semantic: arrival, permission (before entry), justify (after window), correct (existing fact + reason).
 - An operational attendance context requires an active cycle, group, shift, and enrollment. The daily roster may still identify an inactive student when that active enrollment remains; physical DNI scan rejects that identity. Historical facts remain readable under their own branch/ownership scope.
 - Daily list uses the same roster layout pattern: date + cycle + degree + section + shift filters, expected rows with LEFT JOIN facts, server pagination and summary counts.

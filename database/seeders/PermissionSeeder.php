@@ -20,7 +20,7 @@ final class PermissionSeeder extends Seeder
             'students.delete' => 'Eliminar alumnos sin historial de matrículas.',
         ],
         'Asistencia' => [
-            'attendance.view' => 'Ver el padrón diario y el historial de asistencia.',
+            'attendance.view' => 'Ver la lista diaria y el historial de asistencia.',
             'attendance.manage' => 'Escanear, registrar y corregir asistencia estudiantil.',
         ],
         'Ciclos' => [

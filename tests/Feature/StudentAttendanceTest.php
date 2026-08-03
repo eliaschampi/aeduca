@@ -106,7 +106,7 @@ class StudentAttendanceTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath(
                 'message',
-                'Hay más de un turno abierto para este alumno. Usa el padrón o el registro manual.',
+                'Hay más de un turno abierto para este alumno. Usa la lista del día o el registro manual.',
             );
 
         $this->assertDatabaseMissing('student_attendances', [

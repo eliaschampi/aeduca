@@ -13,7 +13,6 @@
         PageSidebar,
         Select,
         Table,
-        UserInfo,
         type SelectOption,
     } from '@lumi-ui/svelte';
     import AttendanceManualDialog from './components/AttendanceManualDialog.svelte';
@@ -225,7 +224,7 @@
 <div class="lumi-stack lumi-stack--lg lumi-min-width--0">
     <PageHeader
         title="Asistencia"
-        subtitle="Padrón diario de la sede actual. La falta se calcula cuando no hay registro y la ventana ya cerró."
+        subtitle="Lista del día en la sede actual. La falta se calcula cuando no hay registro y la ventana ya cerró."
         icon="clipboardCheck"
         size="xl"
     >
@@ -272,7 +271,7 @@
                         <h2 class="lumi-filter-summary__title">{contextTitle}</h2>
                         <p class="lumi-filter-summary__subtitle">
                             {selectedCycle?.name ??
-                                'Elige fecha, ciclo, sección y turno para cargar el padrón.'}
+                                'Elige fecha, ciclo, sección y turno para cargar la lista del día.'}
                         </p>
                     </div>
 
@@ -338,7 +337,7 @@
                                     {appliedCycle?.name} · {filters.date} ·
                                     {countLabel(summary.expected, 'esperado', 'esperados')}
                                 {:else}
-                                    Completa la selección para consultar un padrón acotado.
+                                    Completa la selección para ver la lista del día.
                                 {/if}
                             </p>
                         </div>
@@ -398,7 +397,7 @@
                         <EmptyState
                             icon="slidersHorizontal"
                             title="Selecciona el contexto"
-                            description="El padrón se carga sólo para la sección y turno elegidos."
+                            description="La lista se carga sólo para la sección y turno elegidos."
                         />
                     {:else if attendance.data.length === 0}
                         <EmptyState
@@ -434,13 +433,10 @@
                             {#snippet row({ row }: { row: AttendanceRow })}
                                 <td>
                                     <div class="lumi-stack lumi-stack--2xs">
-                                        <UserInfo
-                                            name={row.first_name}
-                                            lastName={row.last_name}
-                                            description={`DNI ${row.dni}`}
-                                            avatarSize="sm"
-                                            avatarColor="primary"
-                                        />
+                                        <span class="lumi-font--medium">{row.full_name}</span>
+                                        <span class="lumi-text--xs lumi-text--muted"
+                                            >DNI {row.dni}</span
+                                        >
                                         {#if !row.student_is_active}
                                             <Chip color="warning" size="sm">Identidad inactiva</Chip
                                             >

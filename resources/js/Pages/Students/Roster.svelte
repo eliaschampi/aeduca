@@ -164,7 +164,7 @@
 <div class="lumi-stack lumi-stack--lg lumi-min-width--0">
     <PageHeader
         title="Matriculados"
-        subtitle="Padrón activo de la sede actual, organizado por ciclo, grado y sección."
+        subtitle="Alumnos matriculados de la sede actual, por ciclo, grado y sección."
         icon="listChecks"
         size="xl"
     >
@@ -206,7 +206,7 @@
                     }}
                 >
                     <div class="lumi-filter-summary lumi-filter-summary--compact">
-                        <p class="lumi-filter-summary__eyebrow">Padrón activo</p>
+                        <p class="lumi-filter-summary__eyebrow">Lista de la sección</p>
                         <h2 class="lumi-filter-summary__title">{contextTitle}</h2>
                         <p class="lumi-filter-summary__subtitle">
                             {selectedCycle?.name ??
@@ -264,7 +264,7 @@
                             <h2 class="lumi-filter-summary__title">{appliedContextTitle}</h2>
                             <p class="lumi-filter-summary__subtitle">
                                 {appliedCycle?.name ??
-                                    'Completa la selección para consultar un padrón acotado.'}
+                                    'Completa la selección para ver la lista de la sección.'}
                             </p>
                         </div>
                         {#if context_complete}
@@ -285,7 +285,7 @@
                         <EmptyState
                             icon="slidersHorizontal"
                             title="Selecciona ciclo, grado y sección"
-                            description="El padrón se carga sólo para el grupo elegido y evita consultas institucionales innecesarias."
+                            description="La lista se carga sólo para la sección elegida y evita consultas institucionales innecesarias."
                         />
                     {:else if enrollments.data.length === 0}
                         <EmptyState
