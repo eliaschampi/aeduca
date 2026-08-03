@@ -11,27 +11,34 @@
  * cannot win the cascade (muddy "vintage" dark).
  */
 :root {
-    /* Brand — indigo (primary) × warm amber (secondary), high-legibility pair */
+    /* Brand — indigo (primary) × deeper amber-bronze (secondary), white-on-solid safe */
     --lumi-brand-primary: oklch(0.52 0.19 268);
-    --lumi-brand-secondary: oklch(0.7 0.15 58);
+    --lumi-brand-secondary: oklch(0.56 0.14 55);
 
-    /* Status — shared ~0.55 lightness band, chroma by urgency; info ≠ primary hue */
-    --lumi-status-success: oklch(0.56 0.13 155);
-    --lumi-status-warning: oklch(0.68 0.15 75);
+    /* Status — L band for fixed solid ink (white, except warning black); info ≠ primary */
+    --lumi-status-success: oklch(0.54 0.14 155);
+    --lumi-status-warning: oklch(0.78 0.15 75);
     --lumi-status-danger: oklch(0.56 0.19 22);
-    --lumi-status-info: oklch(0.6 0.11 220);
+    --lumi-status-info: oklch(0.52 0.12 220);
 
-    /* Light surfaces — cool porcelain paper, neutral ink with faint brand cast */
-    --lumi-color-canvas: oklch(0.985 0.004 250);
+    /*
+     * Light surfaces — soft primary-tinted porcelain (uniform page color).
+     * Tint the canvas seed (Lumi public seed), not an opaque accent layer:
+     * body paints accent above the grid, so a solid accent hid the pattern.
+     * Raised/white cards stay distinct via Lumi's surface ladder.
+     */
+    --lumi-color-canvas: color-mix(in oklch, var(--lumi-brand-primary) 6%, oklch(0.985 0.004 250));
     --lumi-color-neutral: oklch(0.29 0.02 268);
 
-    --lumi-app-background-accent: radial-gradient(
-        farthest-side at 8% -12%,
-        color-mix(in oklch, var(--lumi-brand-primary) 14%, transparent),
-        color-mix(in oklch, var(--lumi-brand-primary) 7%, transparent) 38%,
-        transparent 72%
+    /* Keep Lumi's no-op accent so pattern lines/dots stay visible */
+    --lumi-app-background-accent: linear-gradient(transparent, transparent);
+    /* Flatten Lumi's default canvas radial/diagonal — uniform soft canvas only */
+    --lumi-gradient-app: linear-gradient(
+        var(--lumi-color-background),
+        var(--lumi-color-background)
     );
-    --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-brand-primary) 6%, transparent);
+    /* Same public pattern token as Lumi; OKLCH primary mix (slightly above default 4.5%) */
+    --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-color-primary) 7.5%, transparent);
 }
 
 .lumi-dashboard-layout {
@@ -39,19 +46,16 @@
 }
 
 [data-theme='dark'] {
-    /* Brand — lifted for legible fills on deep surfaces */
-    --lumi-brand-primary-dark: oklch(0.72 0.16 268);
-    --lumi-brand-secondary-dark: oklch(0.78 0.13 62);
-
     /* Dark surfaces — deep indigo-slate tied to brand hue; cool paper ink */
     --lumi-color-canvas: oklch(0.19 0.02 268);
     --lumi-color-neutral: oklch(0.94 0.006 250);
 
+    /* Glow from Lumi-derived dark primary (not a parallel brand-*-dark seed) */
     --lumi-app-background-accent: radial-gradient(
         farthest-side at 6% -10%,
-        color-mix(in oklch, var(--lumi-brand-primary-dark) 30%, transparent),
-        color-mix(in oklch, var(--lumi-brand-primary-dark) 14%, transparent) 38%,
+        color-mix(in oklch, var(--lumi-color-primary) 30%, transparent),
+        color-mix(in oklch, var(--lumi-color-primary) 14%, transparent) 38%,
         transparent 72%
     );
-    --lumi-app-pattern-line-color: color-mix(in oklch, white 5%, transparent);
+    --lumi-app-pattern-line-color: color-mix(in oklch, var(--lumi-color-white) 5%, transparent);
 }

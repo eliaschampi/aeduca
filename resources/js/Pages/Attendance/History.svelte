@@ -6,8 +6,8 @@
         Button,
         Card,
         Chip,
+        DateRangeFilter,
         EmptyState,
-        Input,
         PageHeader,
         Select,
         Table,
@@ -257,7 +257,7 @@
                         visit();
                     }}
                 >
-                    <div class="lumi-inline-filters lumi-inline-filters--compact">
+                    <div class="lumi-grid lumi-grid--columns-2 lumi-grid--gap-sm">
                         <Select
                             label="Matrícula"
                             value={form.enrollment}
@@ -273,31 +273,14 @@
                             disabled={shiftOptions.length === 0}
                         />
                     </div>
-                    <div class="lumi-form-action-row lumi-form-action-row--toolbar">
-                        <div class="lumi-form-action-row__field">
-                            <Input
-                                type="date"
-                                bind:value={form.from}
-                                label="Desde"
-                                size="sm"
-                                disabled={shiftOptions.length === 0}
-                            />
-                        </div>
-                        <div class="lumi-form-action-row__field">
-                            <Input
-                                type="date"
-                                bind:value={form.to}
-                                label="Hasta"
-                                size="sm"
-                                disabled={shiftOptions.length === 0}
-                            />
-                        </div>
-                        <div class="lumi-form-action-row__actions">
-                            <Button type="submit" icon="search" size="sm" disabled={!form.shift}>
-                                Consultar
-                            </Button>
-                        </div>
-                    </div>
+                    <DateRangeFilter
+                        bind:fromValue={form.from}
+                        bind:toValue={form.to}
+                        applyLabel="Consultar"
+                        compact
+                        disabled={shiftOptions.length === 0 || !form.shift}
+                        onapply={visit}
+                    />
                 </form>
                 {#if filtersChanged}
                     <p class="lumi-margin--none lumi-text--sm lumi-text--muted">
