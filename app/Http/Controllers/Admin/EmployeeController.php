@@ -5,20 +5,26 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\CreateEmployee;
 use App\Actions\SyncUserPermissions;
 use App\Actions\UpdateEmployee;
+use App\Actions\UpdateEmployeePhoto;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangeEmployeePasswordRequest;
+use App\Http\Requests\ProfilePhotoRequest;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\SyncUserPermissionsRequest;
 use App\Http\Requests\UpdateEmployeeAccessRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
+use App\Models\AuthAccount;
 use App\Models\Branch;
 use App\Models\EmployeeRole;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\PrivateProfilePhoto;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EmployeeController extends Controller
 {
@@ -28,7 +34,7 @@ class EmployeeController extends Controller
             ->with(['employeeRole:code,name', 'authAccount:code,user_code,login,is_active'])
             ->orderBy('first_name')
             ->orderBy('last_name')
-            ->get(['code', 'first_name', 'last_name', 'email', 'employee_role_code', 'is_active', 'is_super_admin']);
+            ->get(['code', 'first_name', 'last_name', 'email', 'employee_role_code', 'is_active', 'is_super_admin', 'photo_path']);
 
         return Inertia::render('Admin/Employees/Index', [
             'employees' => $employees->map(fn (User $employee): array => [
@@ -40,6 +46,7 @@ class EmployeeController extends Controller
                 'login' => $employee->authAccount?->login,
                 'is_active' => $employee->is_active,
                 'access_active' => (bool) $employee->authAccount?->is_active,
+                'photo_url' => $this->photoUrl($employee),
             ])->all(),
         ]);
     }
@@ -70,9 +77,10 @@ class EmployeeController extends Controller
         return to_route('admin.employees.index');
     }
 
-    public function show(User $employee): Response
+    public function show(Request $request, User $employee): Response
     {
         $canManage = Gate::check('employees.manage');
+        $canEditPhoto = $this->canWritePhoto($request, $employee);
 
         $employee->load([
             'employeeRole.permissionScopes:code,name,description',
@@ -108,6 +116,7 @@ class EmployeeController extends Controller
                 'login' => $employee->authAccount?->login,
                 'access_active' => (bool) $employee->authAccount?->is_active,
                 'last_login_at' => $employee->authAccount?->last_login_at?->toIso8601String(),
+                'photo_url' => $this->photoUrl($employee),
             ],
             // Role scope = assignable boundary (not automatic access).
             'role_permission_scope' => $scopePermissions,
@@ -117,7 +126,39 @@ class EmployeeController extends Controller
                 : $employee->permissions->pluck('code')->values()->all(),
             ...$this->formOptions(),
             'can_manage' => $canManage,
+            'can_edit_photo' => $canEditPhoto,
         ]);
+    }
+
+    public function updatePhoto(
+        ProfilePhotoRequest $request,
+        User $employee,
+        UpdateEmployeePhoto $updatePhoto,
+    ): RedirectResponse {
+        abort_unless($this->canWritePhoto($request, $employee), 403);
+
+        $photo = $request->file('photo');
+        abort_unless($photo, 422);
+
+        $updatePhoto->handle($employee, $photo);
+
+        Inertia::flash('success', 'Foto actualizada');
+
+        return to_route('admin.employees.show', $employee);
+    }
+
+    public function photo(
+        Request $request,
+        User $employee,
+        PrivateProfilePhoto $photos,
+    ): BinaryFileResponse {
+        abort_unless($this->canReadPhoto($request, $employee), 403);
+        abort_unless($photos->exists($employee->photo_path), 404);
+
+        return response()
+            ->file($photos->absolutePath((string) $employee->photo_path))
+            ->setPrivate()
+            ->setMaxAge(300);
     }
 
     public function update(UpdateEmployeeRequest $request, User $employee, UpdateEmployee $updateEmployee): RedirectResponse
@@ -203,5 +244,39 @@ class EmployeeController extends Controller
                 ->map(fn (Branch $branch): array => ['code' => $branch->code, 'name' => $branch->name])
                 ->all(),
         ];
+    }
+
+    private function photoUrl(User $employee): ?string
+    {
+        return $employee->photo_path
+            ? route('admin.employees.photo', $employee)
+            : null;
+    }
+
+    private function canReadPhoto(Request $request, User $employee): bool
+    {
+        if (Gate::check('employees.view')) {
+            return true;
+        }
+
+        return $this->isSelf($request, $employee);
+    }
+
+    private function canWritePhoto(Request $request, User $employee): bool
+    {
+        if (Gate::check('employees.manage')) {
+            return true;
+        }
+
+        return $this->isSelf($request, $employee);
+    }
+
+    private function isSelf(Request $request, User $employee): bool
+    {
+        /** @var AuthAccount|null $account */
+        $account = $request->user();
+
+        return is_string($account?->user_code)
+            && $account->user_code === $employee->code;
     }
 }

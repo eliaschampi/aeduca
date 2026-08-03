@@ -5,8 +5,11 @@
 
     interface Props {
         open?: boolean;
-        studentCode: string;
-        studentName: string;
+        /** Authorized multipart PUT/POST endpoint for this subject. */
+        uploadUrl: string;
+        subjectName: string;
+        title?: string;
+        fileName?: string;
     }
 
     const CANVAS_SIZE = 640;
@@ -14,7 +17,13 @@
     const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
     const PAN_KEY_STEP = 24;
 
-    let { open = $bindable(false), studentCode, studentName }: Props = $props();
+    let {
+        open = $bindable(false),
+        uploadUrl,
+        subjectName,
+        title = 'Cambiar foto',
+        fileName = 'foto-perfil.webp',
+    }: Props = $props();
 
     let fileInput: HTMLInputElement | undefined = $state();
     let canvas: HTMLCanvasElement | undefined = $state();
@@ -196,10 +205,10 @@
         }
 
         const data = new FormData();
-        data.set('photo', new File([blob], 'foto-alumno.webp', { type: 'image/webp' }));
+        data.set('photo', new File([blob], fileName, { type: 'image/webp' }));
         data.set('_method', 'put');
 
-        router.post(`/students/${studentCode}/photo`, data, {
+        router.post(uploadUrl, data, {
             forceFormData: true,
             preserveScroll: true,
             onError: (errors: Record<string, string>) => {
@@ -218,11 +227,11 @@
     onDestroy(releaseImage);
 </script>
 
-<Dialog bind:open title="Cambiar foto" persistent={processing} onclose={reset}>
+<Dialog bind:open {title} persistent={processing} onclose={reset}>
     <div class="lumi-stack lumi-stack--sm">
         <input
             bind:this={fileInput}
-            class="student-photo-cropper__file"
+            class="profile-photo-cropper__file"
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onchange={selectFile}
@@ -236,14 +245,14 @@
             <div class="lumi-stack lumi-stack--sm">
                 <button
                     type="button"
-                    class="student-photo-cropper__viewport"
-                    aria-label={`Recorte de la foto de ${studentName}. Arrastra o usa las flechas para encuadrar.`}
+                    class="profile-photo-cropper__viewport"
+                    aria-label={`Recorte de la foto de ${subjectName}. Arrastra o usa las flechas para encuadrar.`}
                     onkeydown={moveWithKeyboard}
                 >
                     <canvas
                         bind:this={canvas}
-                        class:student-photo-cropper__canvas--dragging={dragging}
-                        class="student-photo-cropper__canvas"
+                        class:profile-photo-cropper__canvas--dragging={dragging}
+                        class="profile-photo-cropper__canvas"
                         width={CANVAS_SIZE}
                         height={CANVAS_SIZE}
                         onpointerdown={startDrag}
@@ -320,11 +329,11 @@
 </Dialog>
 
 <style>
-    .student-photo-cropper__file {
+    .profile-photo-cropper__file {
         display: none;
     }
 
-    .student-photo-cropper__viewport {
+    .profile-photo-cropper__viewport {
         width: min(100%, 17rem);
         margin-inline: auto;
         border: var(--lumi-border-width-thick) solid var(--lumi-color-border-interactive);
@@ -336,12 +345,12 @@
         appearance: none;
     }
 
-    .student-photo-cropper__viewport:focus-visible {
+    .profile-photo-cropper__viewport:focus-visible {
         outline: var(--lumi-border-width-thick) solid var(--lumi-color-primary);
         outline-offset: var(--lumi-space-2xs);
     }
 
-    .student-photo-cropper__canvas {
+    .profile-photo-cropper__canvas {
         display: block;
         width: 100%;
         height: auto;
@@ -349,7 +358,7 @@
         touch-action: none;
     }
 
-    .student-photo-cropper__canvas--dragging {
+    .profile-photo-cropper__canvas--dragging {
         cursor: grabbing;
     }
 </style>

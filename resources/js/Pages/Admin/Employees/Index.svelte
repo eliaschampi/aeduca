@@ -12,6 +12,7 @@
         login: string | null;
         is_active: boolean;
         access_active: boolean;
+        photo_url: string | null;
     }
 
     interface Props {
@@ -91,6 +92,7 @@
                         name={row.first_name}
                         lastName={row.last_name}
                         description={row.email ?? undefined}
+                        photoUrl={row.photo_url ?? undefined}
                         avatarSize="sm"
                         avatarColor="primary"
                     />

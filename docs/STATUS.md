@@ -12,11 +12,11 @@
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                              |
 | Branches           | Unified branch selection and minimal branch catalog                                                                            |
-| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                                      |
+| Employees          | List/create/profile, cropped private photo (shared storage helper + cropper), role/branches, credentials, direct permissions   |
 | Roles              | Role CRUD and assignable permission scope                                                                                      |
 | Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership                 |
 | Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                                             |
-| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history                      |
+| Students           | Institutional/shell search, composed profile, private photo via shared `PrivateProfilePhoto` + `ProfilePhotoCropper`, contacts |
 | Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster                        |
 | Attendance         | DNI-only scan, daily list, manual ops, history + operational PDF, enrollment `attendance_starts_on`, cycle freezes after facts |
 | Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                                |

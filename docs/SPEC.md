@@ -214,6 +214,7 @@ New staff domains normally use `domain.view` and `domain.manage`. A permission r
 - Passwords are irreversible hashes.
 - Employee number has no confirmed use; email remains optional and non-unique until evidence changes that rule.
 - Inactive account, employee, or role blocks employee access.
+- Employee profile photo uses the same managed private-asset model as student photo: entity `photo_path` on private disk, square browser crop, authorized private serve URL. Write under `employees.manage` or self; read under `employees.view` or self. Photo is not on create, not Drive, and not a separate media library.
 
 Student support extends the existing `auth_accounts` owner instead of adding another auth system:
 

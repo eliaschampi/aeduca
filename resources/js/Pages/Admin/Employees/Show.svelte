@@ -2,6 +2,7 @@
     import { untrack } from 'svelte';
     import { router } from '@inertiajs/svelte';
     import { Avatar, Button, Chip, PageHeader, Tabs } from '@lumi-ui/svelte';
+    import ProfilePhotoCropper from '@/components/ProfilePhotoCropper.svelte';
     import { can } from '@/lib/permissions';
     import ChangePasswordDialog from './panels/ChangePasswordDialog.svelte';
     import EmployeeAccessPanel from './panels/EmployeeAccessPanel.svelte';
@@ -28,6 +29,7 @@
         login: string | null;
         access_active: boolean;
         last_login_at: string | null;
+        photo_url: string | null;
     }
 
     interface ScopePermission {
@@ -55,6 +57,7 @@
         role_permission_scope?: ScopePermission[];
         permission_codes?: string[];
         can_manage?: boolean;
+        can_edit_photo?: boolean;
     }
 
     const {
@@ -64,9 +67,11 @@
         role_permission_scope = [],
         permission_codes = [],
         can_manage = false,
+        can_edit_photo = false,
     }: Props = $props();
 
     const canManage = $derived(can_manage && can('employees.manage'));
+    const canEditPhoto = $derived(can_edit_photo);
     const fullName = $derived(`${employee.first_name} ${employee.last_name}`.trim());
 
     function formFrom(source: Employee): EmployeeForm {
@@ -88,6 +93,7 @@
     let permissionsProcessing = $state(false);
     let passwordOpen = $state(false);
     let passwordProcessing = $state(false);
+    let photoEditorOpen = $state(false);
     let errors = $state<Record<string, string>>({});
     let permissionsError = $state<string | null>(null);
     let passwordError = $state<string | null>(null);
@@ -216,12 +222,25 @@
     </PageHeader>
 
     <div class="lumi-flex lumi-align-items--center lumi-flex--gap-md lumi-flex--wrap">
-        <Avatar text={fullName} size="lg" color="primary" />
+        <Avatar text={fullName} src={employee.photo_url ?? undefined} size="lg" color="primary" />
         <div class="lumi-stack lumi-stack--2xs lumi-flex-item--grow">
             <span class="lumi-text--sm lumi-text--muted">{employee.login ?? 'Sin login'}</span>
             <span class="lumi-text--sm lumi-text--muted">
                 {employee.branches.map((b) => b.name).join(' · ') || 'Sin sedes'}
             </span>
+            {#if canEditPhoto}
+                <div>
+                    <Button
+                        type="button"
+                        variant="border"
+                        size="sm"
+                        icon="image"
+                        onclick={() => (photoEditorOpen = true)}
+                    >
+                        {employee.photo_url ? 'Cambiar foto' : 'Agregar foto'}
+                    </Button>
+                </div>
+            {/if}
         </div>
         <div class="lumi-flex lumi-flex--gap-sm lumi-flex--wrap">
             {#if employee.is_super_admin}
@@ -277,5 +296,14 @@
         error={passwordError}
         onclose={() => (passwordOpen = false)}
         onsubmit={changePassword}
+    />
+{/if}
+
+{#if canEditPhoto}
+    <ProfilePhotoCropper
+        bind:open={photoEditorOpen}
+        uploadUrl={`/admin/employees/${employee.code}/photo`}
+        subjectName={fullName}
+        fileName="foto-usuario.webp"
     />
 {/if}

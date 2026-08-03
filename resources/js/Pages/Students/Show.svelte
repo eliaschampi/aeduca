@@ -16,10 +16,10 @@
         Tabs,
         UserInfo,
     } from '@lumi-ui/svelte';
-    import StudentPhotoCropper from './components/StudentPhotoCropper.svelte';
     import StudentContactsPanel from './panels/StudentContactsPanel.svelte';
     import StudentEnrollmentsPanel from './panels/StudentEnrollmentsPanel.svelte';
     import BranchCover from '@/components/BranchCover.svelte';
+    import ProfilePhotoCropper from '@/components/ProfilePhotoCropper.svelte';
     import { generateStudentCardPdf } from '@/lib/student-card-pdf';
     import type {
         EnrollmentSummary,
@@ -549,10 +549,11 @@
     </div>
 </div>
 
-<StudentPhotoCropper
+<ProfilePhotoCropper
     bind:open={photoEditorOpen}
-    studentCode={student.code}
-    studentName={fullName}
+    uploadUrl={`/students/${student.code}/photo`}
+    subjectName={fullName}
+    fileName="foto-alumno.webp"
 />
 
 <Dialog

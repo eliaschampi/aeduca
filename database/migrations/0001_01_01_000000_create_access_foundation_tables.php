@@ -72,6 +72,7 @@ return new class extends Migration
             $table->string('last_name', 100);
             $table->string('email', 254)->nullable();
             $table->string('phone', 30)->nullable();
+            $table->string('photo_path')->nullable();
             $table->uuid('preferred_branch_code')->nullable();
             $table->uuid('employee_role_code');
             $table->boolean('is_active')->default(true);

@@ -135,6 +135,12 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
         Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show'])
             ->middleware('can:employees.view')
             ->name('employees.show');
+        Route::get('/employees/{employee}/photo', [AdminEmployeeController::class, 'photo'])
+            ->whereUuid('employee')
+            ->name('employees.photo');
+        Route::put('/employees/{employee}/photo', [AdminEmployeeController::class, 'updatePhoto'])
+            ->whereUuid('employee')
+            ->name('employees.photo.update');
         Route::put('/employees/{employee}', [AdminEmployeeController::class, 'update'])
             ->middleware('can:employees.manage')
             ->name('employees.update');
