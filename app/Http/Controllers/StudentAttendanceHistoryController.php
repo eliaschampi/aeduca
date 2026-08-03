@@ -141,6 +141,7 @@ final class StudentAttendanceHistoryController extends Controller
                 'e.code',
                 'e.roll_code',
                 'e.is_active',
+                'e.attendance_starts_on',
                 'b.code as branch_code',
                 'b.name as branch_name',
                 'c.code as cycle_code',
@@ -176,8 +177,12 @@ final class StudentAttendanceHistoryController extends Controller
             ->groupBy('enrollment_code');
 
         return $rows->map(function (object $row) use ($shifts, $today, $defaultDays, $maxDays): array {
-            $range = $this->defaultRange(
+            $expectationStart = max(
                 (string) $row->cycle_start_date,
+                (string) $row->attendance_starts_on,
+            );
+            $range = $this->defaultRange(
+                $expectationStart,
                 (string) $row->cycle_end_date,
                 $today,
                 $defaultDays,
@@ -194,6 +199,7 @@ final class StudentAttendanceHistoryController extends Controller
                 'cycle_name' => $row->cycle_name,
                 'cycle_start_date' => (string) $row->cycle_start_date,
                 'cycle_end_date' => (string) $row->cycle_end_date,
+                'attendance_starts_on' => (string) $row->attendance_starts_on,
                 'attendance_includes_saturday' => (bool) $row->attendance_includes_saturday,
                 'degree_label' => DegreeNumber::label((int) $row->degree_number),
                 'group_name' => $row->group_name,
@@ -229,10 +235,16 @@ final class StudentAttendanceHistoryController extends Controller
             (string) ($validated['to'] ?? $selected['default_to']),
             $this->timezone(),
         )->startOfDay();
-        $cycleStart = CarbonImmutable::parse((string) $selected['cycle_start_date'], $this->timezone())->startOfDay();
+        $expectationStart = CarbonImmutable::parse(
+            max(
+                (string) $selected['cycle_start_date'],
+                (string) ($selected['attendance_starts_on'] ?? $selected['cycle_start_date']),
+            ),
+            $this->timezone(),
+        )->startOfDay();
         $cycleEnd = CarbonImmutable::parse((string) $selected['cycle_end_date'], $this->timezone())->startOfDay();
 
-        return $this->normalizeRange($from, $to, $today, $maxDays, $cycleStart, $cycleEnd);
+        return $this->normalizeRange($from, $to, $today, $maxDays, $expectationStart, $cycleEnd);
     }
 
     /**
@@ -332,7 +344,7 @@ final class StudentAttendanceHistoryController extends Controller
                             ON cs.code = es.cycle_shift_code
                             AND cs.cycle_code = c.code
                         CROSS JOIN LATERAL generate_series(
-                            GREATEST(?::date, c.start_date),
+                            GREATEST(?::date, c.start_date, e.attendance_starts_on),
                             LEAST(?::date, c.end_date),
                             INTERVAL '1 day'
                         ) AS days(attendance_date)

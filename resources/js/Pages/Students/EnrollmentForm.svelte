@@ -7,6 +7,7 @@
         Card,
         Checkbox,
         InfoItem,
+        Input,
         PageHeader,
         Select,
         Switch,
@@ -26,6 +27,7 @@
         academic_group_code: string;
         shift_codes: string[];
         roll_code: string;
+        attendance_starts_on: string;
         is_active: boolean;
         observation: string | null;
     }
@@ -34,6 +36,8 @@
         code: string;
         label: string;
         cycle_code: string;
+        cycle_start_date: string;
+        cycle_end_date: string;
     }
 
     interface ShiftOption {
@@ -61,6 +65,7 @@
         return {
             academic_group_code: enrollment?.academic_group_code ?? '',
             shift_codes: [...(enrollment?.shift_codes ?? [])],
+            attendance_starts_on: enrollment?.attendance_starts_on ?? '',
             is_active: enrollment?.is_active ?? true,
             observation: enrollment?.observation ?? '',
         };
@@ -85,6 +90,10 @@
     function changeGroup(value: unknown): void {
         form.academic_group_code = typeof value === 'string' ? value : '';
         form.shift_codes = [];
+        const group = options.groups.find((item) => item.code === form.academic_group_code);
+        if (group && !enrollment) {
+            form.attendance_starts_on = group.cycle_start_date;
+        }
     }
 
     function toggleShift(code: string, checked: boolean): void {
@@ -99,6 +108,7 @@
         const payload = {
             academic_group_code: form.academic_group_code,
             shift_codes: form.shift_codes,
+            attendance_starts_on: form.attendance_starts_on,
             observation: form.observation,
         };
         const visitOptions = {
@@ -233,6 +243,21 @@
                             disabled={processing}
                         />
                     {/if}
+
+                    <Input
+                        type="date"
+                        bind:value={form.attendance_starts_on}
+                        label="Inicio de asistencia"
+                        min={selectedGroup?.cycle_start_date}
+                        max={selectedGroup?.cycle_end_date}
+                        disabled={processing || !selectedGroup}
+                        danger={Boolean(errors.attendance_starts_on)}
+                        dangerText={errors.attendance_starts_on}
+                    />
+                    <p class="lumi-margin--none lumi-text--xs lumi-text--muted">
+                        Primera fecha en que el alumno se espera en clase. No genera faltas antes de
+                        este día.
+                    </p>
 
                     <Textarea
                         bind:value={form.observation}

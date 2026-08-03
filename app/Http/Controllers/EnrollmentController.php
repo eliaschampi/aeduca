@@ -183,6 +183,7 @@ class EnrollmentController extends Controller
             $request->collect('shift_codes')->all(),
             true,
             $request->input('observation'),
+            $request->string('attendance_starts_on')->toString(),
         );
 
         Inertia::flash('success', 'Matrícula registrada');
@@ -226,6 +227,7 @@ class EnrollmentController extends Controller
                 'academic_group_code' => $enrollment->academic_group_code,
                 'shift_codes' => $enrollment->shifts->pluck('code')->all(),
                 'roll_code' => $enrollment->roll_code,
+                'attendance_starts_on' => $enrollment->attendance_starts_on?->toDateString(),
                 'is_active' => $enrollment->is_active,
                 'observation' => $enrollment->observation,
             ],
@@ -254,6 +256,7 @@ class EnrollmentController extends Controller
             $request->collect('shift_codes')->all(),
             $request->boolean('is_active'),
             $request->input('observation'),
+            $request->string('attendance_starts_on')->toString(),
         );
 
         Inertia::flash('success', 'Matrícula actualizada');
@@ -481,7 +484,7 @@ class EnrollmentController extends Controller
                 'shifts' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order'),
             ])
             ->orderByDesc('start_date')
-            ->get(['code', 'name', 'branch_code']);
+            ->get(['code', 'name', 'branch_code', 'start_date', 'end_date']);
 
         $groups = $cycles->flatMap(
             fn (AcademicCycle $cycle) => $cycle->degrees->flatMap(
@@ -489,6 +492,8 @@ class EnrollmentController extends Controller
                     'code' => $group->code,
                     'label' => "{$cycle->name} · ".DegreeNumber::label($degree->number)." · {$group->name}",
                     'cycle_code' => $cycle->code,
+                    'cycle_start_date' => $cycle->start_date->toDateString(),
+                    'cycle_end_date' => $cycle->end_date->toDateString(),
                 ]),
             ),
         )->values();
@@ -515,6 +520,8 @@ class EnrollmentController extends Controller
                     'code' => $group->code,
                     'label' => "{$cycle->name} · ".DegreeNumber::label($degree->number)." · {$group->name} (histórica)",
                     'cycle_code' => $cycle->code,
+                    'cycle_start_date' => $cycle->start_date->toDateString(),
+                    'cycle_end_date' => $cycle->end_date->toDateString(),
                 ]);
             }
 

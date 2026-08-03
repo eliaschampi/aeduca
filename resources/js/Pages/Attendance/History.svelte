@@ -17,7 +17,7 @@
     import {
         attendanceColor,
         type StudentAttendanceEnrollmentContext,
-        type StudentAttendanceConstancy,
+        type StudentAttendanceReport,
         type StudentAttendanceHistoryRow,
     } from '@/types/attendance';
 
@@ -48,8 +48,8 @@
     }
 
     let form = $state(untrack(seedFilters));
-    let constancyGenerating = $state(false);
-    let constancyError = $state<string | null>(null);
+    let reportGenerating = $state(false);
+    let reportError = $state<string | null>(null);
 
     const selectedEnrollment = $derived(
         enrollments.find((enrollment) => enrollment.code === form.enrollment) ?? null,
@@ -119,22 +119,22 @@
         visit();
     }
 
-    async function generateConstancy(): Promise<void> {
-        if (!selectedEnrollment || !selectedShift || filtersChanged || constancyGenerating) return;
+    async function generateReport(): Promise<void> {
+        if (!selectedEnrollment || !selectedShift || filtersChanged || reportGenerating) return;
 
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
-            constancyError =
-                'El navegador bloqueó la constancia. Permite las ventanas emergentes e inténtalo nuevamente.';
+            reportError =
+                'El navegador bloqueó el reporte. Permite las ventanas emergentes e inténtalo nuevamente.';
             return;
         }
 
-        constancyGenerating = true;
-        constancyError = null;
+        reportGenerating = true;
+        reportError = null;
 
         try {
             const { generateStudentAttendancePdf } = await import('@/lib/student-attendance-pdf');
-            const payload: StudentAttendanceConstancy = {
+            const payload: StudentAttendanceReport = {
                 student,
                 enrollment: selectedEnrollment,
                 shift: selectedShift,
@@ -146,12 +146,12 @@
             await generateStudentAttendancePdf(payload, printWindow);
         } catch (error) {
             printWindow.close();
-            constancyError =
+            reportError =
                 error instanceof Error
                     ? error.message
-                    : 'No se pudo generar la constancia de asistencia.';
+                    : 'No se pudo generar el reporte de asistencia.';
         } finally {
-            constancyGenerating = false;
+            reportGenerating = false;
         }
     }
 
@@ -190,11 +190,11 @@
                     type="button"
                     variant="border"
                     icon="download"
-                    loading={constancyGenerating}
+                    loading={reportGenerating}
                     disabled={!form.shift || filtersChanged}
-                    onclick={() => void generateConstancy()}
+                    onclick={() => void generateReport()}
                 >
-                    Constancia
+                    Reporte
                 </Button>
             {/if}
             <Button
@@ -284,15 +284,15 @@
                 </form>
                 {#if filtersChanged}
                     <p class="lumi-margin--none lumi-text--sm lumi-text--muted">
-                        Consulta el rango antes de generar la constancia.
+                        Consulta el rango antes de generar el reporte.
                     </p>
                 {/if}
             </div>
         </Card>
 
-        {#if constancyError}
-            <Alert color="danger" closable onclose={() => (constancyError = null)}>
-                {constancyError}
+        {#if reportError}
+            <Alert color="danger" closable onclose={() => (reportError = null)}>
+                {reportError}
             </Alert>
         {/if}
 

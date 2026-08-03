@@ -360,6 +360,7 @@ final class SaveStudentAttendance
                     AND c.is_active = true
                     AND c.start_date <= ?::date
                     AND c.end_date >= ?::date
+                    AND e.attendance_starts_on <= ?::date
                 INNER JOIN academic_groups g
                     ON g.code = e.academic_group_code
                     AND g.is_active = true
@@ -377,7 +378,7 @@ final class SaveStudentAttendance
                     AND student_attendance_is_expected_day(?::date, c.attendance_includes_saturday)
                 ORDER BY cs.sort_order, cs.entry_time, e.code
                 SQL,
-            [$branchCode, $date, $date, $dni, $date],
+            [$branchCode, $date, $date, $date, $dni, $date],
         ));
     }
 
@@ -395,10 +396,11 @@ final class SaveStudentAttendance
                     cs.entry_time,
                     cs.tolerance_minutes,
                     CASE
-                        WHEN student_attendance_is_expected_day(
-                            ?::date,
-                            c.attendance_includes_saturday
-                        ) THEN 1
+                        WHEN e.attendance_starts_on <= ?::date
+                            AND student_attendance_is_expected_day(
+                                ?::date,
+                                c.attendance_includes_saturday
+                            ) THEN 1
                         ELSE 0
                     END AS is_expected_day
                 FROM enrollments e
@@ -424,7 +426,7 @@ final class SaveStudentAttendance
                 WHERE e.code = ?
                     AND e.is_active = true
                 SQL,
-            [$date, $branchCode, $date, $date, $shiftCode, $enrollmentCode],
+            [$date, $date, $branchCode, $date, $date, $shiftCode, $enrollmentCode],
         );
     }
 

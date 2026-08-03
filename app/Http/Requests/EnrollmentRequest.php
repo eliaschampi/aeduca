@@ -41,6 +41,7 @@ class EnrollmentRequest extends FormRequest
                 'distinct',
                 Rule::exists('cycle_shifts', 'code'),
             ],
+            'attendance_starts_on' => ['required', 'date'],
             'is_active' => $isUpdate
                 ? ['required', 'boolean']
                 : ['prohibited'],
@@ -58,6 +59,8 @@ class EnrollmentRequest extends FormRequest
             'shift_codes.max' => 'Puedes seleccionar hasta dos turnos.',
             'shift_codes.*.distinct' => 'No repitas un turno.',
             'shift_codes.*.exists' => 'Uno de los turnos no existe.',
+            'attendance_starts_on.required' => 'Indica desde cuándo se espera la asistencia.',
+            'attendance_starts_on.date' => 'Indica una fecha de inicio de asistencia válida.',
             'is_active.required' => 'Indica el estado de la matrícula.',
             'is_active.prohibited' => 'Una matrícula nueva siempre se registra activa.',
         ];

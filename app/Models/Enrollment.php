@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'cycle_code',
     'academic_group_code',
     'roll_code',
+    'attendance_starts_on',
     'is_active',
     'observation',
 ])]
@@ -61,6 +62,7 @@ class Enrollment extends Model
     protected function casts(): array
     {
         return [
+            'attendance_starts_on' => 'date',
             'is_active' => 'boolean',
         ];
     }

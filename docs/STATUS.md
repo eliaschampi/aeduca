@@ -8,18 +8,18 @@
 
 ## 1. Completed implementation
 
-| Vertical           | Implemented                                                                                                      |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                |
-| Branches           | Unified branch selection and minimal branch catalog                                                              |
-| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                        |
-| Roles              | Role CRUD and assignable permission scope                                                                        |
-| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership   |
-| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                               |
-| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history        |
-| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster          |
-| Attendance         | DNI-only scan, roster-like daily list, manual arrival/permission/justify/correct, student history, derived falta |
-| Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                  |
+| Vertical           | Implemented                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                              |
+| Branches           | Unified branch selection and minimal branch catalog                                                                            |
+| Employees          | List/create/profile, role and branch assignment, credentials/password, direct permissions                                      |
+| Roles              | Role CRUD and assignable permission scope                                                                                      |
+| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership                 |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                                             |
+| Students           | Institutional/shell search, composed profile, cropped private photo, contacts, access, authorized history                      |
+| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster                        |
+| Attendance         | DNI-only scan, daily list, manual ops, history + operational PDF, enrollment `attendance_starts_on`, cycle freezes after facts |
+| Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                                |
 
 ## 2. Access implementation
 
@@ -141,7 +141,10 @@ student_attendances
 - Manual dialog: arrival, permission (before entry), justify (after close), or correction of an existing fact (reason + corrector).
 - Focused history at `/students/{student}/attendance` selects one visible enrollment and exactly one assigned shift, normalizes an inclusive maximum 93-date range, derives expected rows with bounded PostgreSQL `generate_series`, and left-joins stored facts. Staff are current-branch scoped; student self-service may select owned contexts across branches.
 - History keeps academic context once outside the row payload, retains inactive/historical current relations, and displays derived pending/falta rows without storing absences. Holidays, suspensions, and temporal reconstruction of past section/shift assignments remain unavailable.
-- History uses one compact context/filter surface, keeps the table to date/state/arrival/reason, and exposes a lazily generated multipage A4 constancy. Its bounded single-shift Inertia rows feed both Lumi's local pagination and the browser PDF without a second response mode or persisted report artifact.
+- History uses one compact context/filter surface, keeps the table to date/state/arrival/reason, and exposes a lazily generated multipage A4 **operational attendance report** (Spanish title/filename aligned; holiday limitation in the footer). Bounded single-shift Inertia rows feed Lumi pagination and the browser PDF without a second response mode or stored artifact.
+- `enrollments.attendance_starts_on` gates expected days on roster, scan, manual expectation, and history `generate_series`.
+- `SaveCycle` preflight-rejects deleting referenced shifts/groups/degrees with ValidationException; freezes attendance-sensitive cycle/shift clocks after facts exist while allowing name edits and end-date extension.
+- Cross-cycle enrollment corruption is rejected by `SaveEnrollment` and detectable via reconciliation SQL (integrity tests cover both).
 - Permissions: `attendance.view` / `attendance.manage`.
 
 ## 5. Application UI

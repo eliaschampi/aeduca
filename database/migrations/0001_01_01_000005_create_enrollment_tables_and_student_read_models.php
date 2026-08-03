@@ -15,6 +15,7 @@ return new class extends Migration
             $table->uuid('cycle_code');
             $table->uuid('academic_group_code');
             $table->char('roll_code', 4);
+            $table->date('attendance_starts_on');
             $table->boolean('is_active')->default(true);
             $table->text('observation')->nullable();
             $table->timestampsTz();

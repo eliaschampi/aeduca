@@ -25,6 +25,13 @@ class EnrollmentFactory extends Factory
                 ->cycleDegree
                 ->cycle_code,
             'roll_code' => fake()->unique()->numerify('####'),
+            'attendance_starts_on' => function (array $attributes): string {
+                $group = AcademicGroup::query()
+                    ->with('cycleDegree.cycle:code,start_date')
+                    ->findOrFail($attributes['academic_group_code']);
+
+                return $group->cycleDegree->cycle->start_date->toDateString();
+            },
             'is_active' => true,
             'observation' => null,
         ];

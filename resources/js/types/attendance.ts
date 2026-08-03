@@ -65,6 +65,7 @@ export interface StudentAttendanceEnrollmentContext {
     cycle_name: string;
     cycle_start_date: string;
     cycle_end_date: string;
+    attendance_starts_on: string;
     attendance_includes_saturday: boolean;
     degree_label: string;
     group_name: string;
@@ -86,7 +87,8 @@ export interface StudentAttendanceHistoryRow {
     is_derived: boolean;
 }
 
-export interface StudentAttendanceConstancy {
+/** Browser-built operational attendance report (not an official certificate). */
+export interface StudentAttendanceReport {
     student: {
         code: string;
         full_name: string;

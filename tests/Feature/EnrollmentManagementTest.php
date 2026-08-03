@@ -29,13 +29,14 @@ class EnrollmentManagementTest extends TestCase
         $branch = $account->user->branches->sole();
         $this->grantPermissions($account, ['enrollments.manage']);
         $student = Student::factory()->create();
-        [$group, $shifts] = $this->academicStructure($branch);
+        [$group, $shifts, $cycle] = $this->academicStructure($branch);
 
         $this->actingAs($account)
             ->withSession(['current_branch_code' => $branch->code])
             ->post(route('enrollments.store', $student), [
                 'academic_group_code' => $group->code,
                 'shift_codes' => $shifts->pluck('code')->all(),
+                'attendance_starts_on' => $cycle->start_date->toDateString(),
                 'observation' => 'Ingreso regular',
             ])
             ->assertRedirect(route('enrollments.index'));
@@ -43,6 +44,7 @@ class EnrollmentManagementTest extends TestCase
         $enrollment = Enrollment::query()->sole();
         $this->assertMatchesRegularExpression('/^[0-9]{4}$/', $enrollment->roll_code);
         $this->assertSame($group->cycleDegree->cycle_code, $enrollment->cycle_code);
+        $this->assertSame($cycle->start_date->toDateString(), $enrollment->attendance_starts_on->toDateString());
         $this->assertTrue((bool) $enrollment->is_active);
         $this->assertSame(2, $enrollment->shifts()->count());
         $this->assertDatabaseHas('student_roster', [
@@ -217,13 +219,14 @@ class EnrollmentManagementTest extends TestCase
         $branch = $account->user->branches->sole();
         $this->grantPermissions($account, ['enrollments.manage']);
         $student = Student::factory()->create();
-        [$foreignGroup, $foreignShifts] = $this->academicStructure();
+        [$foreignGroup, $foreignShifts, $foreignCycle] = $this->academicStructure();
 
         $this->actingAs($account)
             ->withSession(['current_branch_code' => $branch->code])
             ->post(route('enrollments.store', $student), [
                 'academic_group_code' => $foreignGroup->code,
                 'shift_codes' => [$foreignShifts->first()->code],
+                'attendance_starts_on' => $foreignCycle->start_date->toDateString(),
             ])
             ->assertSessionHasErrors('academic_group_code');
 
@@ -355,13 +358,14 @@ class EnrollmentManagementTest extends TestCase
         $branch = $account->user->branches->sole();
         $this->grantPermissions($account, ['enrollments.manage']);
         $student = Student::factory()->create();
-        [$group, $shifts] = $this->academicStructure($branch);
+        [$group, $shifts, $cycle] = $this->academicStructure($branch);
 
         $this->actingAs($account)
             ->withSession(['current_branch_code' => $branch->code])
             ->post(route('enrollments.store', $student), [
                 'academic_group_code' => $group->code,
                 'shift_codes' => [$shifts->first()->code],
+                'attendance_starts_on' => $cycle->start_date->toDateString(),
                 'is_active' => false,
             ])
             ->assertSessionHasErrors('is_active');

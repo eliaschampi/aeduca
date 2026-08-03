@@ -25,6 +25,7 @@ final class SaveEnrollment
         array $shiftCodes,
         bool $isActive,
         ?string $observation,
+        ?string $attendanceStartsOn = null,
     ): Enrollment {
         return DB::transaction(function () use (
             $branch,
@@ -34,6 +35,7 @@ final class SaveEnrollment
             $shiftCodes,
             $isActive,
             $observation,
+            $attendanceStartsOn,
         ): Enrollment {
             Student::query()->lockForUpdate()->findOrFail($student->code);
 
@@ -149,6 +151,13 @@ final class SaveEnrollment
                 }
             }
 
+            $startsOn = $this->resolveAttendanceStartsOn(
+                CarbonImmutable::parse($cycle->start_date->toDateString())->startOfDay(),
+                CarbonImmutable::parse($cycle->end_date->toDateString())->startOfDay(),
+                $attendanceStartsOn,
+                $enrollment,
+            );
+
             if (! $enrollment) {
                 $enrollment = new Enrollment([
                     'student_code' => $student->code,
@@ -159,6 +168,7 @@ final class SaveEnrollment
 
             $enrollment->fill([
                 'academic_group_code' => $group->code,
+                'attendance_starts_on' => $startsOn->toDateString(),
                 'is_active' => $isActive,
                 'observation' => $observation,
             ])->save();
@@ -167,6 +177,54 @@ final class SaveEnrollment
 
             return $enrollment;
         });
+    }
+
+    private function resolveAttendanceStartsOn(
+        CarbonImmutable $cycleStart,
+        CarbonImmutable $cycleEnd,
+        ?string $attendanceStartsOn,
+        ?Enrollment $enrollment,
+    ): CarbonImmutable {
+        if ($attendanceStartsOn === null || trim($attendanceStartsOn) === '') {
+            if ($enrollment?->attendance_starts_on) {
+                return CarbonImmutable::parse(
+                    $enrollment->attendance_starts_on->toDateString(),
+                )->startOfDay();
+            }
+
+            return $cycleStart;
+        }
+
+        try {
+            $startsOn = CarbonImmutable::parse($attendanceStartsOn)->startOfDay();
+        } catch (\Throwable) {
+            throw ValidationException::withMessages([
+                'attendance_starts_on' => 'Indica una fecha de inicio de asistencia válida.',
+            ]);
+        }
+
+        if ($startsOn->lt($cycleStart) || $startsOn->gt($cycleEnd)) {
+            throw ValidationException::withMessages([
+                'attendance_starts_on' => 'La asistencia debe iniciar dentro de las fechas del ciclo.',
+            ]);
+        }
+
+        if ($enrollment) {
+            $earliestFact = StudentAttendance::query()
+                ->where('enrollment_code', $enrollment->code)
+                ->min('attendance_date');
+
+            if (
+                is_string($earliestFact)
+                && $startsOn->gt(CarbonImmutable::parse($earliestFact)->startOfDay())
+            ) {
+                throw ValidationException::withMessages([
+                    'attendance_starts_on' => 'No puedes iniciar la asistencia después de fechas ya registradas.',
+                ]);
+            }
+        }
+
+        return $startsOn;
     }
 
     private function reserveRollCode(string $cycleCode): string

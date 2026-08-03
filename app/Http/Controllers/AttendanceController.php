@@ -267,6 +267,7 @@ class AttendanceController extends Controller
                 'student_attendance_is_expected_day(?::date, c.attendance_includes_saturday)',
                 [$filters['date']],
             )
+            ->whereDate('e.attendance_starts_on', '<=', $filters['date'])
             ->whereDate('c.start_date', '<=', $filters['date'])
             ->whereDate('c.end_date', '>=', $filters['date'])
             ->select([

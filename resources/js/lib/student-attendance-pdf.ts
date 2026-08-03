@@ -1,7 +1,7 @@
 import { openPdfInWindow } from './browser-pdf';
 import type {
     AttendanceEffectiveState,
-    StudentAttendanceConstancy,
+    StudentAttendanceReport,
     StudentAttendanceHistoryRow,
 } from '@/types/attendance';
 import type { PDFFont, PDFPage, RGB } from 'pdf-lib';
@@ -177,8 +177,8 @@ function drawHeader(
     });
 
     const title = continuation
-        ? 'CONSTANCIA DE ASISTENCIA · CONTINUACIÓN'
-        : 'CONSTANCIA DE ASISTENCIA';
+        ? 'REPORTE OPERATIVO DE ASISTENCIA · CONTINUACIÓN'
+        : 'REPORTE OPERATIVO DE ASISTENCIA';
     const size = continuation ? 12 : 17;
     const width = fonts.bold.widthOfTextAtSize(title, size);
     page.drawText(title, {
@@ -201,7 +201,7 @@ function drawSummary(
     page: PDFPage,
     fonts: PdfFonts,
     colors: Palette,
-    report: StudentAttendanceConstancy,
+    report: StudentAttendanceReport,
 ): void {
     const top = 716;
     const height = 104;
@@ -411,7 +411,7 @@ function drawFooters(
     pages: PDFPage[],
     fonts: PdfFonts,
     colors: Palette,
-    report: StudentAttendanceConstancy,
+    report: StudentAttendanceReport,
 ): void {
     const generated = new Intl.DateTimeFormat('es-PE', {
         timeZone: report.business_timezone,
@@ -455,7 +455,7 @@ function drawFooters(
 }
 
 export async function buildStudentAttendancePdf(
-    report: StudentAttendanceConstancy,
+    report: StudentAttendanceReport,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
     const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
     const pdf = await PDFDocument.create();
@@ -508,8 +508,8 @@ export async function buildStudentAttendancePdf(
     }
 
     drawFooters(pdf.getPages(), fonts, colors, report);
-    const filename = `constancia-asistencia-${report.student.dni}-${report.period.from}-${report.period.to}.pdf`;
-    pdf.setTitle('Constancia de asistencia');
+    const filename = `reporte-asistencia-${report.student.dni}-${report.period.from}-${report.period.to}.pdf`;
+    pdf.setTitle('Reporte operativo de asistencia');
     pdf.setAuthor('Aeduca');
     pdf.setSubject(`${report.student.full_name} · ${report.shift.name}`);
 
@@ -517,7 +517,7 @@ export async function buildStudentAttendancePdf(
 }
 
 export async function generateStudentAttendancePdf(
-    report: StudentAttendanceConstancy,
+    report: StudentAttendanceReport,
     printWindow: Window,
 ): Promise<void> {
     const { bytes, filename } = await buildStudentAttendancePdf(report);
