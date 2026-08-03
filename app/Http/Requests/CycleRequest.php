@@ -26,6 +26,7 @@ class CycleRequest extends FormRequest
             'modality' => ['required', 'string', Rule::enum(CycleModality::class)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'attendance_includes_saturday' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
 
             'shifts' => ['required', 'array', 'min:1', 'max:2'],
@@ -101,6 +102,8 @@ class CycleRequest extends FormRequest
             'start_date.required' => 'La fecha de inicio es obligatoria.',
             'end_date.required' => 'La fecha de fin es obligatoria.',
             'end_date.after_or_equal' => 'La fecha de fin no puede ser anterior al inicio.',
+            'attendance_includes_saturday.required' => 'Indica si el ciclo incluye sábados en asistencia.',
+            'attendance_includes_saturday.boolean' => 'El valor de asistencia los sábados no es válido.',
             'shifts.required' => 'El ciclo necesita al menos un turno.',
             'shifts.min' => 'El ciclo necesita al menos un turno.',
             'shifts.max' => 'El ciclo puede tener como máximo dos turnos.',

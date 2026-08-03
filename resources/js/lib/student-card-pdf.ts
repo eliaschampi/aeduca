@@ -1,4 +1,5 @@
 import cardTemplateUrl from '@/assets/student-card-template.png';
+import { openPdfInWindow } from './browser-pdf';
 import type { EnrollmentSummary, StudentProfile } from '@/types/student';
 import type { PDFFont, PDFPage } from 'pdf-lib';
 
@@ -45,13 +46,6 @@ function pxY(value: number): number {
 
 function fromTop(top: number, height = 0): number {
     return CARD_HEIGHT - pxY(top + height);
-}
-
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-    const buffer = new ArrayBuffer(bytes.byteLength);
-    new Uint8Array(buffer).set(bytes);
-
-    return buffer;
 }
 
 function normalizeText(value: string): string {
@@ -277,14 +271,6 @@ function drawDni(
     });
 }
 
-function openPdf(bytes: Uint8Array, filename: string, target: Window): void {
-    const url = URL.createObjectURL(new Blob([toArrayBuffer(bytes)], { type: 'application/pdf' }));
-
-    target.location.replace(url);
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    target.document.title = filename;
-}
-
 export async function generateStudentCardPdf(input: StudentCardInput): Promise<void> {
     if (!input.photo_url) {
         throw new Error('El alumno no tiene una foto disponible para el carnet.');
@@ -341,7 +327,7 @@ export async function generateStudentCardPdf(input: StudentCardInput): Promise<v
 
         const filename = `carnet-${input.dni}.pdf`;
         pdf.setTitle(filename);
-        openPdf(await pdf.save(), filename, printWindow);
+        openPdfInWindow(await pdf.save(), filename, printWindow);
     } catch (error) {
         printWindow.close();
         throw error;

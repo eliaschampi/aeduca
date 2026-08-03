@@ -29,10 +29,6 @@ final class SaveStudentAttendance
         $date = $now->toDateString();
         $normalizedDni = $this->normalizeDni($dni);
 
-        if ($now->dayOfWeekIso === 7) {
-            $this->throwScanUnresolved();
-        }
-
         return DB::transaction(function () use ($branch, $actor, $normalizedDni, $now, $date): array {
             $candidates = $this->scanCandidates($branch->code, $normalizedDni, $date);
 
@@ -111,12 +107,6 @@ final class SaveStudentAttendance
         $date = $payload['attendance_date'];
         $now = $this->now();
 
-        if ($this->isSunday($date)) {
-            throw ValidationException::withMessages([
-                'attendance_date' => 'La asistencia estudiantil se registra de lunes a sábado.',
-            ]);
-        }
-
         return DB::transaction(function () use ($branch, $actor, $payload, $operation, $date, $now): StudentAttendance {
             $context = $this->expectationContext(
                 $branch->code,
@@ -128,6 +118,12 @@ final class SaveStudentAttendance
             if ($context === null) {
                 throw ValidationException::withMessages([
                     'enrollment_code' => 'El alumno no tiene expectativa de asistencia en este contexto.',
+                ]);
+            }
+
+            if ((int) $context->is_expected_day !== 1) {
+                throw ValidationException::withMessages([
+                    'attendance_date' => 'El ciclo no espera asistencia en la fecha seleccionada.',
                 ]);
             }
 
@@ -378,9 +374,10 @@ final class SaveStudentAttendance
                     AND cs.is_active = true
                 WHERE s.dni = ?
                     AND s.is_active = true
+                    AND student_attendance_is_expected_day(?::date, c.attendance_includes_saturday)
                 ORDER BY cs.sort_order, cs.entry_time, e.code
                 SQL,
-            [$branchCode, $date, $date, $dni],
+            [$branchCode, $date, $date, $dni, $date],
         ));
     }
 
@@ -396,7 +393,14 @@ final class SaveStudentAttendance
                     e.code AS enrollment_code,
                     cs.code AS cycle_shift_code,
                     cs.entry_time,
-                    cs.tolerance_minutes
+                    cs.tolerance_minutes,
+                    CASE
+                        WHEN student_attendance_is_expected_day(
+                            ?::date,
+                            c.attendance_includes_saturday
+                        ) THEN 1
+                        ELSE 0
+                    END AS is_expected_day
                 FROM enrollments e
                 INNER JOIN academic_cycles c
                     ON c.code = e.cycle_code
@@ -420,7 +424,7 @@ final class SaveStudentAttendance
                 WHERE e.code = ?
                     AND e.is_active = true
                 SQL,
-            [$branchCode, $date, $date, $shiftCode, $enrollmentCode],
+            [$date, $branchCode, $date, $date, $shiftCode, $enrollmentCode],
         );
     }
 
@@ -546,11 +550,6 @@ final class SaveStudentAttendance
                 'enrollment_code' => 'El alumno no tiene expectativa de asistencia en este contexto.',
             ]);
         }
-    }
-
-    private function isSunday(string $date): bool
-    {
-        return CarbonImmutable::parse($date, $this->timezone())->isSunday();
     }
 
     private function normalizeTime(mixed $entryTime): string

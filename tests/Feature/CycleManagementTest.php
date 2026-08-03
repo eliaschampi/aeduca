@@ -196,6 +196,48 @@ class CycleManagementTest extends TestCase
         $this->assertSame('2027-03-15', $cycle->end_date->toDateString());
     }
 
+    public function test_cycle_create_and_update_persist_the_saturday_attendance_rule(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['cycles.manage']);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->post(route('admin.cycles.store'), $this->validPayload([
+                'attendance_includes_saturday' => true,
+            ]))
+            ->assertRedirect(route('admin.cycles.index'));
+
+        $cycle = AcademicCycle::query()
+            ->where('branch_code', $branch->code)
+            ->with(['shifts', 'degrees.groups'])
+            ->sole();
+        $this->assertTrue($cycle->attendance_includes_saturday);
+
+        $updatePayload = $this->validPayload([
+            'attendance_includes_saturday' => false,
+        ]);
+        $updatePayload['shifts'][0]['code'] = $cycle->shifts->sole()->code;
+        foreach ($cycle->degrees->sortBy('number')->values() as $index => $degree) {
+            $updatePayload['degrees'][$index]['groups'][0]['code'] = $degree->groups->sole()->code;
+        }
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->put(route('admin.cycles.update', $cycle), $updatePayload)
+            ->assertRedirect(route('admin.cycles.index'));
+
+        $this->assertFalse($cycle->refresh()->attendance_includes_saturday);
+    }
+
+    public function test_cycle_factory_has_a_deterministic_monday_to_friday_default(): void
+    {
+        $cycle = AcademicCycle::factory()->create();
+
+        $this->assertFalse($cycle->attendance_includes_saturday);
+    }
+
     public function test_invalid_date_order_is_rejected(): void
     {
         $account = $this->createEmployeeAccount();
@@ -371,6 +413,7 @@ class CycleManagementTest extends TestCase
                     'modality' => $payload['modality'],
                     'start_date' => $payload['start_date'],
                     'end_date' => $payload['end_date'],
+                    'attendance_includes_saturday' => $payload['attendance_includes_saturday'],
                     'is_active' => $payload['is_active'],
                 ],
                 $payload['shifts'],
@@ -406,6 +449,7 @@ class CycleManagementTest extends TestCase
             'modality' => 'verano',
             'start_date' => '2026-01-15',
             'end_date' => '2026-03-15',
+            'attendance_includes_saturday' => false,
             'is_active' => true,
             'shifts' => [
                 ['name' => 'Mañana', 'entry_time' => '07:00', 'tolerance_minutes' => 60],

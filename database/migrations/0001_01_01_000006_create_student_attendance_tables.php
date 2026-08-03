@@ -17,6 +17,23 @@ return new class extends Migration
             (string) config('aeduca.business_timezone', 'America/Lima'),
         );
 
+        DB::statement(<<<'SQL'
+            CREATE OR REPLACE FUNCTION student_attendance_is_expected_day(
+                attendance_date date,
+                includes_saturday boolean
+            ) RETURNS boolean
+            LANGUAGE SQL
+            IMMUTABLE
+            PARALLEL SAFE
+            AS $$
+                SELECT CASE EXTRACT(ISODOW FROM attendance_date)
+                    WHEN 6 THEN COALESCE(includes_saturday, false)
+                    WHEN 7 THEN false
+                    ELSE EXTRACT(ISODOW FROM attendance_date) BETWEEN 1 AND 5
+                END
+            $$
+            SQL);
+
         Schema::create('student_attendances', function (Blueprint $table) {
             $table->uuid('code')->primary();
             $table->uuid('enrollment_code');
@@ -131,5 +148,6 @@ return new class extends Migration
     {
         DB::statement('DROP FUNCTION IF EXISTS student_attendance_effective_state(text, date, time without time zone, integer, timestamp with time zone)');
         Schema::dropIfExists('student_attendances');
+        DB::statement('DROP FUNCTION IF EXISTS student_attendance_is_expected_day(date, boolean)');
     }
 };

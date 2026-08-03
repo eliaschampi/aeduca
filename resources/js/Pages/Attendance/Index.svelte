@@ -190,6 +190,15 @@
         router.visit(`/students/${row.student_code}`);
     }
 
+    function openHistory(row: AttendanceRow): void {
+        const query = new URLSearchParams({
+            enrollment: row.enrollment_code,
+            shift: row.cycle_shift_code,
+        });
+
+        router.visit(`/students/${row.student_code}/attendance?${query}`);
+    }
+
     function openManual(row: AttendanceRow): void {
         selectedRow = row;
         manualOpen = true;
@@ -419,9 +428,7 @@
                                 <th scope="col">Código</th>
                                 <th scope="col">Estado</th>
                                 <th scope="col">Llegada</th>
-                                {#if can_manage || can_view_profiles}
-                                    <th scope="col">Acciones</th>
-                                {/if}
+                                <th scope="col">Acciones</th>
                             {/snippet}
 
                             {#snippet row({ row }: { row: AttendanceRow })}
@@ -447,42 +454,38 @@
                                     </Chip>
                                 </td>
                                 <td>{formatArrival(row.arrival_at)}</td>
-                                {#if can_manage || can_view_profiles}
-                                    <td>
-                                        <Dropdown
-                                            placement="bottom-end"
-                                            aria-label={`Acciones de ${row.full_name}`}
-                                        >
-                                            {#snippet triggerContent()}
-                                                <Button
-                                                    type="button"
-                                                    variant="flat"
-                                                    size="sm"
-                                                    icon="moreVertical"
-                                                    aria-label={`Abrir acciones de ${row.full_name}`}
-                                                />
-                                            {/snippet}
-                                            {#snippet content()}
-                                                {#if can_view_profiles}
-                                                    <DropdownItem
-                                                        icon="user"
-                                                        onclick={() => openProfile(row)}
-                                                    >
-                                                        Ver perfil
-                                                    </DropdownItem>
-                                                {/if}
-                                                {#if can_manage}
-                                                    <DropdownItem
-                                                        icon="edit"
-                                                        onclick={() => openManual(row)}
-                                                    >
-                                                        Gestionar asistencia
-                                                    </DropdownItem>
-                                                {/if}
-                                            {/snippet}
-                                        </Dropdown>
-                                    </td>
-                                {/if}
+                                <td>
+                                    <Dropdown
+                                        placement="bottom-end"
+                                        aria-label={`Acciones de ${row.full_name}`}
+                                    >
+                                        {#snippet triggerContent()}
+                                            <Button
+                                                type="button"
+                                                variant="flat"
+                                                size="sm"
+                                                icon="moreVertical"
+                                                aria-label={`Abrir acciones de ${row.full_name}`}
+                                            />
+                                        {/snippet}
+                                        {#snippet content()}
+                                            <DropdownItem
+                                                icon="clipboardCheck"
+                                                onclick={() => openHistory(row)}
+                                            >
+                                                Ver historial
+                                            </DropdownItem>
+                                            {#if can_manage}
+                                                <DropdownItem
+                                                    icon="edit"
+                                                    onclick={() => openManual(row)}
+                                                >
+                                                    Gestionar asistencia
+                                                </DropdownItem>
+                                            {/if}
+                                        {/snippet}
+                                    </Dropdown>
+                                </td>
                             {/snippet}
                         </Table>
                     {/if}

@@ -50,6 +50,59 @@ export interface AttendanceScanResult {
     };
 }
 
+export interface StudentAttendanceShiftContext {
+    code: string;
+    name: string;
+}
+
+export interface StudentAttendanceEnrollmentContext {
+    code: string;
+    roll_code: string;
+    is_active: boolean;
+    branch_code: string;
+    branch_name: string;
+    cycle_code: string;
+    cycle_name: string;
+    cycle_start_date: string;
+    cycle_end_date: string;
+    attendance_includes_saturday: boolean;
+    degree_label: string;
+    group_name: string;
+    shifts: StudentAttendanceShiftContext[];
+    default_from: string;
+    default_to: string;
+}
+
+export interface StudentAttendanceHistoryRow {
+    attendance_code: string | null;
+    enrollment_code: string;
+    cycle_shift_code: string;
+    attendance_date: string;
+    stored_state: AttendanceStoredState | null;
+    effective_state: AttendanceEffectiveState;
+    state_label: string;
+    arrival_at: string | null;
+    reason: string | null;
+    is_derived: boolean;
+}
+
+export interface StudentAttendanceConstancy {
+    student: {
+        code: string;
+        full_name: string;
+        dni: string;
+    };
+    enrollment: StudentAttendanceEnrollmentContext;
+    shift: StudentAttendanceShiftContext;
+    period: {
+        from: string;
+        to: string;
+    };
+    business_timezone: string;
+    generated_at: string;
+    rows: StudentAttendanceHistoryRow[];
+}
+
 /** Plain 8-digit DNI from the CR80 student card QR. */
 export const ATTENDANCE_DNI_PATTERN = /^\d{8}$/;
 

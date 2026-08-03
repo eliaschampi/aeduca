@@ -46,6 +46,7 @@
         modality: string;
         start_date: string;
         end_date: string;
+        attendance_includes_saturday: boolean;
         is_active: boolean;
         shifts: { code: string; name: string; entry_time: string; tolerance_minutes: number }[];
         degrees: { number: number; groups: { code: string; name: string }[] }[];
@@ -69,6 +70,7 @@
             modality: cycle?.modality ?? 'regular',
             start_date: cycle?.start_date ?? '',
             end_date: cycle?.end_date ?? '',
+            attendance_includes_saturday: cycle?.attendance_includes_saturday ?? false,
             is_active: cycle?.is_active ?? true,
             shifts: (
                 cycle?.shifts ?? [
@@ -116,7 +118,14 @@
             return keys.some((key) => key === 'degrees' || key.startsWith('degrees.'));
 
         return keys.some((key) =>
-            ['name', 'modality', 'start_date', 'end_date', 'is_active'].includes(key),
+            [
+                'name',
+                'modality',
+                'start_date',
+                'end_date',
+                'attendance_includes_saturday',
+                'is_active',
+            ].includes(key),
         );
     }
 
@@ -173,6 +182,7 @@
             modality: form.modality,
             start_date: form.start_date,
             end_date: form.end_date,
+            attendance_includes_saturday: form.attendance_includes_saturday,
             is_active: form.is_active,
             shifts: form.shifts.map((shift) => ({
                 ...(shift.code ? { code: shift.code } : {}),
@@ -309,6 +319,19 @@
                                 danger={!!errors.end_date}
                                 dangerText={errors.end_date}
                             />
+                        </div>
+
+                        <div class="lumi-stack lumi-stack--xs">
+                            <Switch
+                                bind:checked={form.attendance_includes_saturday}
+                                label="Asistencia los sábados"
+                                disabled={!canEdit}
+                            />
+                            <p class="lumi-text--sm lumi-text--muted lumi-margin--none">
+                                {form.attendance_includes_saturday
+                                    ? 'Se espera asistencia de lunes a sábado.'
+                                    : 'Se espera asistencia de lunes a viernes.'}
+                            </p>
                         </div>
 
                         <Switch

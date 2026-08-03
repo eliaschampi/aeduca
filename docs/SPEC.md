@@ -289,7 +289,7 @@ Cycle name and modality are distinct. The name owns the cycle's operational iden
 academic_cycles
   code UUID PK
   branch_code FK
-  name, modality, start_date, end_date, is_active, timestamps
+  name, modality, start_date, end_date, attendance_includes_saturday, is_active, timestamps
   CHECK(nonblank name, end_date >= start_date, valid modality)
 
 cycle_degrees
@@ -318,6 +318,7 @@ cycle_shifts
 - Belongs to the current authorized branch and may cross calendar years.
 - Its name identifies the operational cycle; offered degrees are explicit and never inferred from name or modality.
 - No global `year` or `current_year`.
+- Each cycle owns its expected attendance week: Monday–Friday by default, or Monday–Saturday when `attendance_includes_saturday` is enabled. Sunday is never expected.
 - No payment fields until their meanings are confirmed in the payments workflow.
 - No modality table unless independent administration is required.
 - `cycles.view` may inspect the aggregate; write controls require `cycles.manage`.
@@ -491,7 +492,10 @@ student_attendances
 
 - Attendance references one selected enrollment shift through the composite `(enrollment_code, cycle_shift_code)` relation. There is **no** temporal slot/SCD table; expected students are derived from active enrollments + `enrollment_shifts` + cycle/shift clocks.
 - Stored states only: `present`, `late`, `permission`, `justified`. **`pending` and `absent`/`falta` are never stored**; they are derived at read time from entry time + tolerance via `student_attendance_effective_state`.
-- Monday through Saturday; no holiday calendar. Business timezone: `America/Lima` (`config/aeduca.business_timezone`).
+- The cycle explicitly selects Monday–Friday or Monday–Saturday attendance; Sunday is never expected. `student_attendance_is_expected_day` is the shared PostgreSQL predicate used by roster, scan, manual writes, and history.
+- Student history selects one authorized enrollment, derives its bounded expected dates set-wise with PostgreSQL `generate_series`, left-joins facts, and classifies missing rows as pending or absent. It never materializes absences.
+- History uses the enrollment's current explicit section and shift relations. There is no temporal reconstruction of past academic assignments yet.
+- There is no holiday, suspension, or vacation exception calendar yet, so derived absence history is operational rather than an official cumulative conclusion. Business timezone: `America/Lima` (`config/aeduca.business_timezone`).
 - Scan resolves only from entry−tolerance through entry+tolerance, inclusive. Inside that window it records present through entry time and late afterwards.
 - After tolerance, automatic scan does not create a fact; absence is derived on the daily list.
 - Continuous **scan is DNI-only** (QR/keyboard). Server resolves branch, active enrollment, and open shift window. No cycle/shift selectors on the scan page.
@@ -499,7 +503,8 @@ student_attendances
 - Manual ops are semantic: arrival, permission (before entry), justify (after window), correct (existing fact + reason).
 - An operational attendance context requires an active cycle, group, shift, and enrollment. The daily roster may still identify an inactive student when that active enrollment remains; physical DNI scan rejects that identity. Historical facts remain readable under their own branch/ownership scope.
 - Daily list uses the same roster layout pattern: date + cycle + degree + section + shift filters, expected rows with LEFT JOIN facts, server pagination and summary counts.
-- Student history is a specialized page (`/students/{student}/attendance`), not an unbounded profile payload. Staff are limited to the current branch; self-service sees own history.
+- Student history is a specialized page (`/students/{student}/attendance`), not an unbounded profile payload. Staff are limited to the current branch; self-service sees own enrollment contexts across branches. A history query is scoped to one enrollment and exactly one assigned shift; an omitted shift resolves to the first assigned shift and never means “all”.
+- The history page returns the complete bounded range for one enrollment and shift. Lumi paginates those rows locally, and the browser reuses the same authorized payload to lazily create the A4 constancy without another endpoint or stored artifact.
 - Permissions: `attendance.view`, `attendance.manage` (manage expands view). No per-button attendance permissions.
 - No cron mass-inserts absence rows. No employee attendance in the student vertical.
 - v7 migration maps stored rows into facts; derived faltas do not require importing absence rows.

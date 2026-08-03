@@ -22,6 +22,7 @@ class AcademicCycleFactory extends Factory
             'modality' => fake()->randomElement(CycleModality::cases()),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => fake()->dateTimeBetween('+1 day', '+6 months')->format('Y-m-d'),
+            'attendance_includes_saturday' => false,
             'is_active' => true,
         ];
     }

@@ -16,7 +16,15 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 /**
  * Aggregate owner of cycle degrees (→ academic groups) and cycle shifts.
  */
-#[Fillable(['branch_code', 'name', 'modality', 'start_date', 'end_date', 'is_active'])]
+#[Fillable([
+    'branch_code',
+    'name',
+    'modality',
+    'start_date',
+    'end_date',
+    'attendance_includes_saturday',
+    'is_active',
+])]
 class AcademicCycle extends Model
 {
     /** @use HasFactory<AcademicCycleFactory> */
@@ -62,6 +70,7 @@ class AcademicCycle extends Model
             'modality' => CycleModality::class,
             'start_date' => 'date',
             'end_date' => 'date',
+            'attendance_includes_saturday' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

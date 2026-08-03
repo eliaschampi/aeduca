@@ -2,9 +2,9 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** July 31, 2026.
+**Implementation inventory reviewed:** August 3, 2026.
 
-**Last complete verification:** July 31, 2026.
+**Last complete verification:** August 3, 2026.
 
 ## 1. Completed implementation
 
@@ -60,7 +60,8 @@ user preferred_branch_code → future-login preference only
 
 ```text
 academic_cycles
-  branch_code FK, name, modality, start_date, end_date, is_active
+  branch_code FK, name, modality, start_date, end_date,
+  attendance_includes_saturday, is_active
 
 cycle_degrees
   cycle_code FK, number 1–6, UNIQUE(cycle_code, number)
@@ -74,6 +75,7 @@ cycle_shifts
 ```
 
 - `AcademicCycle` owns degrees → groups and shifts.
+- Each cycle explicitly owns a Monday–Friday (default) or Monday–Saturday attendance week; Sunday remains excluded.
 - `SaveCycle` writes the aggregate transactionally and rejects a cycle from another branch.
 - `DegreeNumber` owns the supported 1–6 range and its presentation labels.
 - Current `CycleModality`: regular, verano, intensivo, reforzamiento, virtual.
@@ -133,10 +135,13 @@ student_attendances
 ```
 
 - `SaveStudentAttendance` is the sole fact write owner (scan + manual ops). An operational expectation requires active enrollment, cycle, section, and shift; there is no slot/SCD table. `SaveEnrollment` only protects a referenced shift from detachment.
+- `student_attendance_is_expected_day(date, includes_saturday)` is the immutable shared SQL predicate for the daily list, scan resolution, manual expectation validation, and generated history.
 - Scan is camera-first (`qr-scanner`, continuous decode; no primary submit button on the hot path) plus optional plain eight-digit DNI keyboard/wedge input that auto-registers at 8 digits. Server resolves branch and exactly one entry−tolerance through entry+tolerance window. Outside or across dual windows it rejects without inserting. Repeat scans return _Ya registrada_ without `UPDATE`.
 - Daily list mirrors Matriculados (Lumi `Table` server pagination, `UserInfo`, sidebar filters): date/cycle/degree/section/shift, expected rows with LEFT JOIN facts, and all derived/stored state summary counts. It retains an inactive identity when its enrollment remains active; DNI scan does not.
 - Manual dialog: arrival, permission (before entry), justify (after close), or correction of an existing fact (reason + corrector).
-- History at `/students/{student}/attendance` (staff: current branch; student self: own rows). Profile links when `attendance.view` or self.
+- Focused history at `/students/{student}/attendance` selects one visible enrollment and exactly one assigned shift, normalizes an inclusive maximum 93-date range, derives expected rows with bounded PostgreSQL `generate_series`, and left-joins stored facts. Staff are current-branch scoped; student self-service may select owned contexts across branches.
+- History keeps academic context once outside the row payload, retains inactive/historical current relations, and displays derived pending/falta rows without storing absences. Holidays, suspensions, and temporal reconstruction of past section/shift assignments remain unavailable.
+- History uses one compact context/filter surface, keeps the table to date/state/arrival/reason, and exposes a lazily generated multipage A4 constancy. Its bounded single-shift Inertia rows feed both Lumi's local pagination and the browser PDF without a second response mode or persisted report artifact.
 - Permissions: `attendance.view` / `attendance.manage`.
 
 ## 5. Application UI
@@ -174,7 +179,8 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 170 PHPUnit tests / 923 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 181 PHPUnit tests / 1107 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
+- A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.
 
 The local `aeduca` database was rebuilt and seeded on July 25, 2026, after explicit project-owner approval.

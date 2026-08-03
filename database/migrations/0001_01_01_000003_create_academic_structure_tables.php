@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('modality', 30);
             $table->date('start_date');
             $table->date('end_date');
+            $table->boolean('attendance_includes_saturday')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestampsTz();
 

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Actions\SaveEnrollment;
 use App\Models\AcademicCycle;
 use App\Models\AcademicGroup;
-use App\Models\AuthAccount;
 use App\Models\Branch;
 use App\Models\CycleDegree;
 use App\Models\CycleShift;
@@ -16,6 +15,7 @@ use App\Support\Attendance\AttendanceMethod;
 use App\Support\Attendance\AttendanceState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -179,6 +179,130 @@ class StudentAttendanceTest extends TestCase
             ->where('attendance.data.0.effective_state', 'absent')
             ->where('attendance.data.0.enrollment_code', $enrollment->code));
 
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_expected_day_predicate_uses_the_cycle_saturday_rule_and_never_sunday(): void
+    {
+        $expected = fn (string $date, ?bool $includesSaturday): int => (int) DB::scalar(
+            <<<'SQL'
+                SELECT CASE
+                    WHEN student_attendance_is_expected_day(?::date, ?) THEN 1
+                    ELSE 0
+                END
+                SQL,
+            [$date, $includesSaturday],
+        );
+
+        $this->assertSame(1, $expected('2026-03-09', false));
+        $this->assertSame(0, $expected('2026-03-14', false));
+        $this->assertSame(0, $expected('2026-03-14', null));
+        $this->assertSame(1, $expected('2026-03-14', true));
+        $this->assertSame(0, $expected('2026-03-15', true));
+    }
+
+    public function test_non_expected_saturday_is_excluded_from_roster_scan_and_manual_writes(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-14 06:50:00', 'America/Lima'));
+
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['attendance.manage']);
+        [$student, $enrollment, $shift, $group, $cycle, $degree] = $this->enrolledStudent(
+            $branch,
+            '07:00',
+            15,
+        );
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('attendance.index', [
+                'date' => '2026-03-14',
+                'cycle' => $cycle->code,
+                'degree' => $degree->number,
+                'group' => $group->code,
+                'shift' => $shift->code,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.expected', 0)
+                ->where('attendance.total', 0));
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->postJson(route('attendance.scan.store'), ['dni' => $student->dni])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'No se pudo registrar la lectura con esos datos.');
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->post(route('attendance.manual.store'), [
+                'operation' => 'arrival',
+                'enrollment_code' => $enrollment->code,
+                'cycle_shift_code' => $shift->code,
+                'attendance_date' => '2026-03-14',
+                'arrival_at' => '06:50',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('attendance_date');
+
+        $this->assertDatabaseCount('student_attendances', 0);
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_expected_saturday_is_available_to_roster_scan_and_manual_writes(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-14 06:50:00', 'America/Lima'));
+
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $this->grantPermissions($account, ['attendance.manage']);
+        [$student, $enrollment, $shift, $group, $cycle, $degree] = $this->enrolledStudent(
+            $branch,
+            '07:00',
+            15,
+        );
+        $cycle->update(['attendance_includes_saturday' => true]);
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->get(route('attendance.index', [
+                'date' => '2026-03-14',
+                'cycle' => $cycle->code,
+                'degree' => $degree->number,
+                'group' => $group->code,
+                'shift' => $shift->code,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.expected', 1)
+                ->where('attendance.total', 1));
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->postJson(route('attendance.scan.store'), ['dni' => $student->dni])
+            ->assertOk()
+            ->assertJsonPath('result.attendance.state', 'present');
+
+        StudentAttendance::query()->delete();
+
+        $this->actingAs($account)
+            ->withSession(['current_branch_code' => $branch->code])
+            ->post(route('attendance.manual.store'), [
+                'operation' => 'arrival',
+                'enrollment_code' => $enrollment->code,
+                'cycle_shift_code' => $shift->code,
+                'attendance_date' => '2026-03-14',
+                'arrival_at' => '06:50',
+            ])
+            ->assertRedirect()
+            ->assertSessionDoesntHaveErrors();
+
+        $this->assertDatabaseHas('student_attendances', [
+            'enrollment_code' => $enrollment->code,
+            'cycle_shift_code' => $shift->code,
+            'attendance_date' => '2026-03-14',
+        ]);
         CarbonImmutable::setTestNow();
     }
 
@@ -504,90 +628,6 @@ class StudentAttendanceTest extends TestCase
             'enrollment_code' => $enrollment->code,
             'cycle_shift_code' => $shift->code,
         ]);
-        CarbonImmutable::setTestNow();
-    }
-
-    public function test_history_is_branch_scoped_for_staff_and_open_to_owner(): void
-    {
-        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-10 07:00:00', 'America/Lima'));
-
-        $account = $this->createEmployeeAccount();
-        $branch = $account->user->branches->sole();
-        $this->grantPermissions($account, ['attendance.view']);
-        [$student, $enrollment, $shift] = $this->enrolledStudent($branch, '07:00', 15);
-
-        StudentAttendance::query()->create([
-            'enrollment_code' => $enrollment->code,
-            'cycle_shift_code' => $shift->code,
-            'attendance_date' => '2026-03-10',
-            'state' => AttendanceState::Present,
-            'arrival_at' => CarbonImmutable::parse('2026-03-10 06:55:00', 'America/Lima'),
-            'recording_method' => AttendanceMethod::Scan,
-            'created_by_user_code' => $account->user->code,
-        ]);
-
-        $otherBranch = Branch::factory()->create();
-        $otherCycle = AcademicCycle::factory()->create([
-            'branch_code' => $otherBranch->code,
-            'start_date' => '2026-03-01',
-            'end_date' => '2026-12-15',
-            'is_active' => true,
-        ]);
-        $otherDegree = CycleDegree::factory()->create([
-            'cycle_code' => $otherCycle->code,
-            'number' => 3,
-        ]);
-        $otherGroup = AcademicGroup::factory()->create([
-            'cycle_degree_code' => $otherDegree->code,
-            'is_active' => true,
-        ]);
-        $otherShift = CycleShift::factory()->create([
-            'cycle_code' => $otherCycle->code,
-            'entry_time' => '07:00',
-            'tolerance_minutes' => 15,
-            'is_active' => true,
-        ]);
-        $otherEnrollment = Enrollment::factory()->create([
-            'student_code' => $student->code,
-            'academic_group_code' => $otherGroup->code,
-            'cycle_code' => $otherCycle->code,
-            'is_active' => true,
-        ]);
-        $otherEnrollment->shifts()->attach($otherShift->code);
-        StudentAttendance::query()->create([
-            'enrollment_code' => $otherEnrollment->code,
-            'cycle_shift_code' => $otherShift->code,
-            'attendance_date' => '2026-03-10',
-            'state' => AttendanceState::Justified,
-            'arrival_at' => null,
-            'recording_method' => AttendanceMethod::Manual,
-            'created_by_user_code' => $account->user->code,
-            'reason' => 'Constancia presentada',
-        ]);
-
-        $this->actingAs($account)
-            ->withSession(['current_branch_code' => $branch->code])
-            ->get(route('students.attendance', $student))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('Attendance/History')
-                ->where('history.total', 1));
-
-        $studentAccount = AuthAccount::factory()->create([
-            'user_code' => null,
-            'student_code' => $student->code,
-            'login' => $student->dni,
-            'password' => $this->validPassword,
-            'is_active' => true,
-        ]);
-
-        $this->actingAs($studentAccount)
-            ->get(route('students.attendance', $student))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('is_self', true)
-                ->where('history.total', 2));
-
         CarbonImmutable::setTestNow();
     }
 

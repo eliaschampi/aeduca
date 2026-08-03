@@ -23,6 +23,18 @@ enum AttendanceState: string
     }
 
     /**
+     * Label for stored outcomes and read-time derived states (pending/absent).
+     */
+    public static function effectiveLabel(string $state): string
+    {
+        return match ($state) {
+            'pending' => 'Pendiente',
+            'absent' => 'Falta',
+            default => self::tryFrom($state)?->label() ?? $state,
+        };
+    }
+
+    /**
      * @return list<string>
      */
     public static function values(): array

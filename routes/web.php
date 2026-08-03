@@ -10,6 +10,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\StudentAccessController;
+use App\Http\Controllers\StudentAttendanceHistoryController;
 use App\Http\Controllers\StudentContactController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Support\Facades\Route;
@@ -26,7 +27,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
     Route::get('/students/{student}/photo', [StudentController::class, 'photo'])
         ->whereUuid('student')
         ->name('students.photo');
-    Route::get('/students/{student}/attendance', [AttendanceController::class, 'history'])
+    Route::get('/students/{student}/attendance', StudentAttendanceHistoryController::class)
         ->whereUuid('student')
         ->name('students.attendance');
     Route::get('/students/{student}', [StudentController::class, 'show'])

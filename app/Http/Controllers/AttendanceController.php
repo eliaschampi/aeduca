@@ -8,7 +8,6 @@ use App\Http\Requests\AttendanceScanRequest;
 use App\Models\AcademicCycle;
 use App\Models\AuthAccount;
 use App\Models\Branch;
-use App\Models\Student;
 use App\Support\Academic\DegreeNumber;
 use App\Support\Attendance\AttendanceState;
 use App\Support\Branches\BranchContext;
@@ -186,109 +185,6 @@ class AttendanceController extends Controller
         return back();
     }
 
-    public function history(
-        Request $request,
-        Student $student,
-        BranchContext $branchContext,
-    ): Response {
-        /** @var AuthAccount $account */
-        $account = $request->user();
-        $isSelf = $account->student_code === $student->code;
-
-        if (! $isSelf) {
-            Gate::authorize('attendance.view');
-        }
-
-        $now = $this->now();
-        $defaultDays = (int) config('aeduca.attendance.history_default_days', 30);
-        $maxDays = (int) config('aeduca.attendance.history_max_days', 93);
-
-        $validated = $request->validate([
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d'],
-            'page' => ['nullable', 'integer', 'min:1'],
-        ]);
-
-        $to = (string) ($validated['to'] ?? $now->toDateString());
-        $from = (string) ($validated['from'] ?? $now->subDays($defaultDays)->toDateString());
-        $fromDate = CarbonImmutable::parse($from, $this->timezone())->startOfDay();
-        $toDate = CarbonImmutable::parse($to, $this->timezone())->startOfDay();
-
-        if ($fromDate->gt($toDate)) {
-            [$fromDate, $toDate] = [$toDate, $fromDate];
-        }
-
-        if ($fromDate->diffInDays($toDate) > $maxDays) {
-            $fromDate = $toDate->subDays($maxDays);
-        }
-
-        $query = DB::table('student_attendances as a')
-            ->join('enrollments as e', 'e.code', '=', 'a.enrollment_code')
-            ->join('academic_cycles as c', 'c.code', '=', 'e.cycle_code')
-            ->join('academic_groups as g', 'g.code', '=', 'e.academic_group_code')
-            ->join('cycle_degrees as d', 'd.code', '=', 'g.cycle_degree_code')
-            ->join('cycle_shifts as cs', 'cs.code', '=', 'a.cycle_shift_code')
-            ->join('branches as b', 'b.code', '=', 'c.branch_code')
-            ->where('e.student_code', $student->code)
-            ->whereBetween('a.attendance_date', [$fromDate->toDateString(), $toDate->toDateString()])
-            ->select([
-                'a.code',
-                'a.attendance_date',
-                'a.state',
-                'a.arrival_at',
-                'a.reason',
-                'e.roll_code',
-                'c.name as cycle_name',
-                'g.name as group_name',
-                'd.number as degree_number',
-                'cs.name as shift_name',
-                'b.name as branch_name',
-            ])
-            ->orderByDesc('a.attendance_date')
-            ->orderBy('cs.sort_order');
-
-        if (! $isSelf) {
-            $branch = $this->currentBranch($request, $branchContext);
-            abort_unless($branch, 403);
-            $query->where('c.branch_code', $branch->code);
-        }
-
-        $paginator = $query->paginate(self::PAGE_SIZE)->withQueryString();
-
-        return Inertia::render('Attendance/History', [
-            'student' => [
-                'code' => $student->code,
-                'full_name' => trim($student->first_name.' '.$student->last_name),
-                'dni' => $student->dni,
-            ],
-            'filters' => [
-                'from' => $fromDate->toDateString(),
-                'to' => $toDate->toDateString(),
-            ],
-            'is_self' => $isSelf,
-            'business_timezone' => $this->timezone(),
-            'history' => [
-                'data' => collect($paginator->items())->map(fn (object $row): array => [
-                    'code' => $row->code,
-                    'attendance_date' => $row->attendance_date,
-                    'state' => $row->state,
-                    'state_label' => AttendanceState::tryFrom((string) $row->state)?->label() ?? $row->state,
-                    'arrival_at' => $row->arrival_at,
-                    'reason' => $row->reason,
-                    'roll_code' => $row->roll_code,
-                    'cycle_name' => $row->cycle_name,
-                    'group_name' => $row->group_name,
-                    'degree_label' => DegreeNumber::label((int) $row->degree_number),
-                    'shift_name' => $row->shift_name,
-                    'branch_name' => $row->branch_name,
-                ])->all(),
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
-    }
-
     /**
      * @return list<array<string, mixed>>
      */
@@ -367,7 +263,10 @@ class AttendanceController extends Controller
                     ->whereDate('a.attendance_date', '=', $filters['date']);
             })
             ->where('e.is_active', true)
-            ->whereRaw('EXTRACT(ISODOW FROM ?::date) BETWEEN 1 AND 6', [$filters['date']])
+            ->whereRaw(
+                'student_attendance_is_expected_day(?::date, c.attendance_includes_saturday)',
+                [$filters['date']],
+            )
             ->whereDate('c.start_date', '<=', $filters['date'])
             ->whereDate('c.end_date', '>=', $filters['date'])
             ->select([
@@ -443,11 +342,6 @@ class AttendanceController extends Controller
     private function mapDailyRow(object $row): array
     {
         $effective = (string) $row->effective_state;
-        $stateLabel = match ($effective) {
-            'pending' => 'Pendiente',
-            'absent' => 'Falta',
-            default => AttendanceState::tryFrom($effective)?->label() ?? $effective,
-        };
 
         return [
             'enrollment_code' => $row->enrollment_code,
@@ -463,7 +357,7 @@ class AttendanceController extends Controller
             'attendance_code' => $row->attendance_code,
             'stored_state' => $row->stored_state,
             'effective_state' => $effective,
-            'state_label' => $stateLabel,
+            'state_label' => AttendanceState::effectiveLabel($effective),
             'arrival_at' => $row->arrival_at,
             'reason' => $row->reason,
         ];

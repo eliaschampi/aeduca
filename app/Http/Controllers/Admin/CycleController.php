@@ -100,6 +100,7 @@ class CycleController extends Controller
                 'modality' => $cycle->modality->value,
                 'start_date' => $cycle->start_date->toDateString(),
                 'end_date' => $cycle->end_date->toDateString(),
+                'attendance_includes_saturday' => $cycle->attendance_includes_saturday,
                 'is_active' => $cycle->is_active,
                 'shifts' => $cycle->shifts->map(fn ($shift) => [
                     'code' => $shift->code,
@@ -191,7 +192,7 @@ class CycleController extends Controller
     }
 
     /**
-     * @return array{name: string, modality: string, start_date: string, end_date: string, is_active: bool}
+     * @return array{name: string, modality: string, start_date: string, end_date: string, attendance_includes_saturday: bool, is_active: bool}
      */
     private function cycleAttributes(CycleRequest $request): array
     {
@@ -200,6 +201,7 @@ class CycleController extends Controller
             'modality' => $request->string('modality')->toString(),
             'start_date' => $request->string('start_date')->toString(),
             'end_date' => $request->string('end_date')->toString(),
+            'attendance_includes_saturday' => $request->boolean('attendance_includes_saturday'),
             'is_active' => $request->boolean('is_active'),
         ];
     }
