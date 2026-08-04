@@ -9,6 +9,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentAccessController;
 use App\Http\Controllers\StudentAttendanceHistoryController;
 use App\Http\Controllers\StudentContactController;
@@ -39,6 +40,7 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::get('/', HomeController::class)
         ->middleware('can:dashboard.view')
         ->name('home');
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::put('/current-branch', [BranchController::class, 'update'])
         ->name('current-branch.update');

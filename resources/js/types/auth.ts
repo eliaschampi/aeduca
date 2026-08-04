@@ -12,9 +12,11 @@ interface AuthenticatedBase {
 export interface EmployeeAuthenticatedContext extends AuthenticatedBase {
     actor: 'employee';
     employee: {
+        code: string;
         first_name: string;
         last_name: string;
         role_name: string;
+        photo_url: string | null;
     };
 }
 

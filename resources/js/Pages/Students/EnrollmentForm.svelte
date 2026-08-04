@@ -38,6 +38,7 @@
         cycle_code: string;
         cycle_start_date: string;
         cycle_end_date: string;
+        attendance_default_date: string;
     }
 
     interface ShiftOption {
@@ -92,7 +93,7 @@
         form.shift_codes = [];
         const group = options.groups.find((item) => item.code === form.academic_group_code);
         if (group && !enrollment) {
-            form.attendance_starts_on = group.cycle_start_date;
+            form.attendance_starts_on = group.attendance_default_date;
         }
     }
 

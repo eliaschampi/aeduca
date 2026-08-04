@@ -53,6 +53,38 @@ class EnrollmentManagementTest extends TestCase
         ]);
     }
 
+    public function test_new_enrollment_date_defaults_to_the_business_date_bounded_by_the_cycle(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-04 10:00:00', 'America/Lima'));
+
+        try {
+            $account = $this->createEmployeeAccount();
+            $branch = $account->user->branches->sole();
+            $this->grantPermissions($account, ['enrollments.manage']);
+
+            foreach ([
+                ['2026-03-02', '2026-12-20', '2026-08-04'],
+                ['2026-08-10', '2026-12-20', '2026-08-10'],
+                ['2026-03-02', '2026-08-04', '2026-08-04'],
+            ] as [$start, $end, $expected]) {
+                [$group, , $cycle] = $this->academicStructure($branch);
+                $cycle->update(['start_date' => $start, 'end_date' => $end]);
+
+                $response = $this->actingAs($account)
+                    ->withSession(['current_branch_code' => $branch->code])
+                    ->get(route('enrollments.create', Student::factory()->create()))
+                    ->assertOk();
+                $option = collect($response->inertiaProps('options.groups'))
+                    ->firstWhere('code', $group->code);
+
+                $this->assertNotNull($option);
+                $this->assertSame($expected, $option['attendance_default_date']);
+            }
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+    }
+
     public function test_same_cycle_retry_is_rejected_without_replacing_the_enrollment(): void
     {
         $branch = Branch::factory()->create();
@@ -739,6 +771,10 @@ class EnrollmentManagementTest extends TestCase
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Students/EnrollmentForm')
             ->where('enrollment.academic_group_code', $group->code)
+            ->where(
+                'enrollment.attendance_starts_on',
+                $enrollment->attendance_starts_on->toDateString(),
+            )
             ->where('enrollment.shift_codes.0', $shifts->first()->code)
             ->where('options.groups.0.code', $group->code)
             ->where('options.shifts.0.code', $shifts->first()->code));

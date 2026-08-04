@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -10,18 +11,31 @@ class InertiaSharedDataTest extends TestCase
 {
     public function test_shared_props_contain_the_authenticated_context_and_effective_permissions(): void
     {
+        Storage::fake('local');
         $account = $this->createEmployeeAccount();
         $branch = $account->user->branches->sole();
         $this->grantDashboardPermission($account);
+        $photoPath = 'employee-photos/current.webp';
+        $account->user->forceFill(['photo_path' => $photoPath])->save();
+        Storage::disk('local')->put($photoPath, 'photo');
 
         $this->actingAs($account)
             ->withSession(['current_branch_code' => $branch->code])
             ->get('/')
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Home')
+                ->where('auth.employee.code', $account->user->code)
                 ->where('auth.employee.first_name', $account->user->first_name)
                 ->where('auth.employee.last_name', $account->user->last_name)
                 ->where('auth.employee.role_name', $account->user->employeeRole->name)
+                ->where(
+                    'auth.employee.photo_url',
+                    route('admin.employees.photo', [
+                        'employee' => $account->user,
+                        'v' => substr(hash('sha256', $photoPath), 0, 16),
+                    ]),
+                )
+                ->missing('auth.employee.photo_path')
                 ->where('auth.current_branch.code', $branch->code)
                 ->where('auth.current_branch.name', $branch->name)
                 ->where('auth.permissions', ['dashboard.view'])

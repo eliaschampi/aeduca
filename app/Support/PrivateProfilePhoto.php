@@ -19,6 +19,24 @@ final class PrivateProfilePhoto
 
     public const EMPLOYEE_DIRECTORY = 'employee-photos';
 
+    /**
+     * @param  array<string, mixed>  $parameters
+     */
+    public static function versionedUrl(
+        ?string $photoPath,
+        string $routeName,
+        array $parameters,
+    ): ?string {
+        if (! $photoPath) {
+            return null;
+        }
+
+        return route($routeName, [
+            ...$parameters,
+            'v' => substr(hash('sha256', $photoPath), 0, 16),
+        ]);
+    }
+
     public function store(UploadedFile $photo, string $directory): string
     {
         $extension = $photo->guessExtension() ?: 'webp';

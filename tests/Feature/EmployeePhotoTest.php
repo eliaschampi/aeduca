@@ -21,6 +21,7 @@ class EmployeePhotoTest extends TestCase
         $target->branches()->attach($account->user->branches->first());
 
         $this->actingAs($account)
+            ->withHeader('Referer', route('admin.employees.show', $target))
             ->put(route('admin.employees.photo.update', $target), [
                 'photo' => UploadedFile::fake()->image('user.jpg', 640, 640),
             ])
@@ -47,8 +48,12 @@ class EmployeePhotoTest extends TestCase
             'photo_path' => 'employee-photos/old.webp',
         ]);
         Storage::disk('local')->put($target->photo_path, 'old');
+        $before = $this->actingAs($account)
+            ->get(route('admin.employees.show', $target))
+            ->inertiaProps('employee.photo_url');
 
         $this->actingAs($account)
+            ->withHeader('Referer', route('admin.employees.show', $target))
             ->put(route('admin.employees.photo.update', $target), [
                 'photo' => UploadedFile::fake()->image('new.png', 400, 400),
             ])
@@ -58,6 +63,12 @@ class EmployeePhotoTest extends TestCase
         $this->assertNotSame('employee-photos/old.webp', $newPath);
         Storage::disk('local')->assertMissing('employee-photos/old.webp');
         Storage::disk('local')->assertExists($newPath);
+        $after = $this->actingAs($account)
+            ->get(route('admin.employees.show', $target))
+            ->inertiaProps('employee.photo_url');
+        $this->assertNotSame($before, $after);
+        $this->assertMatchesRegularExpression('/[?&]v=[a-f0-9]{16}$/', $after);
+        $this->assertStringNotContainsString($newPath, $after);
     }
 
     public function test_non_square_employee_photo_is_rejected(): void
@@ -109,10 +120,11 @@ class EmployeePhotoTest extends TestCase
         // Intentionally no employees.manage / employees.view.
 
         $this->actingAs($account)
+            ->withHeader('Referer', route('profile.show'))
             ->put(route('admin.employees.photo.update', $account->user), [
                 'photo' => UploadedFile::fake()->image('me.jpg', 512, 512),
             ])
-            ->assertRedirect(route('admin.employees.show', $account->user));
+            ->assertRedirect(route('profile.show'));
 
         $photoPath = $account->user->fresh()->photo_path;
         $this->assertNotNull($photoPath);
@@ -120,15 +132,22 @@ class EmployeePhotoTest extends TestCase
 
         $this->actingAs($account)
             ->get(route('admin.employees.photo', $account->user))
-            ->assertOk();
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
     }
 
     public function test_student_photo_suite_still_uses_shared_storage_helper(): void
     {
         Storage::fake('local');
         $account = $this->createEmployeeAccount();
-        $this->grantPermissions($account, ['students.manage']);
-        $student = Student::factory()->create();
+        $this->grantPermissions($account, ['students.manage', 'students.view']);
+        $student = Student::factory()->create([
+            'photo_path' => 'student-photos/old.webp',
+        ]);
+        Storage::disk('local')->put($student->photo_path, 'old');
+        $before = $this->actingAs($account)
+            ->get(route('students.show', $student))
+            ->inertiaProps('student.photo_url');
 
         $this->actingAs($account)
             ->put(route('students.photo.update', $student), [
@@ -139,6 +158,13 @@ class EmployeePhotoTest extends TestCase
         $path = $student->fresh()->photo_path;
         $this->assertNotNull($path);
         $this->assertStringStartsWith('student-photos/', $path);
+        Storage::disk('local')->assertMissing('student-photos/old.webp');
         Storage::disk('local')->assertExists($path);
+        $after = $this->actingAs($account)
+            ->get(route('students.show', $student))
+            ->inertiaProps('student.photo_url');
+        $this->assertNotSame($before, $after);
+        $this->assertMatchesRegularExpression('/[?&]v=[a-f0-9]{16}$/', $after);
+        $this->assertStringNotContainsString($path, $after);
     }
 }

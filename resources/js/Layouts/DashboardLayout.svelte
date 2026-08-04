@@ -73,6 +73,12 @@
             );
         });
         if (matches.length === 0) {
+            // Account pages sit outside the sidebar source; keep the title accurate
+            // without forcing an unrelated navigation highlight.
+            if (pathname === '/profile') {
+                return { label: 'Mi perfil', href: '/profile', icon: 'user' as const };
+            }
+
             return availableNavigation[0] ?? APP_NAVIGATION[0];
         }
         return matches.reduce((best, item) => (item.href.length > best.href.length ? item : best));
@@ -91,6 +97,9 @@
             : auth?.actor === 'employee'
               ? auth.employee.role_name
               : 'Carrión',
+    );
+    const employeePhotoUrl = $derived(
+        auth?.actor === 'employee' ? (auth.employee.photo_url ?? undefined) : undefined,
     );
     const sidebarBranch = $derived(auth?.actor === 'employee' ? auth.current_branch : null);
     const sidebarCoverLabel = $derived(
@@ -158,9 +167,10 @@
         {#snippet header()}
             <SidebarHeader
                 collapsed={resolvedSidebarCollapsed}
-                userName="Aeduca"
+                userName={auth?.actor === 'employee' ? actorName : 'Aeduca'}
                 userMeta={actorMeta}
-                avatarText="AE"
+                avatarText={auth?.actor === 'employee' ? actorName : 'AE'}
+                avatarSrc={employeePhotoUrl}
             >
                 {#snippet cover()}
                     <BranchCover
@@ -210,7 +220,7 @@
 
             <Dropdown placement="bottom-end" aria-label="Menú de usuario">
                 {#snippet triggerContent()}
-                    <Avatar text={actorName} size="sm" color="primary" />
+                    <Avatar text={actorName} src={employeePhotoUrl} size="sm" color="primary" />
                 {/snippet}
 
                 {#snippet content()}
@@ -232,6 +242,9 @@
                                     {actorMeta}
                                 </p>
                             </div>
+                        {/if}
+                        {#if auth?.actor === 'employee'}
+                            <DropdownItem icon="user" href="/profile">Mi perfil</DropdownItem>
                         {/if}
                         <DropdownItem icon={activeTheme.icon} onclick={colorScheme.cyclePreference}>
                             Tema: {activeTheme.label}

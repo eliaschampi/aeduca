@@ -11,6 +11,7 @@ use App\Models\AuthAccount;
 use App\Models\Student;
 use App\Support\Academic\DegreeNumber;
 use App\Support\Branches\BranchContext;
+use App\Support\PrivateProfilePhoto;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -304,9 +305,11 @@ class StudentController extends Controller
             'dni' => $row->dni,
             'first_name' => $row->first_name,
             'last_name' => $row->last_name,
-            'photo_url' => $row->photo_path
-                ? route('students.photo', $row->student_code)
-                : null,
+            'photo_url' => PrivateProfilePhoto::versionedUrl(
+                $row->photo_path,
+                'students.photo',
+                ['student' => $row->student_code],
+            ),
             'is_active' => (bool) $row->student_is_active,
             'enrollment' => $row->roll_code
                 ? [
@@ -337,9 +340,11 @@ class StudentController extends Controller
             'phone' => $student->phone,
             'address' => $student->address,
             'observation' => $student->observation,
-            'photo_url' => $student->photo_path
-                ? route('students.photo', $student)
-                : null,
+            'photo_url' => PrivateProfilePhoto::versionedUrl(
+                $student->photo_path,
+                'students.photo',
+                ['student' => $student],
+            ),
             'is_active' => $student->is_active,
         ];
     }

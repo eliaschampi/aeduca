@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\AuthAccount;
 use App\Support\Authorization\PermissionResolver;
 use App\Support\Branches\BranchContext;
+use App\Support\PrivateProfilePhoto;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -62,9 +63,15 @@ class HandleInertiaRequests extends Middleware
         return [
             'actor' => 'employee',
             'employee' => [
+                'code' => $employee->code,
                 'first_name' => $employee->first_name,
                 'last_name' => $employee->last_name,
                 'role_name' => $employee->employeeRole->name,
+                'photo_url' => PrivateProfilePhoto::versionedUrl(
+                    $employee->photo_path,
+                    'admin.employees.photo',
+                    ['employee' => $employee],
+                ),
             ],
             'branches' => $branches
                 ->map(fn ($branch) => [

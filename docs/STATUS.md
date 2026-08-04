@@ -2,24 +2,24 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** August 3, 2026.
+**Implementation inventory reviewed:** August 4, 2026.
 
-**Last complete verification:** August 3, 2026.
+**Last complete verification:** August 4, 2026.
 
 ## 1. Completed implementation
 
-| Vertical           | Implemented                                                                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                              |
-| Branches           | Unified branch selection and minimal branch catalog                                                                            |
-| Employees          | List/create/profile, cropped private photo (shared storage helper + cropper), role/branches, credentials, direct permissions   |
-| Roles              | Role CRUD and assignable permission scope                                                                                      |
-| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership                 |
-| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                                             |
-| Students           | Institutional/shell search, composed profile, private photo via shared `PrivateProfilePhoto` + `ProfilePhotoCropper`, contacts |
-| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster                        |
-| Attendance         | DNI-only scan, daily list, manual ops, history + operational PDF, enrollment `attendance_starts_on`, cycle freezes after facts |
-| Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                                |
+| Vertical           | Implemented                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                    |
+| Branches           | Unified branch selection and minimal branch catalog                                                                  |
+| Employees          | List/create/admin profile, personal `/profile` self-photo, versioned private photo (shared helper + cropper), access |
+| Roles              | Role CRUD and assignable permission scope                                                                            |
+| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership       |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                                   |
+| Students           | Institutional/shell search, composed profile, versioned private photo via shared helper + cropper, contacts          |
+| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster              |
+| Attendance         | DNI scan/list/manual/history/PDF, business-date enrollment start default, cycle integrity freezes after facts        |
+| Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                      |
 
 ## 2. Access implementation
 
@@ -155,7 +155,8 @@ student_attendances
 - **Asistencia** navigation opens the daily list; **Escanear** is a separate camera/DNI page with no academic selectors.
 - Unified branch picker/catalog.
 - Cycle and catalog indexes load summaries.
-- Employee creation is one form; employee profile panels are General, Access, Permissions.
+- Employee creation is one form; administrative employee profile panels are General, Access, Permissions.
+- The user menu opens **Mi perfil** (`/profile`): identity summary plus self photo change via the shared cropper; shell avatars use the shared versioned `photo_url` and refresh after replacement.
 - Role scope editor represents assignable permissions, not grants, and renders its Spanish groups from the database catalog.
 - Student navigation opens the institutional directory; the shell also exposes student lookup globally to authorized employees.
 - Student create/edit uses placeholders and cohesive fieldsets; photo management exists only in the profile.
@@ -182,7 +183,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 181 PHPUnit tests / 1107 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 202 PHPUnit tests / 1307 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
 - A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.
 

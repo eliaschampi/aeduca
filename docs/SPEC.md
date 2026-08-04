@@ -214,7 +214,7 @@ New staff domains normally use `domain.view` and `domain.manage`. A permission r
 - Passwords are irreversible hashes.
 - Employee number has no confirmed use; email remains optional and non-unique until evidence changes that rule.
 - Inactive account, employee, or role blocks employee access.
-- Employee profile photo uses the same managed private-asset model as student photo: entity `photo_path` on private disk, square browser crop, authorized private serve URL. Write under `employees.manage` or self; read under `employees.view` or self. Photo is not on create, not Drive, and not a separate media library.
+- Employee profile photo uses the same managed private-asset model as student photo: entity `photo_path` on private disk, square browser crop, and an authorized private URL with an opaque path-derived cache version. Write under `employees.manage` or self; read under `employees.view` or self. Employee self-service lives on a simple personal profile page reachable from the user menu; administrative employee Show retains manage-side photo edits. Photo is not on create, not Drive, and not a separate media library.
 
 Student support extends the existing `auth_accounts` owner instead of adding another auth system:
 
@@ -374,7 +374,7 @@ enrollment.academic_group_code
 - Student photo is a real managed profile asset, not a generic placeholder. Reuse the application file/storage owner established by the vertical; do not create a second media system.
 - Create/edit establishes identity first; photo selection and replacement belong to the existing student's profile, not the registration form.
 - Photo interaction uses a quiet square browser crop, produces one bounded optimized image, and sends only the processed result. It does not require a second client media library.
-- Student photo reads follow registry/self-ownership authorization and use private responses; replacement removes the prior managed asset only after the profile write succeeds.
+- Student photo reads follow registry/self-ownership authorization and use private URLs with opaque path-derived cache versions; replacement removes the prior managed asset only after the profile write succeeds.
 - Contacts are owned rows, initially name, phone, and a free relationship/note. Do not recreate the full legacy guardian domain before its workflows require it.
 - Student, account, and enrollment states remain separate and visible.
 
@@ -494,7 +494,7 @@ student_attendances
 - Attendance references one selected enrollment shift through the composite `(enrollment_code, cycle_shift_code)` relation. There is **no** temporal slot/SCD table; expected students are derived from active enrollments + `enrollment_shifts` + cycle/shift clocks.
 - Stored states only: `present`, `late`, `permission`, `justified`. **`pending` and `absent`/`falta` are never stored**; they are derived at read time from entry time + tolerance via `student_attendance_effective_state`.
 - The cycle explicitly selects Monday–Friday or Monday–Saturday attendance; Sunday is never expected. `student_attendance_is_expected_day` is the shared PostgreSQL predicate used by roster, scan, manual writes, and history.
-- Each enrollment owns `attendance_starts_on` (within the cycle window). Expected attendance never begins before that date. Default on create is the cycle start when omitted at the Action boundary; HTTP create/edit requires an explicit date. Moving the start after existing facts is rejected.
+- Each enrollment owns `attendance_starts_on` (within the cycle window). Expected attendance never begins before that date. When a new form selects a group, the server supplies `max(cycle start, min(business date, cycle end))`; edit preserves the stored value. The Action still falls back to cycle start for non-HTTP callers, and HTTP writes require an explicit date. Moving the start after existing facts is rejected.
 - After the first attendance fact exists for a cycle, `SaveCycle` freezes attendance-sensitive values: cycle `start_date`, Saturday rule, end-date contraction, and entry time/tolerance of shifts that already have facts. Name, modality, activity, end-date extension, and unused structure remain editable. Referenced shifts/groups/degrees cannot be deleted; the Action returns field-level validation errors instead of raw FK exceptions.
 - Student history selects one authorized enrollment, derives its bounded expected dates set-wise with PostgreSQL `generate_series` from `GREATEST(range_start, cycle.start, attendance_starts_on)`, left-joins facts, and classifies missing rows as pending or absent. It never materializes absences.
 - History uses the enrollment's current explicit section and shift relations. There is no temporal reconstruction of past academic assignments yet.

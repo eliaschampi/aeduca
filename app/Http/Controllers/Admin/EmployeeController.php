@@ -144,7 +144,7 @@ class EmployeeController extends Controller
 
         Inertia::flash('success', 'Foto actualizada');
 
-        return to_route('admin.employees.show', $employee);
+        return back();
     }
 
     public function photo(
@@ -248,9 +248,11 @@ class EmployeeController extends Controller
 
     private function photoUrl(User $employee): ?string
     {
-        return $employee->photo_path
-            ? route('admin.employees.photo', $employee)
-            : null;
+        return PrivateProfilePhoto::versionedUrl(
+            $employee->photo_path,
+            'admin.employees.photo',
+            ['employee' => $employee],
+        );
     }
 
     private function canReadPhoto(Request $request, User $employee): bool

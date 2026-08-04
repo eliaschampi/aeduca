@@ -13,6 +13,7 @@ use App\Models\Enrollment;
 use App\Models\Student;
 use App\Support\Academic\DegreeNumber;
 use App\Support\Branches\BranchContext;
+use App\Support\PrivateProfilePhoto;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -101,9 +102,11 @@ class EnrollmentController extends Controller
                         'first_name' => $row->first_name,
                         'last_name' => $row->last_name,
                         'phone' => $row->phone,
-                        'photo_url' => $row->photo_path
-                            ? route('students.photo', $row->student_code)
-                            : null,
+                        'photo_url' => PrivateProfilePhoto::versionedUrl(
+                            $row->photo_path,
+                            'students.photo',
+                            ['student' => $row->student_code],
+                        ),
                         'student_is_active' => (bool) $row->student_is_active,
                         'roll_code' => $row->roll_code,
                         'shift_names' => $row->shift_names,
@@ -470,10 +473,11 @@ class EnrollmentController extends Controller
         Branch $branch,
         ?Enrollment $enrollment = null,
     ): array {
+        $businessDate = $this->businessDate();
         $cycles = AcademicCycle::query()
             ->active()
             ->where('branch_code', $branch->code)
-            ->whereDate('end_date', '>=', $this->businessDate())
+            ->whereDate('end_date', '>=', $businessDate)
             ->when(
                 $enrollment,
                 fn ($query) => $query->where('code', $enrollment->cycle_code),
@@ -494,6 +498,7 @@ class EnrollmentController extends Controller
                     'cycle_code' => $cycle->code,
                     'cycle_start_date' => $cycle->start_date->toDateString(),
                     'cycle_end_date' => $cycle->end_date->toDateString(),
+                    'attendance_default_date' => $this->attendanceDefaultDate($cycle, $businessDate),
                 ]),
             ),
         )->values();
@@ -522,6 +527,7 @@ class EnrollmentController extends Controller
                     'cycle_code' => $cycle->code,
                     'cycle_start_date' => $cycle->start_date->toDateString(),
                     'cycle_end_date' => $cycle->end_date->toDateString(),
+                    'attendance_default_date' => $this->attendanceDefaultDate($cycle, $businessDate),
                 ]);
             }
 
@@ -573,5 +579,13 @@ class EnrollmentController extends Controller
     private function businessDate(): string
     {
         return CarbonImmutable::now(config('aeduca.business_timezone'))->toDateString();
+    }
+
+    private function attendanceDefaultDate(AcademicCycle $cycle, string $businessDate): string
+    {
+        return max(
+            $cycle->start_date->toDateString(),
+            min($businessDate, $cycle->end_date->toDateString()),
+        );
     }
 }
