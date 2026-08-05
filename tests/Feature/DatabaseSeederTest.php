@@ -19,12 +19,13 @@ class DatabaseSeederTest extends TestCase
 
         $this->seed();
 
-        $this->assertSame(17, Permission::query()->count());
+        $this->assertSame(18, Permission::query()->count());
         $this->assertSame(
             [
                 'Alumnos',
                 'Asistencia',
                 'Ciclos',
+                'Drive',
                 'Inicio',
                 'Matrículas',
                 'Roles',

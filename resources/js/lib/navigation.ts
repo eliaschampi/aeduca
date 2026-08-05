@@ -59,6 +59,12 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         activePrefixes: ['/attendance/'],
     },
     {
+        label: 'Drive',
+        href: '/drive',
+        icon: 'hardDrive',
+        permission: 'drive.manage',
+    },
+    {
         label: 'Usuarios',
         href: '/admin/employees',
         icon: 'users',

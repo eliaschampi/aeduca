@@ -539,6 +539,24 @@ student_attendances
 - Historical files are not migrated initially.
 - The portal is operational self-service, not a full LMS or social network.
 
+### Drive — private space and explicit sharing
+
+- Drive is not institutional and not shared by default. Every `drive_files` row has exactly one owner (`user_code`), and nobody else sees it.
+- One permission, `drive.manage`, gates the whole module in one place. Inside it authorization is ownership: there is no view-only Drive employee, so the domain has no `drive.view` and the `manage`→`view` dependency simply does not apply to it.
+- The owner has full control of their own graph: folders, upload, rename, move, trash, restore, permanent delete, preview, download.
+- Sharing is one explicit grant to one other employee (`drive_shares`), and it is read-only: browse, preview and download, never write, never re-share.
+- Exactly two share lists exist — what the actor shared with others, and what others shared with the actor. There is no third space and no global list.
+- A share covers the node it points at and everything below it, so sharing a folder grants its whole subtree with one row. A recipient browsing a received folder never sees, and is never told the name of, anything above the shared root.
+- Trash carries the whole subtree: trashing a folder trashes its descendants, restoring restores them. Because that invariant holds, a restore is blocked exactly when the immediate parent is trashed.
+- A trashed file leaves both share lists and cannot be shared.
+- Sibling names are unique per folder among live rows; trashed rows never reserve a name.
+- Recursion over the folder graph belongs to PostgreSQL functions (`drive_file_subtree`, `drive_file_contains`, `drive_folder_path`, `drive_folder_options`, `drive_file_shared_with`); Laravel still owns ownership, filters, and the response shape.
+- A readable folder makes its children readable, so a listing authorizes the parent once instead of filtering every row.
+- Storage quota is per owner and counts trashed files until they are permanently deleted.
+- Blobs reuse the same private disk as profile photos under their own directory; Drive keeps the file graph, sharing, and quota that a profile photo does not have.
+- Drive serves stored originals. Derived image variants are out of scope while they would require a new runtime dependency.
+- Student recipients are out of scope until the student portal owns a surface where a received file is reachable.
+
 ## 10. Migration
 
 - Imports are repeatable and idempotent.

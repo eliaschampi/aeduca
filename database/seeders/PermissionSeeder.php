@@ -30,6 +30,9 @@ final class PermissionSeeder extends Seeder
         'Inicio' => [
             'dashboard.view' => 'Acceder a la página de inicio.',
         ],
+        'Drive' => [
+            'drive.manage' => 'Usar el Drive personal y compartir archivos con otros usuarios.',
+        ],
         'Matrículas' => [
             'enrollments.view' => 'Ver matrículas e inscritos de la sede actual.',
             'enrollments.manage' => 'Crear y editar matrículas vigentes.',

@@ -2,9 +2,9 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** August 4, 2026.
+**Implementation inventory reviewed:** August 5, 2026.
 
-**Last complete verification:** August 4, 2026.
+**Last complete verification:** August 5, 2026.
 
 ## 1. Completed implementation
 
@@ -19,6 +19,7 @@
 | Students           | Institutional/shell search, composed profile, versioned private photo via shared helper + cropper, contacts          |
 | Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster              |
 | Attendance         | DNI scan/list/manual/history/PDF, business-date enrollment start default, cycle integrity freezes after facts        |
+| Drive              | Private per-employee file graph with folders, trash, quota, and read-only subtree sharing between employees          |
 | Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                      |
 
 ## 2. Access implementation
@@ -168,23 +169,48 @@ student_attendances
 - No physical employee deletion, fake card action, or empty future tabs.
 - Student and enrollment destructive actions use compact Lumi dropdowns and explicit confirmation dialogs; management permissions do not expose them.
 
-## 6. Not implemented
+## 6. Drive implementation
+
+```text
+drive_files.user_code  = the only owner
+drive_shares           = one read-only grant, covering the node and its subtree
+views                  = Mi unidad · Recientes · Archivos pesados · Papelera
+                         + Compartidos por mí · Compartidos conmigo
+```
+
+- `drive.manage` is declared once on the `/drive` route group; no handler repeats it, and ownership decides everything inside. Students are excluded by `employee.actor`.
+- Drive has no `drive.view`, so `PermissionDependency` expands `manage`→`view` only when the domain actually declares that view; the previous hard failure on a missing sibling could only ever fire for a synthesized name.
+- One Inertia page (`Drive/Index`) plus JSON endpoints under `/drive`; mutations use `fetch` with the CSRF meta token, matching the student-access and attendance-scan pages.
+- The Drive UI is Lumi's public contract (`DriveSidebar`, `DriveFileGrid`, `DriveFileList`, `DriveFilePreview`, `DriveFileUploader`) with the institutional/personal scope control hidden; the two share lists are a `List`/`ListItem` sidebar section.
+- Folders: nested navigation, server-rebuilt breadcrumbs, full-path move destinations that exclude the moved subtree, drag-and-drop into a folder, subtree trash/restore, and subtree sharing.
+- Sharing a folder grants its whole subtree through `drive_file_shared_with`. A recipient browses a received folder in place; the breadcrumb starts at the shared root, and the owner's folders above it are neither reachable nor named.
+- The listing authorizes the parent folder once and then returns its children unfiltered, because a readable folder makes its children readable.
+- The trash lists only the nodes the owner actually deleted, not every trashed descendant.
+- Sibling-name uniqueness is owned by two partial unique indexes over live rows; the controller turns `23505` into a field error.
+- Uploads are capped at 50 MB against Lumi's allow-list, charged to a 2 GB per-owner quota, and roll back their blob when the row fails.
+- Blobs live on the private `local` disk under `drive/`; `PrivateProfilePhoto` keeps owning profile photos.
+- Serving is authorized per request for the owner or a recipient reached through the share, sends `nosniff`, and forces attachment disposition for SVG.
+- Trash, restore, permanent delete, and empty-trash settle the list locally from the response instead of refetching, and every acting button carries its pending state.
+- Drive tags and image variants are deliberately absent; the `variant` query parameter Lumi appends is ignored and the original is served.
+
+## 7. Not implemented
 
 - payments, cashbox, or payment reporting;
 - employee/teacher attendance;
 - evaluations, OMR, or score reports;
 - attentions;
-- shared-file access;
+- student access to shared files (Drive recipients are employees only);
 - v7 attendance data import runner (schema is migration-ready).
 
-## 7. Verification record
+## 8. Verification record
 
 Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 202 PHPUnit tests / 1307 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 207 PHPUnit tests / 1358 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
+- `AttendanceIntegrityTest::test_shift_clock_cannot_change_after_facts_exist` was intermittently failing before Drive: it seeded a fact on the cycle factory's random `start_date`, which violates `student_attendances_instructional_day_check` whenever that date is a Sunday. The fact date now moves off Sunday; verified over eight consecutive runs.
 - A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.
 
 The local `aeduca` database was rebuilt and seeded on July 25, 2026, after explicit project-owner approval.

@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\DriveController;
+use App\Http\Controllers\DriveShareController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
@@ -44,6 +46,29 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::put('/current-branch', [BranchController::class, 'update'])
         ->name('current-branch.update');
+
+    // Drive is a private space per employee: one permission gates the whole
+    // module here, and ownership decides everything inside it.
+    Route::prefix('drive')->name('drive.')->middleware('can:drive.manage')->group(function () {
+        Route::get('/', [DriveController::class, 'index'])->name('index');
+        Route::get('/files', [DriveController::class, 'files'])->name('files');
+        Route::post('/files', [DriveController::class, 'store'])->name('files.store');
+        Route::get('/folders', [DriveController::class, 'folders'])->name('folders');
+        Route::post('/folders', [DriveController::class, 'storeFolder'])->name('folders.store');
+        Route::delete('/trash', [DriveController::class, 'emptyTrash'])->name('trash.destroy');
+
+        Route::prefix('files/{file}')->whereUuid('file')->group(function () {
+            Route::get('/serve', [DriveController::class, 'serve'])->name('files.serve');
+            Route::patch('/', [DriveController::class, 'update'])->name('files.update');
+            Route::delete('/', [DriveController::class, 'destroy'])->name('files.destroy');
+
+            Route::get('/shares', [DriveShareController::class, 'index'])->name('shares.index');
+            Route::post('/shares', [DriveShareController::class, 'store'])->name('shares.store');
+            Route::delete('/shares/{share}', [DriveShareController::class, 'destroy'])
+                ->whereUuid('share')
+                ->name('shares.destroy');
+        });
+    });
 
     Route::get('/attendance', [AttendanceController::class, 'index'])
         ->middleware('can:attendance.view')

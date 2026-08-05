@@ -45,15 +45,16 @@ class RoleManagementTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Admin/Roles/Form')
-                ->has('permission_groups', 8)
+                ->has('permission_groups', 9)
                 ->where('permission_groups.0.label', 'Alumnos')
                 ->where('permission_groups.1.label', 'Asistencia')
                 ->where('permission_groups.2.label', 'Ciclos')
-                ->where('permission_groups.3.label', 'Inicio')
-                ->where('permission_groups.4.label', 'Matrículas')
-                ->where('permission_groups.5.label', 'Roles')
-                ->where('permission_groups.6.label', 'Sedes')
-                ->where('permission_groups.7.label', 'Usuarios'));
+                ->where('permission_groups.3.label', 'Drive')
+                ->where('permission_groups.4.label', 'Inicio')
+                ->where('permission_groups.5.label', 'Matrículas')
+                ->where('permission_groups.6.label', 'Roles')
+                ->where('permission_groups.7.label', 'Sedes')
+                ->where('permission_groups.8.label', 'Usuarios'));
     }
 
     public function test_a_manager_can_create_a_role_with_permission_scope(): void

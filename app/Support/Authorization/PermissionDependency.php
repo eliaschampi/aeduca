@@ -4,10 +4,11 @@ namespace App\Support\Authorization;
 
 use App\Models\Permission;
 use Illuminate\Support\Collection;
-use LogicException;
 
 /**
- * Domain invariant: write capabilities require the matching domain view.
+ * Domain invariant: write capabilities require the matching domain view, when
+ * the domain has one. A domain whose only capability is managing your own
+ * resource — Drive — has nothing to require.
  */
 final class PermissionDependency
 {
@@ -70,15 +71,10 @@ final class PermissionDependency
             ->whereIn('name', $expandedNames)
             ->pluck('code', 'name');
 
-        $missingNames = array_values(array_diff($expandedNames, $codeByName->keys()->all()));
-
-        if ($missingNames !== []) {
-            throw new LogicException(
-                'Missing permission dependencies: '.implode(', ', $missingNames),
-            );
-        }
-
+        // `$names` came from real rows, so anything unresolved here is a `.view`
+        // this expansion synthesized for a domain that has no view capability.
         return collect($expandedNames)
+            ->filter(fn (string $name): bool => $codeByName->has($name))
             ->map(fn (string $name): string => $codeByName->get($name))
             ->unique()
             ->values()

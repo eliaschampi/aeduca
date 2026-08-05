@@ -254,7 +254,11 @@ class AttendanceIntegrityTest extends TestCase
         ]);
         $enrollment = Enrollment::factory()->create(['academic_group_code' => $group->code]);
         $enrollment->shifts()->attach($shift->code);
-        $this->seedFact($enrollment, $shift, $cycle->start_date->toDateString());
+        // The cycle factory picks any start date; attendance only exists Monday to Saturday.
+        $factDate = $cycle->start_date->isSunday()
+            ? $cycle->start_date->addDay()
+            : $cycle->start_date;
+        $this->seedFact($enrollment, $shift, $factDate->toDateString());
 
         try {
             app(SaveCycle::class)->handle(
