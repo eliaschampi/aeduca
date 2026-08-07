@@ -119,6 +119,36 @@ class EmployeeManagementTest extends TestCase
             ->assertSessionHasErrors('login');
     }
 
+    public function test_employee_dni_is_optional_but_when_present_is_eight_digits_and_unique(): void
+    {
+        $account = $this->createEmployeeAccount();
+        $this->grantPermissions($account, ['employees.manage']);
+        $role = EmployeeRole::factory()->create();
+        $branch = Branch::factory()->create();
+        User::factory()->create(['dni' => '12345678']);
+        $payload = [
+            'first_name' => 'Nuevo',
+            'last_name' => 'Usuario',
+            'employee_role_code' => $role->code,
+            'is_active' => true,
+            'branch_codes' => [$branch->code],
+            'login' => 'nuevo.usuario',
+            'password' => 'secret-password',
+        ];
+
+        $this->actingAs($account)
+            ->post(route('admin.employees.store'), [...$payload, 'dni' => '1234'])
+            ->assertSessionHasErrors('dni');
+
+        $this->actingAs($account)
+            ->post(route('admin.employees.store'), [...$payload, 'dni' => '12345678'])
+            ->assertSessionHasErrors('dni');
+
+        $this->actingAs($account)
+            ->post(route('admin.employees.store'), [...$payload, 'dni' => null])
+            ->assertRedirect();
+    }
+
     public function test_a_manager_can_update_profile_role_and_branches(): void
     {
         $account = $this->createEmployeeAccount();
@@ -136,6 +166,7 @@ class EmployeeManagementTest extends TestCase
                 'last_name' => 'Actualizado',
                 'email' => null,
                 'phone' => null,
+                'dni' => null,
                 'employee_role_code' => $newRole->code,
                 'is_active' => true,
                 'branch_codes' => [$newBranch->code],

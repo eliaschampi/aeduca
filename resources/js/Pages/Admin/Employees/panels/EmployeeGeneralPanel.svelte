@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Button, Card, Checkbox, Fieldset, Input, Select, Switch } from '@lumi-ui/svelte';
+    import { Button, Card, Checkbox, Chip, Fieldset, Input, Select, Switch } from '@lumi-ui/svelte';
 
     interface Option {
         code: string;
@@ -11,6 +11,7 @@
         last_name: string;
         email: string;
         phone: string;
+        dni: string;
         employee_role_code: string;
         is_active: boolean;
         branch_codes: string[];
@@ -23,6 +24,9 @@
         canManage: boolean;
         processing: boolean;
         errors: Record<string, string>;
+        isSuperAdmin?: boolean;
+        isActive?: boolean;
+        accessActive?: boolean;
         onsubmit: () => void;
         onreset: () => void;
     }
@@ -34,6 +38,9 @@
         canManage,
         processing,
         errors,
+        isSuperAdmin = false,
+        isActive = true,
+        accessActive = false,
         onsubmit,
         onreset,
     }: Props = $props();
@@ -54,6 +61,22 @@
         onsubmit();
     }}
 >
+    <Card spaced>
+        <Fieldset legend="Estado">
+            <div class="lumi-flex lumi-flex--gap-sm lumi-flex--wrap">
+                {#if isSuperAdmin}
+                    <Chip color="warning" size="sm">Superadmin</Chip>
+                {/if}
+                <Chip color={isActive ? 'success' : 'secondary'} size="sm">
+                    {isActive ? 'Activo' : 'Inactivo'}
+                </Chip>
+                <Chip color={accessActive ? 'info' : 'secondary'} size="sm">
+                    {accessActive ? 'Acceso habilitado' : 'Acceso deshabilitado'}
+                </Chip>
+            </div>
+        </Fieldset>
+    </Card>
+
     <Card spaced>
         <Fieldset legend="Información básica">
             <div class="lumi-stack lumi-stack--md">
@@ -77,7 +100,17 @@
                         dangerText={errors.last_name}
                     />
                 </div>
-                <div class="lumi-grid lumi-grid--columns-2 lumi-grid--gap-md">
+                <div class="lumi-grid lumi-grid--columns-3 lumi-grid--gap-md">
+                    <Input
+                        label="DNI"
+                        placeholder="8 dígitos (opcional)"
+                        maxlength={8}
+                        bind:value={form.dni}
+                        disabled={!canManage}
+                        danger={Boolean(errors.dni)}
+                        dangerText={errors.dni}
+                        descriptionText="Necesario para carnet y escaneo."
+                    />
                     <Input
                         label="Correo"
                         type="email"

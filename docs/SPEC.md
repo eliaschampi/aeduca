@@ -513,11 +513,24 @@ student_attendances
 - No cron mass-inserts absence rows. No employee attendance in the student vertical.
 - v7 migration maps stored rows into facts; derived faltas do not require importing absence rows.
 
-### Employees and teachers
+### Employees and teachers — control horario (Coedula-style)
 
-- Teachers are users/employees and use employee schedules and attendance ownership.
-- Employee attendance remains branch- and schedule-aware.
-- Reporting can present student, teacher, and staff attendance coherently without merging them into one ambiguous table.
+```text
+users.dni                     nullable unique 8-digit when present
+employee_schedules            one row = one weekday window (entry_time → to_time)
+  per user + branch; many rows allowed (several days or several windows same day)
+employee_attendances          UNIQUE(schedule_code, attendance_date)
+  states: present | late | permission | justified
+  pending/absent derived after schedule to_time
+```
+
+- Teachers use this ownership; there is no separate teacher attendance domain.
+- **One employee profile surface** (Coedula): `/profile` (self) and `/admin/employees/{id}` (admin) render the same page. Tabs: Asistencia (read history) · Horarios · General · Acceso · Permisos. Self always reads own attendance and schedules; staff needs domain permissions. Schedule edit requires `employee_attendance.manage`. Form Día/Desde/Hasta; exact duplicate slots rejected by UNIQUE + Action. Tab-scoped data load (`?tab=`) for performance.
+- Scan resolves the schedule window that contains now (entrance-operated, DNI). Outside all windows is rejected with the nearest range. Repeat scan is idempotent per schedule+date.
+- Daily **Control horario** lists expected slots for the weekday of the selected date; history expands expected slots across a bounded date range with `DateRangeFilter`.
+- Permissions: `employee_attendance.view` / `employee_attendance.manage` (manage expands view; manage owns schedules + scan + manual create/update/delete).
+- Employee CR80 card shares `cr80-card-core` with student cards; QR is plain DNI; requires DNI + photo.
+- Out of scope: leave workflows, non-working calendar, payroll, multi-exit.
 
 ## 8. Evaluations and OMR
 

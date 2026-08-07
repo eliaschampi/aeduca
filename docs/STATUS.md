@@ -2,25 +2,26 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** August 5, 2026.
+**Implementation inventory reviewed:** August 7, 2026.
 
-**Last complete verification:** August 5, 2026.
+**Last complete verification:** August 7, 2026 (employee control horario Coedula-style).
 
 ## 1. Completed implementation
 
-| Vertical           | Implemented                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                    |
-| Branches           | Unified branch selection and minimal branch catalog                                                                  |
-| Employees          | List/create/admin profile, personal `/profile` self-photo, versioned private photo (shared helper + cropper), access |
-| Roles              | Role CRUD and assignable permission scope                                                                            |
-| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership       |
-| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                                   |
-| Students           | Institutional/shell search, composed profile, versioned private photo via shared helper + cropper, contacts          |
-| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster              |
-| Attendance         | DNI scan/list/manual/history/PDF, business-date enrollment start default, cycle integrity freezes after facts        |
-| Drive              | Private per-employee file graph with folders, trash, quota, and read-only subtree sharing between employees          |
-| Quality            | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados                                                      |
+| Vertical           | Implemented                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access             | One `AuthAccount` owner for employees/students, actor-aware login/logout and request revalidation                                                                |
+| Branches           | Unified branch selection and minimal branch catalog                                                                                                              |
+| Employees          | List/create/admin profile, personal `/profile` self-photo, versioned private photo (shared helper + cropper), access                                             |
+| Roles              | Role CRUD and assignable permission scope                                                                                                                        |
+| Authorization      | Direct grants intersected with role scope, superadministrator, manage/delete→view dependencies, self ownership                                                   |
+| Academic structure | Branch-scoped cycle aggregate with degrees, groups, shifts, and transactional save                                                                               |
+| Students           | Institutional/shell search, composed profile, versioned private photo via shared helper + cropper, contacts                                                      |
+| Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster                                                          |
+| Attendance         | Student: DNI scan/list/manual/history/PDF. Employee control horario: Coedula-style schedule rows, DNI scan, daily list, history, profile Horarios tab, CR80 card |
+
+| Drive | Private per-employee file graph with folders, trash, quota, and read-only subtree sharing between employees |
+| Quality | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados |
 
 ## 2. Access implementation
 
@@ -147,6 +148,21 @@ student_attendances
 - `SaveCycle` preflight-rejects deleting referenced shifts/groups/degrees with ValidationException; freezes attendance-sensitive cycle/shift clocks after facts exist while allowing name edits and end-date extension.
 - Cross-cycle enrollment corruption is rejected by `SaveEnrollment` and detectable via reconciliation SQL (integrity tests cover both).
 - Permissions: `attendance.view` / `attendance.manage`.
+
+### Employee control horario
+
+```text
+employee_schedules (user, branch, weekday ISO 1–7, entry_time, to_time)
+employee_attendances UNIQUE(schedule_code, date)
+  present | late | permission | justified · pending/absent derived
+```
+
+- **One profile page** `Employees/Profile`: self (`/profile`) and admin (`/admin/employees/{id}`). Tabs Asistencia + Horarios + General/Acceso/Permisos. Self reads own attendance/schedules without admin permission.
+- Schedule UI (Coedula): Día·Desde·Hasta + list; UNIQUE slot + Action. Attendance history is a profile tab (history route redirects there).
+- Module `/employee-attendance` daily list + scan; deep-link “historial” → profile tab.
+- Multiple distinct schedule rows per person; one fact per schedule per day.
+- Permissions: `employee_attendance.view` / `employee_attendance.manage`.
+- Reference of rejected weekly-version attempt: branch `archive/employee-attendance-weekly-versions`.
 
 ## 5. Application UI
 

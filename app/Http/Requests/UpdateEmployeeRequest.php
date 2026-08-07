@@ -12,6 +12,13 @@ class UpdateEmployeeRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'dni' => ($dni = trim((string) $this->input('dni'))) !== '' ? $dni : null,
+        ]);
+    }
+
     /**
      * @return array<string, list<mixed>>
      */
@@ -22,6 +29,11 @@ class UpdateEmployeeRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:254'],
             'phone' => ['nullable', 'string', 'max:30'],
+            'dni' => [
+                'nullable',
+                'regex:/^\d{8}$/',
+                Rule::unique('users', 'dni')->ignore($this->route('employee')?->code, 'code'),
+            ],
             'employee_role_code' => ['required', 'uuid', Rule::exists('employee_roles', 'code')],
             'is_active' => ['required', 'boolean'],
             'branch_codes' => ['required', 'array', 'min:1'],
@@ -35,6 +47,8 @@ class UpdateEmployeeRequest extends FormRequest
             'first_name.required' => 'El nombre es obligatorio.',
             'last_name.required' => 'El apellido es obligatorio.',
             'email.email' => 'El correo no es válido.',
+            'dni.regex' => 'El DNI debe tener exactamente ocho dígitos.',
+            'dni.unique' => 'Ese DNI ya pertenece a otro usuario.',
             'employee_role_code.required' => 'Selecciona un rol.',
             'employee_role_code.exists' => 'El rol seleccionado no existe.',
             'is_active.required' => 'Indica si el acceso está activo.',

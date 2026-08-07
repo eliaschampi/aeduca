@@ -17,18 +17,21 @@ import {
     pxX,
     pxY,
 } from './cr80-card-core';
-import type { EnrollmentSummary, StudentProfile } from '@/types/student';
 import type { PDFFont, PDFPage } from 'pdf-lib';
 
 type PdfRgb = typeof import('pdf-lib').rgb;
-type StudentCardInput = Pick<StudentProfile, 'dni' | 'first_name' | 'last_name' | 'photo_url'> & {
-    enrollment: Pick<EnrollmentSummary, 'roll_code' | 'degree_label' | 'group_name' | 'cycle_name'>;
+export type EmployeeCardInput = {
+    dni: string;
+    first_name: string;
+    last_name: string;
+    role_name: string | null;
+    photo_url: string;
 };
 
 function drawIdentity(
     page: PDFPage,
     font: PDFFont,
-    input: StudentCardInput,
+    input: EmployeeCardInput,
     regular: PDFFont,
     rgb: PdfRgb,
 ): void {
@@ -48,9 +51,8 @@ function drawIdentity(
             );
         },
     );
-
-    const academic = fitCardText(
-        `${input.enrollment.degree_label}${input.enrollment.group_name} de ${input.enrollment.cycle_name}`,
+    const role = fitCardText(
+        normalizeCardText(input.role_name ?? 'Personal'),
         regular,
         width,
         [8.5, 8, 7],
@@ -58,17 +60,17 @@ function drawIdentity(
     drawCenteredCardText(
         page,
         regular,
-        academic.text,
+        role.text,
         CR80_LAYOUT.identity.centerX,
         CR80_LAYOUT.identity.line3Baseline,
-        academic.size,
+        role.size,
         CR80_COLORS.accent,
         rgb,
     );
     drawCenteredCardText(
         page,
         regular,
-        input.enrollment.roll_code.split('').join(' '),
+        'PERSONAL',
         CR80_LAYOUT.identity.centerX,
         CR80_LAYOUT.identity.line4Baseline,
         8.5,
@@ -77,8 +79,12 @@ function drawIdentity(
     );
 }
 
-export async function generateStudentCardPdf(input: StudentCardInput): Promise<void> {
-    if (!input.photo_url) throw new Error('El alumno no tiene una foto disponible para el carnet.');
+/** CR80 employee card. The QR payload is the employee's plain eight-digit DNI. */
+export async function generateEmployeeCardPdf(input: EmployeeCardInput): Promise<void> {
+    if (!/^\d{8}$/.test(input.dni))
+        throw new Error('El usuario necesita un DNI de ocho dígitos para el carnet.');
+    if (!input.photo_url)
+        throw new Error('El usuario no tiene una foto disponible para el carnet.');
     const printWindow = openCr80Window();
 
     try {
@@ -89,7 +95,7 @@ export async function generateStudentCardPdf(input: StudentCardInput): Promise<v
                 fetchCardBytes(cardTemplateUrl, 'No se pudo cargar la plantilla del carnet.'),
                 photoUrlAsJpegBytes(
                     input.photo_url,
-                    'No se pudo cargar la foto actual del alumno.',
+                    'No se pudo cargar la foto actual del usuario.',
                 ),
             ]);
         const pdf = await PDFDocument.create();
@@ -107,7 +113,6 @@ export async function generateStudentCardPdf(input: StudentCardInput): Promise<v
             }),
         ]);
         const qr = await pdf.embedPng(qrDataUrl);
-
         page.drawImage(template, { x: 0, y: 0, width: CARD_WIDTH, height: CARD_HEIGHT });
         page.drawImage(qr, {
             x: pxX(CR80_LAYOUT.qr.x),
@@ -125,7 +130,7 @@ export async function generateStudentCardPdf(input: StudentCardInput): Promise<v
         drawCr80Dni(page, boldFont, input.dni, degrees, rgb);
         drawIdentity(page, boldFont, input, font, rgb);
 
-        const filename = `carnet-${input.dni}.pdf`;
+        const filename = `carnet-personal-${input.dni}.pdf`;
         pdf.setTitle(filename);
         openPdfInWindow(await pdf.save(), filename, printWindow);
     } catch (error) {

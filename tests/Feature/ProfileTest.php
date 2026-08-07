@@ -27,7 +27,9 @@ class ProfileTest extends TestCase
             ->get(route('profile.show'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Profile/Show')
+                ->component('Employees/Profile')
+                ->where('is_self', true)
+                ->where('active_tab', 'general')
                 ->where('employee.code', $account->user->code)
                 ->where('employee.first_name', $account->user->first_name)
                 ->where('employee.last_name', $account->user->last_name)

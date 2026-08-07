@@ -59,6 +59,14 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         activePrefixes: ['/attendance/'],
     },
     {
+        label: 'Control horario',
+        href: '/employee-attendance',
+        icon: 'badgeCheck',
+        permission: 'employee_attendance.view',
+        requiresBranch: true,
+        activePrefixes: ['/employee-attendance/'],
+    },
+    {
         label: 'Drive',
         href: '/drive',
         icon: 'hardDrive',

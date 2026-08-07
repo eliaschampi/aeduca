@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\CreateEmployee;
+use App\Actions\SaveEmployeeSchedule;
 use App\Actions\SyncUserPermissions;
 use App\Actions\UpdateEmployee;
 use App\Actions\UpdateEmployeePhoto;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangeEmployeePasswordRequest;
+use App\Http\Requests\EmployeeScheduleRequest;
 use App\Http\Requests\ProfilePhotoRequest;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\SyncUserPermissionsRequest;
@@ -16,8 +18,10 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\AuthAccount;
 use App\Models\Branch;
 use App\Models\EmployeeRole;
-use App\Models\Permission;
+use App\Models\EmployeeSchedule;
 use App\Models\User;
+use App\Support\Branches\BranchContext;
+use App\Support\Employees\LoadEmployeeProfile;
 use App\Support\PrivateProfilePhoto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +38,7 @@ class EmployeeController extends Controller
             ->with(['employeeRole:code,name', 'authAccount:code,user_code,login,is_active'])
             ->orderBy('first_name')
             ->orderBy('last_name')
-            ->get(['code', 'first_name', 'last_name', 'email', 'employee_role_code', 'is_active', 'is_super_admin', 'photo_path']);
+            ->get(['code', 'first_name', 'last_name', 'email', 'dni', 'employee_role_code', 'is_active', 'is_super_admin', 'photo_path']);
 
         return Inertia::render('Admin/Employees/Index', [
             'employees' => $employees->map(fn (User $employee): array => [
@@ -42,6 +46,7 @@ class EmployeeController extends Controller
                 'first_name' => $employee->first_name,
                 'last_name' => $employee->last_name,
                 'email' => $employee->email,
+                'dni' => $employee->dni,
                 'role_name' => $employee->employeeRole?->name,
                 'login' => $employee->authAccount?->login,
                 'is_active' => $employee->is_active,
@@ -64,6 +69,7 @@ class EmployeeController extends Controller
                 'last_name' => $request->string('last_name')->toString(),
                 'email' => $request->input('email'),
                 'phone' => $request->input('phone'),
+                'dni' => $request->input('dni'),
                 'employee_role_code' => $request->string('employee_role_code')->toString(),
                 'is_active' => $request->boolean('is_active'),
             ],
@@ -77,57 +83,84 @@ class EmployeeController extends Controller
         return to_route('admin.employees.index');
     }
 
-    public function show(Request $request, User $employee): Response
-    {
-        $canManage = Gate::check('employees.manage');
-        $canEditPhoto = $this->canWritePhoto($request, $employee);
+    public function show(
+        Request $request,
+        User $employee,
+        BranchContext $branchContext,
+        LoadEmployeeProfile $loadProfile,
+    ): Response {
+        /** @var AuthAccount $account */
+        $account = $request->user();
+        $actor = $account->user;
+        $isSelf = $actor !== null && $actor->code === $employee->code;
 
-        $employee->load([
-            'employeeRole.permissionScopes:code,name,description',
-            'branches:code,name',
-            'authAccount:code,user_code,login,is_active,last_login_at',
-            'permissions:code,name,description',
+        return Inertia::render(
+            'Employees/Profile',
+            $loadProfile->handle(
+                $request,
+                $employee,
+                $account,
+                $branchContext,
+                isSelf: $isSelf,
+            ),
+        );
+    }
+
+    public function storeSchedule(
+        EmployeeScheduleRequest $request,
+        User $employee,
+        BranchContext $branchContext,
+        SaveEmployeeSchedule $save,
+    ): RedirectResponse {
+        abort_unless(Gate::check('employee_attendance.manage'), 403);
+        $branch = $this->requireCurrentBranch($request, $branchContext);
+        abort_unless(
+            $employee->branches()->where('branches.code', $branch->code)->exists(),
+            404,
+        );
+
+        /** @var AuthAccount $account */
+        $account = $request->user();
+        $actor = $account->user;
+        abort_unless($actor, 403);
+
+        $validated = $request->validated();
+        $isEdit = filled($validated['schedule_code'] ?? null);
+        $save->save($actor, [
+            'user_code' => $employee->code,
+            'branch_code' => $branch->code,
+            ...$validated,
         ]);
 
-        $scopePermissions = $employee->employeeRole?->permissionScopes
-            ->map(fn (Permission $permission): array => [
-                'code' => $permission->code,
-                'name' => $permission->name,
-                'description' => $permission->description,
-            ])
-            ->values()
-            ->all() ?? [];
+        Inertia::flash('success', $isEdit ? 'Horario actualizado' : 'Horario agregado');
 
-        return Inertia::render('Admin/Employees/Show', [
-            'employee' => [
-                'code' => $employee->code,
-                'first_name' => $employee->first_name,
-                'last_name' => $employee->last_name,
-                'email' => $employee->email,
-                'phone' => $employee->phone,
-                'employee_role_code' => $employee->employee_role_code,
-                'role_name' => $employee->employeeRole?->name,
-                'is_active' => $employee->is_active,
-                'is_super_admin' => $employee->is_super_admin,
-                'branch_codes' => $employee->branches->pluck('code')->all(),
-                'branches' => $employee->branches
-                    ->map(fn (Branch $branch): array => ['code' => $branch->code, 'name' => $branch->name])
-                    ->all(),
-                'login' => $employee->authAccount?->login,
-                'access_active' => (bool) $employee->authAccount?->is_active,
-                'last_login_at' => $employee->authAccount?->last_login_at?->toIso8601String(),
-                'photo_url' => $this->photoUrl($employee),
-            ],
-            // Role scope = assignable boundary (not automatic access).
-            'role_permission_scope' => $scopePermissions,
-            // Direct grants only (empty for super_admin UI messaging).
-            'permission_codes' => $employee->is_super_admin
-                ? []
-                : $employee->permissions->pluck('code')->values()->all(),
-            ...$this->formOptions(),
-            'can_manage' => $canManage,
-            'can_edit_photo' => $canEditPhoto,
-        ]);
+        return back();
+    }
+
+    public function destroySchedule(
+        Request $request,
+        User $employee,
+        EmployeeSchedule $schedule,
+        BranchContext $branchContext,
+        SaveEmployeeSchedule $save,
+    ): RedirectResponse {
+        abort_unless(Gate::check('employee_attendance.manage'), 403);
+        $branch = $this->requireCurrentBranch($request, $branchContext);
+        abort_unless(
+            $schedule->user_code === $employee->code
+            && $schedule->branch_code === $branch->code,
+            404,
+        );
+
+        /** @var AuthAccount $account */
+        $account = $request->user();
+        $actor = $account->user;
+        abort_unless($actor, 403);
+
+        $save->delete($actor, $schedule);
+        Inertia::flash('success', 'Horario eliminado');
+
+        return back();
     }
 
     public function updatePhoto(
@@ -170,6 +203,7 @@ class EmployeeController extends Controller
                 'last_name' => $request->string('last_name')->toString(),
                 'email' => $request->input('email'),
                 'phone' => $request->input('phone'),
+                'dni' => $request->input('dni'),
                 'employee_role_code' => $request->string('employee_role_code')->toString(),
                 'is_active' => $request->boolean('is_active'),
             ],
@@ -257,7 +291,7 @@ class EmployeeController extends Controller
 
     private function canReadPhoto(Request $request, User $employee): bool
     {
-        if (Gate::check('employees.view')) {
+        if (Gate::check('employees.view') || Gate::check('employee_attendance.manage')) {
             return true;
         }
 
@@ -280,5 +314,15 @@ class EmployeeController extends Controller
 
         return is_string($account?->user_code)
             && $account->user_code === $employee->code;
+    }
+
+    private function requireCurrentBranch(Request $request, BranchContext $branchContext): Branch
+    {
+        /** @var AuthAccount $account */
+        $account = $request->user();
+        $branch = $branchContext->currentBranch($account);
+        abort_unless($branch, 403);
+
+        return $branch;
     }
 }

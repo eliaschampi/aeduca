@@ -22,6 +22,8 @@ final class PermissionSeeder extends Seeder
         'Asistencia' => [
             'attendance.view' => 'Ver la lista diaria y el historial de asistencia.',
             'attendance.manage' => 'Escanear, registrar y corregir asistencia estudiantil.',
+            'employee_attendance.view' => 'Ver el control horario y el historial del personal.',
+            'employee_attendance.manage' => 'Registrar, editar y configurar horarios del personal.',
         ],
         'Ciclos' => [
             'cycles.view' => 'Ver los ciclos académicos de la sede actual.',

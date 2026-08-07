@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 final class UpdateEmployee
 {
     /**
-     * @param  array{first_name: string, last_name: string, email: ?string, phone: ?string, employee_role_code: string, is_active: bool}  $profile
+     * @param  array{first_name: string, last_name: string, email: ?string, phone: ?string, dni: ?string, employee_role_code: string, is_active: bool}  $profile
      * @param  list<string>  $branchCodes
      */
     public function handle(User $employee, array $profile, array $branchCodes): User

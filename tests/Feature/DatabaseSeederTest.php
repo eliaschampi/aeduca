@@ -19,7 +19,7 @@ class DatabaseSeederTest extends TestCase
 
         $this->seed();
 
-        $this->assertSame(18, Permission::query()->count());
+        $this->assertSame(20, Permission::query()->count());
         $this->assertSame(
             [
                 'Alumnos',
@@ -42,6 +42,13 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame(
             'Alumnos',
             Permission::query()->where('name', 'students.view')->value('group_label'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['employee_attendance.manage', 'employee_attendance.view'],
+            Permission::query()
+                ->where('name', 'like', 'employee_attendance.%')
+                ->pluck('name')
+                ->all(),
         );
         $this->assertSame(
             [

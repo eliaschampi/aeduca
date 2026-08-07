@@ -28,6 +28,7 @@
         last_name: '',
         email: '',
         phone: '',
+        dni: '',
         employee_role_code: '' as string,
         is_active: true,
         branch_codes: [] as string[],
@@ -118,7 +119,16 @@
                             dangerText={errors.last_name}
                         />
                     </div>
-                    <div class="lumi-grid lumi-grid--columns-2 lumi-grid--gap-md">
+                    <div class="lumi-grid lumi-grid--columns-3 lumi-grid--gap-md">
+                        <Input
+                            label="DNI"
+                            placeholder="8 dígitos (opcional)"
+                            maxlength={8}
+                            bind:value={form.dni}
+                            danger={Boolean(errors.dni)}
+                            dangerText={errors.dni}
+                            descriptionText="Necesario para carnet y escaneo."
+                        />
                         <Input
                             label="Correo"
                             type="email"

@@ -9,6 +9,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DriveController;
 use App\Http\Controllers\DriveShareController;
+use App\Http\Controllers\EmployeeAttendanceController;
+use App\Http\Controllers\EmployeeAttendanceHistoryController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
@@ -82,6 +84,25 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::post('/attendance/manual', [AttendanceController::class, 'storeManual'])
         ->middleware('can:attendance.manage')
         ->name('attendance.manual.store');
+
+    Route::prefix('employee-attendance')->name('employee-attendance.')->group(function () {
+        Route::get('/', [EmployeeAttendanceController::class, 'index'])
+            ->middleware('can:employee_attendance.view')
+            ->name('index');
+        Route::get('/register', [EmployeeAttendanceController::class, 'register'])
+            ->middleware('can:employee_attendance.manage')
+            ->name('register');
+        Route::post('/register', [EmployeeAttendanceController::class, 'storeScan'])
+            ->middleware('can:employee_attendance.manage')
+            ->name('register.store');
+        Route::post('/manual', [EmployeeAttendanceController::class, 'storeManual'])
+            ->middleware('can:employee_attendance.manage')
+            ->name('manual.store');
+        Route::get('/employees/{employee}/history', EmployeeAttendanceHistoryController::class)
+            ->whereUuid('employee')
+            ->middleware('can:employee_attendance.view')
+            ->name('history');
+    });
 
     Route::get('/students/search', [StudentController::class, 'search'])
         ->middleware('can:students.view')
@@ -180,6 +201,14 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
         Route::put('/employees/{employee}/permissions', [AdminEmployeeController::class, 'syncPermissions'])
             ->middleware('can:employees.manage')
             ->name('employees.permissions');
+        Route::post('/employees/{employee}/schedules', [AdminEmployeeController::class, 'storeSchedule'])
+            ->whereUuid('employee')
+            ->middleware('can:employee_attendance.manage')
+            ->name('employees.schedules.store');
+        Route::delete('/employees/{employee}/schedules/{schedule}', [AdminEmployeeController::class, 'destroySchedule'])
+            ->whereUuid(['employee', 'schedule'])
+            ->middleware('can:employee_attendance.manage')
+            ->name('employees.schedules.destroy');
 
         Route::get('/roles', [AdminRoleController::class, 'index'])
             ->middleware('can:roles.view')
