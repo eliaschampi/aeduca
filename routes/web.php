@@ -16,6 +16,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentAccessController;
 use App\Http\Controllers\StudentAttendanceHistoryController;
+use App\Http\Controllers\StudentAttentionController;
 use App\Http\Controllers\StudentContactController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Support\Facades\Route;
@@ -110,6 +111,50 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::get('/students/lookup', [StudentController::class, 'lookup'])
         ->middleware('can:students.view')
         ->name('students.lookup');
+    Route::get('/student-attentions', [StudentAttentionController::class, 'branchIndex'])
+        ->middleware('can:student_attentions.view')
+        ->name('student-attentions.index');
+    Route::get('/student-attentions/students', [StudentAttentionController::class, 'students'])
+        ->middleware('can:student_attentions.manage')
+        ->name('student-attentions.students');
+    Route::prefix('students/{student}/attentions')
+        ->whereUuid('student')
+        ->name('students.attentions.')
+        ->group(function () {
+            Route::get('/', [StudentAttentionController::class, 'index'])
+                ->middleware('can:student_attentions.view')
+                ->name('index');
+            Route::get('/create', [StudentAttentionController::class, 'create'])
+                ->middleware('can:student_attentions.manage')
+                ->name('create');
+            Route::post('/', [StudentAttentionController::class, 'store'])
+                ->middleware('can:student_attentions.manage')
+                ->name('store');
+            Route::get('/{attention}', [StudentAttentionController::class, 'show'])
+                ->whereUuid('attention')
+                ->middleware('can:student_attentions.view')
+                ->name('show');
+            Route::get('/{attention}/edit', [StudentAttentionController::class, 'edit'])
+                ->whereUuid('attention')
+                ->middleware('can:student_attentions.manage')
+                ->name('edit');
+            Route::put('/{attention}', [StudentAttentionController::class, 'update'])
+                ->whereUuid('attention')
+                ->middleware('can:student_attentions.manage')
+                ->name('update');
+            Route::post('/{attention}/files', [StudentAttentionController::class, 'attachFile'])
+                ->whereUuid('attention')
+                ->middleware(['can:student_attentions.manage', 'can:drive.manage'])
+                ->name('files.store');
+            Route::get('/{attention}/files/{file}', [StudentAttentionController::class, 'serveFile'])
+                ->whereUuid(['attention', 'file'])
+                ->middleware('can:student_attentions.view')
+                ->name('files.serve');
+            Route::delete('/{attention}/files/{file}', [StudentAttentionController::class, 'detachFile'])
+                ->whereUuid(['attention', 'file'])
+                ->middleware('can:student_attentions.manage')
+                ->name('files.destroy');
+        });
     Route::get('/students/create', [StudentController::class, 'create'])
         ->middleware('can:students.manage')
         ->name('students.create');

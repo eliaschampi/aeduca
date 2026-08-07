@@ -13,6 +13,7 @@ declare module '@inertiajs/core' {
     interface InertiaConfig {
         flashDataType: {
             success?: string;
+            open_attachments?: boolean;
         };
         sharedPageProps: {
             auth: AuthenticatedContext | null;

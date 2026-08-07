@@ -54,6 +54,7 @@
         can_manage_enrollments?: boolean;
         can_delete_enrollments?: boolean;
         can_view_attendance?: boolean;
+        can_view_attentions?: boolean;
     }
 
     const {
@@ -68,6 +69,7 @@
         can_manage_enrollments = false,
         can_delete_enrollments = false,
         can_view_attendance = false,
+        can_view_attentions = false,
     }: Props = $props();
 
     const fullName = $derived(`${student.first_name} ${student.last_name}`.trim());
@@ -296,6 +298,14 @@
                                 onclick={() => router.visit(`/students/${student.code}/attendance`)}
                             >
                                 Historial de asistencia
+                            </DropdownItem>
+                        {/if}
+                        {#if can_view_attentions}
+                            <DropdownItem
+                                icon="clipboardPenLine"
+                                onclick={() => router.visit(`/students/${student.code}/attentions`)}
+                            >
+                                Atenciones
                             </DropdownItem>
                         {/if}
                         {#if can_manage}
@@ -569,7 +579,7 @@
         {/if}
         <p class="lumi-margin--none">
             Se eliminará definitivamente a <strong>{fullName}</strong>, sus contactos y su acceso al
-            sistema. Sólo es posible si no tiene matrículas registradas.
+            sistema. Sólo es posible si no tiene historial académico ni atenciones registradas.
         </p>
         <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
             <Button

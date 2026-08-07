@@ -69,7 +69,8 @@
 
             return (
                 primaryMatch ||
-                item.activePrefixes?.some((prefix) => pathname.startsWith(prefix)) === true
+                item.activePrefixes?.some((prefix) => pathname.startsWith(prefix)) === true ||
+                item.activeContains?.some((part) => pathname.includes(part)) === true
             );
         });
         if (matches.length === 0) {

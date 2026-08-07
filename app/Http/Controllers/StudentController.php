@@ -162,6 +162,7 @@ class StudentController extends Controller
             'can_manage_enrollments' => ! $isSelf && Gate::check('enrollments.manage'),
             'can_delete_enrollments' => ! $isSelf && Gate::check('enrollments.delete'),
             'can_view_attendance' => $isSelf || Gate::check('attendance.view'),
+            'can_view_attentions' => ! $isSelf && Gate::check('student_attentions.view'),
         ]);
     }
 

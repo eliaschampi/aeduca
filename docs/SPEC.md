@@ -417,6 +417,27 @@ Specialized history pages load their own data. The profile must not become a ser
 
 The staff profile uses one compact identity card with cover, photo, personal details, and observations. That card keeps its own height beside the content column; primary record actions use one compact header menu.
 
+### Student attentions
+
+```text
+student_attentions
+  one student, historical branch, type, reason, development, conclusion,
+  occurred_at, creator, optional last editor
+
+student_attention_files
+  student_attention_code + drive_file_code
+```
+
+- One attention belongs to exactly one student. There is no polymorphic participant table, generic interaction framework, or attendance side effect.
+- The sidebar opens the current branch's operational history, bounded by month and server-paginated, with type and student-or-reason filters. Creation uses a branch-scoped student picker; the student profile links directly to the dedicated nested history. The two read paths are indexed by `(branch_code, occurred_at, code)` and `(student_code, branch_code, occurred_at, code)`.
+- Creation derives the session's current branch and requires any student enrollment in that branch. Student, branch, and creator are immutable; later enrollment, student, or author deactivation does not hide the stored history.
+- Types are `medical`, `conduct`, `attention`, `search` (legacy _Requisa_), `attendance_permission`, and `other`. Attendance permission remains documentary; Student Attendance alone owns attendance facts.
+- `student_attentions.view` reads current-branch history and `student_attentions.manage` creates, edits, links, and detaches. Students have no attention self-service until a separate visibility rule is confirmed.
+- Attention rows are not hard-deleted. They also prevent physical student deletion; a correction policy must be confirmed before adding a destructive capability or void state.
+- Attachments remain actor-owned `drive_files`; linking a live, non-folder file requires both attention management and `drive.manage`. The form exposes an explicit save-and-attach continuation to the detail picker; detaching removes only the relation.
+- The attention relation authorizes its own serving path even while the Drive file is trashed. PostgreSQL `RESTRICT` blocks permanent deletion and empty-trash while institutional history references the file; no blob is copied.
+- Legacy migration fans one multi-student incidence into one attention per resolved student, maps semantic types and UUID owners explicitly, copies one legacy attachment into Drive for all fan-out rows, reports unmappable records, and never replays legacy attendance-permission writes.
+
 ## 6. Enrollment, academic roster, and payments
 
 ### Enrollment model and workflow

@@ -8,6 +8,7 @@ export interface NavigationItem {
     requiresBranch?: boolean;
     exact?: boolean;
     activePrefixes?: readonly string[];
+    activeContains?: readonly string[];
 }
 
 /**
@@ -40,6 +41,14 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         icon: 'graduationCap',
         permission: 'students.view',
         activePrefixes: ['/students/'],
+    },
+    {
+        label: 'Atenciones',
+        href: '/student-attentions',
+        icon: 'clipboardPenLine',
+        permission: 'student_attentions.view',
+        requiresBranch: true,
+        activeContains: ['/attentions'],
     },
     {
         label: 'Matriculados',

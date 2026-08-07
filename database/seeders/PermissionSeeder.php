@@ -18,6 +18,8 @@ final class PermissionSeeder extends Seeder
             'students.view' => 'Ver el directorio y los perfiles de alumnos.',
             'students.manage' => 'Registrar y editar alumnos, contactos y acceso.',
             'students.delete' => 'Eliminar alumnos sin historial de matrículas.',
+            'student_attentions.view' => 'Ver el historial de atenciones de alumnos.',
+            'student_attentions.manage' => 'Registrar y editar atenciones y sus archivos vinculados.',
         ],
         'Asistencia' => [
             'attendance.view' => 'Ver la lista diaria y el historial de asistencia.',

@@ -6,7 +6,9 @@ use App\Models\DriveFile;
 use App\Models\User;
 use App\Support\Drive\DriveStorage;
 use App\Support\Drive\DriveTree;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Permanent deletion. Rows go first — the FK cascade removes descendants — and
@@ -26,7 +28,7 @@ final class DeleteDriveFiles
     {
         $nodes = $this->tree->subtree($file->code);
 
-        DB::transaction(static function () use ($file): void {
+        $this->deleteRows(static function () use ($file): void {
             DriveFile::query()->where('code', $file->code)->delete();
         });
 
@@ -51,7 +53,7 @@ final class DeleteDriveFiles
             return 0;
         }
 
-        DB::transaction(static function () use ($owner): void {
+        $this->deleteRows(static function () use ($owner): void {
             DriveFile::query()
                 ->where('user_code', $owner->code)
                 ->whereNotNull('deleted_at')
@@ -61,6 +63,25 @@ final class DeleteDriveFiles
         $this->storage->deleteMany($this->storagePaths($nodes));
 
         return count($nodes);
+    }
+
+    /**
+     * The FK is the race-free backstop: a linked institutional file cannot be
+     * permanently deleted until the attention explicitly detaches it.
+     */
+    private function deleteRows(callable $delete): void
+    {
+        try {
+            DB::transaction($delete);
+        } catch (QueryException $exception) {
+            if ($exception->getCode() !== '23503') {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'file' => 'No se puede eliminar un archivo vinculado a una atención.',
+            ]);
+        }
     }
 
     /**

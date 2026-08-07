@@ -2,4 +2,4 @@
 
 No active temporary task.
 
-Employee control horario stabilization is documented in `docs/SPEC.md` and `docs/STATUS.md`.
+Student Attentions is retained only in this review branch and is not accepted for `main`.

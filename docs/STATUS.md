@@ -4,7 +4,7 @@
 
 **Implementation inventory reviewed:** August 7, 2026.
 
-**Last complete verification:** August 7, 2026 (employee control horario stabilization).
+**Last complete verification:** August 7, 2026 (Student Attentions).
 
 ## 1. Completed implementation
 
@@ -19,6 +19,7 @@
 | Students           | Institutional/shell search, composed profile, versioned private photo via shared helper + cropper, contacts                                                      |
 | Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster                                                          |
 | Attendance         | Student: DNI scan/list/manual/history/PDF. Employee control horario: Coedula-style schedule rows, DNI scan, daily list, history, profile Horarios tab, CR80 card |
+| Attentions         | Current-branch student history, create/view/edit, immutable ownership, and protected Drive file links                                                            |
 
 | Drive | Private per-employee file graph with folders, trash, quota, and read-only subtree sharing between employees |
 | Quality | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados |
@@ -110,7 +111,7 @@ enrollment_shifts
 - The authenticated employee shell exposes a debounced, ten-result student lookup that reuses `student_directory`.
 - The profile composes identity, access, contacts, and at most ten authorized enrollment summaries. Employee history is restricted to authorized branches; student self-service sees only its owner.
 - `students.view` / `students.manage` own staff registry access. Contacts and credentials do not create button-level permissions.
-- `students.delete` is independent from management. `DeleteStudent` locks the identity, rejects any enrollment in any branch, deletes database-owned contacts/account/sessions through FKs, and removes the private photo after commit.
+- `students.delete` is independent from management. `DeleteStudent` locks the identity, rejects any enrollment or attention in any branch, deletes database-owned contacts/account/sessions through FKs, and removes the private photo after commit.
 - `SaveEnrollment` owns the aggregate transaction, locks the student, validates current branch and group/shift cycle, prevents detaching a shift with recorded attendance, and never deactivates or replaces another enrollment.
 - PostgreSQL protects one enrollment per `(student_code, cycle_code)` and one `roll_code` per cycle. `cycle_code` is derived from the server-validated group.
 - `reserve_enrollment_roll_code(cycle_code)` serializes reservation per cycle and returns a four-digit code from `0001` to `9999`.
@@ -149,6 +150,21 @@ student_attendances
 - Cross-cycle enrollment corruption is rejected by `SaveEnrollment` and detectable via reconciliation SQL (integrity tests cover both).
 - Permissions: `attendance.view` / `attendance.manage`.
 
+### Student attentions
+
+```text
+student_attentions (student, historical branch, type, occurred_at, creator/editor)
+student_attention_files PK(attention, drive_file)
+```
+
+- The sidebar entry `/student-attentions` opens the current branch's month-bounded operational list, with server pagination and filters by type, student, or reason. Its creation dialog finds only students with enrollment history in that branch. The profile action links directly to `/students/{student}/attentions`; both list paths load full text and files only on detail.
+- `SaveStudentAttention` owns transactional create/update. Creation locks the student, derives actor/current branch, and accepts inactive or historical enrollment relevance in that branch. Update preserves student, branch, and creator.
+- PostgreSQL checks explicit types and nonblank content, restricts student/branch/user deletion, and indexes the branch and student history paths. `DeleteStudent` returns a clear failure for attention history.
+- `student_attentions.view` / `student_attentions.manage` are employee-only. Current branch scopes every route with nested student ownership; student self-service is absent.
+- Detail manages attachments after the attention exists. The form's explicit save-and-attach action continues directly to the Drive picker, and the detail keeps attachments before long-form content. Existing-file selection and upload reuse Drive endpoints and Lumi's uploader; only the actor's live non-folder files may be linked.
+- Trashing a linked file keeps the attention download available. The reverse FK blocks permanent deletion and empty-trash until explicit detach; detach never deletes the Drive file.
+- No attention delete route, soft-delete state, participant polymorphism, secondary storage, attendance mutation, repository, cache, queue, or generic attachment layer exists.
+
 ### Employee control horario
 
 ```text
@@ -180,6 +196,7 @@ employee_attendances UNIQUE(schedule_code, date)
 - Student navigation opens the institutional directory; the shell also exposes student lookup globally to authorized employees.
 - Student create/edit uses placeholders and cohesive fieldsets; photo management exists only in the profile.
 - The profile uses a non-stretching cover/identity card, compact data, identity state beside the student, one action menu, and focused access/contact/enrollment panels.
+- The sidebar opens the branch attention history with the compact Lumi list filter pattern, while the student action opens the focused history. The creation picker, long-form editor, explicit attachment continuation, detail, and Drive dialogs use public Lumi components and Spanish copy.
 - The current-branch active roster uses a responsive Lumi sidebar, requires cycle/degree/section, and paginates on the server.
 - Student access credentials exist only in the one-time browser dialog and are cleared when it closes.
 - From the employee profile's existing action menu, an active student with a private photo and active enrollment can generate an individual CR80 (85.6 × 53.98 mm) card in a new browser tab. The client loads the PDF/QR code only after the click, embeds the institutional template and authorized photo, and encodes the plain DNI in the QR; no server PDF, route, or stored artifact exists.
@@ -208,6 +225,7 @@ views                  = Mi unidad · Recientes · Archivos pesados · Papelera
 - Uploads are capped at 50 MB against Lumi's allow-list, charged to a 2 GB per-owner quota, and roll back their blob when the row fails.
 - Blobs live on the private `local` disk under `drive/`; `PrivateProfilePhoto` keeps owning profile photos.
 - Serving is authorized per request for the owner or a recipient reached through the share, sends `nosniff`, and forces attachment disposition for SVG.
+- Files linked to an attention gain an attention-scoped serving path; paper-bin state is visible there and permanent deletion reports a validation error while referenced.
 - Trash, restore, permanent delete, and empty-trash settle the list locally from the response instead of refetching, and every acting button carries its pending state.
 - Drive tags and image variants are deliberately absent; the `variant` query parameter Lumi appends is ignored and the original is served.
 
@@ -215,7 +233,6 @@ views                  = Mi unidad · Recientes · Archivos pesados · Papelera
 
 - payments, cashbox, or payment reporting;
 - evaluations, OMR, or score reports;
-- attentions;
 - student access to shared files (Drive recipients are employees only);
 - v7 attendance data import runner (schema is migration-ready).
 
@@ -225,7 +242,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 228 PHPUnit tests / 1499 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 235 PHPUnit tests / 1600 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
 - `AttendanceIntegrityTest::test_shift_clock_cannot_change_after_facts_exist` was intermittently failing before Drive: it seeded a fact on the cycle factory's random `start_date`, which violates `student_attendances_instructional_day_check` whenever that date is a Sunday. The fact date now moves off Sunday; verified over eight consecutive runs.
 - A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.
