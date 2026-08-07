@@ -21,4 +21,8 @@ return [
         'history_default_days' => 30,
         'history_max_days' => 93,
     ],
+
+    'employee_attendance' => [
+        'early_arrival_minutes' => 60,
+    ],
 ];

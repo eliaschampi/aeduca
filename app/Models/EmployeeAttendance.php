@@ -10,8 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'user_code',
-    'branch_code',
     'schedule_code',
     'attendance_date',
     'state',
@@ -26,11 +24,6 @@ final class EmployeeAttendance extends Model
     use HasUuids;
 
     protected $primaryKey = 'code';
-
-    public function employee(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_code', 'code');
-    }
 
     public function schedule(): BelongsTo
     {

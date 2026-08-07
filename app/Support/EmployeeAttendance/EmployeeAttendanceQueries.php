@@ -29,7 +29,6 @@ final class EmployeeAttendanceQueries
                     ea.state AS attendance_state,
                     ea.entry_time AS attendance_entry_time,
                     ea.observation AS attendance_observation,
-                    ea.created_at AS attendance_created_at,
                     employee_attendance_effective_state(
                         ea.state,
                         ?::date,
@@ -44,6 +43,8 @@ final class EmployeeAttendanceQueries
                     AND ea.attendance_date = ?::date
                 WHERE es.branch_code = ?
                     AND es.weekday = EXTRACT(ISODOW FROM ?::date)::integer
+                    AND es.starts_on <= ?::date
+                    AND (es.ends_on IS NULL OR es.ends_on >= ?::date)
                 ORDER BY es.entry_time ASC, full_name ASC
                 SQL,
             [
@@ -51,6 +52,8 @@ final class EmployeeAttendanceQueries
                 $now->toIso8601String(),
                 $date,
                 $branchCode,
+                $date,
+                $date,
                 $date,
             ],
         );
@@ -90,6 +93,8 @@ final class EmployeeAttendanceQueries
                     ON es.user_code = ?
                     AND es.branch_code = ?
                     AND es.weekday = EXTRACT(ISODOW FROM days.attendance_date)::integer
+                    AND es.starts_on <= days.attendance_date
+                    AND (es.ends_on IS NULL OR es.ends_on >= days.attendance_date)
                 LEFT JOIN employee_attendances ea
                     ON ea.schedule_code = es.code
                     AND ea.attendance_date = days.attendance_date
@@ -121,7 +126,6 @@ final class EmployeeAttendanceQueries
                 ? $this->wall($row->attendance_entry_time)
                 : null,
             'attendance_observation' => $row->attendance_observation,
-            'attendance_created_at' => $this->instant($row->attendance_created_at ?? null),
             'effective_state' => $effective,
             'state_label' => EmployeeAttendanceState::effectiveLabel($effective),
         ];
@@ -156,14 +160,5 @@ final class EmployeeAttendanceQueries
         }
 
         return substr((string) $value, 0, 5);
-    }
-
-    public function instant(mixed $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return CarbonImmutable::parse($value)->utc()->format('Y-m-d\TH:i:s\Z');
     }
 }

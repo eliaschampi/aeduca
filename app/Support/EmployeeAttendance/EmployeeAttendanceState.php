@@ -28,9 +28,8 @@ enum EmployeeAttendanceState: string
         };
     }
 
-    /** @return list<string> */
-    public static function values(): array
+    public function recordsArrival(): bool
     {
-        return array_column(self::cases(), 'value');
+        return in_array($this, [self::Present, self::Late], true);
     }
 }

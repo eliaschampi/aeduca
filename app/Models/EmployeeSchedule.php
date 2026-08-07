@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'weekday',
     'entry_time',
     'to_time',
+    'starts_on',
+    'ends_on',
     'created_by_user_code',
 ])]
 final class EmployeeSchedule extends Model
@@ -41,6 +43,8 @@ final class EmployeeSchedule extends Model
     {
         return [
             'weekday' => 'integer',
+            'starts_on' => 'immutable_date',
+            'ends_on' => 'immutable_date',
         ];
     }
 }

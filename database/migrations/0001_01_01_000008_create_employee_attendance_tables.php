@@ -42,6 +42,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('weekday');
             $table->time('entry_time');
             $table->time('to_time');
+            $table->date('starts_on');
+            $table->date('ends_on')->nullable();
             $table->uuid('created_by_user_code');
             $table->timestampsTz();
 
@@ -53,11 +55,6 @@ return new class extends Migration
                 ['user_code', 'branch_code'],
                 'employee_schedules_user_branch_index',
             );
-            // Same person + branch + weekday + window cannot be registered twice.
-            $table->unique(
-                ['user_code', 'branch_code', 'weekday', 'entry_time', 'to_time'],
-                'employee_schedules_slot_unique',
-            );
             $table->foreign('user_code')->references('code')->on('users')->restrictOnDelete();
             $table->foreign('branch_code')->references('code')->on('branches')->restrictOnDelete();
             $table->foreign('created_by_user_code')->references('code')->on('users')->restrictOnDelete();
@@ -68,17 +65,22 @@ return new class extends Migration
             ADD CONSTRAINT employee_schedules_weekday_check
             CHECK (weekday BETWEEN 1 AND 7),
             ADD CONSTRAINT employee_schedules_window_check
-            CHECK (to_time > entry_time)
+            CHECK (to_time > entry_time),
+            ADD CONSTRAINT employee_schedules_validity_check
+            CHECK (ends_on IS NULL OR ends_on >= starts_on)
+            SQL);
+        DB::statement(<<<'SQL'
+            CREATE UNIQUE INDEX employee_schedules_open_slot_unique
+            ON employee_schedules (user_code, branch_code, weekday, entry_time, to_time)
+            WHERE ends_on IS NULL
             SQL);
 
         Schema::create('employee_attendances', function (Blueprint $table) {
             $table->uuid('code')->primary();
-            $table->uuid('user_code');
-            $table->uuid('branch_code');
             $table->uuid('schedule_code');
             $table->date('attendance_date');
             $table->string('state', 20);
-            $table->time('entry_time');
+            $table->time('entry_time')->nullable();
             $table->text('observation')->nullable();
             $table->string('recording_method', 20);
             $table->uuid('created_by_user_code');
@@ -89,16 +91,6 @@ return new class extends Migration
                 ['schedule_code', 'attendance_date'],
                 'employee_attendances_schedule_date_unique',
             );
-            $table->index(
-                ['branch_code', 'attendance_date'],
-                'employee_attendances_daily_index',
-            );
-            $table->index(
-                ['user_code', 'attendance_date'],
-                'employee_attendances_history_index',
-            );
-            $table->foreign('user_code')->references('code')->on('users')->restrictOnDelete();
-            $table->foreign('branch_code')->references('code')->on('branches')->restrictOnDelete();
             $table->foreign('schedule_code')
                 ->references('code')
                 ->on('employee_schedules')
@@ -113,6 +105,11 @@ return new class extends Migration
             CHECK (state IN ('present', 'late', 'permission', 'justified')),
             ADD CONSTRAINT employee_attendances_method_check
             CHECK (recording_method IN ('scan', 'manual')),
+            ADD CONSTRAINT employee_attendances_state_entry_time_check
+            CHECK (
+                (state IN ('present', 'late') AND entry_time IS NOT NULL)
+                OR (state IN ('permission', 'justified') AND entry_time IS NULL)
+            ),
             ADD CONSTRAINT employee_attendances_observation_check
             CHECK (observation IS NULL OR btrim(observation) <> '')
             SQL);

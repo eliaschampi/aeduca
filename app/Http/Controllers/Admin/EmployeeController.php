@@ -93,6 +93,21 @@ class EmployeeController extends Controller
         $account = $request->user();
         $actor = $account->user;
         $isSelf = $actor !== null && $actor->code === $employee->code;
+        $canReadEmployee = Gate::check('employees.view');
+
+        if (! $isSelf && ! $canReadEmployee) {
+            $tab = $request->query('tab');
+            abort_unless(
+                in_array($tab, ['attendance', 'schedules'], true)
+                && Gate::check('employee_attendance.view'),
+                403,
+            );
+            $branch = $this->requireCurrentBranch($request, $branchContext);
+            abort_unless(
+                $employee->branches()->where('branches.code', $branch->code)->exists(),
+                404,
+            );
+        }
 
         return Inertia::render(
             'Employees/Profile',

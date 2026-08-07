@@ -518,16 +518,21 @@ student_attendances
 ```text
 users.dni                     nullable unique 8-digit when present
 employee_schedules            one row = one weekday window (entry_time → to_time)
-  per user + branch; many rows allowed (several days or several windows same day)
+  per user + branch; starts_on, nullable ends_on; many non-overlapping rows allowed
 employee_attendances          UNIQUE(schedule_code, attendance_date)
   states: present | late | permission | justified
   pending/absent derived after schedule to_time
 ```
 
 - Teachers use this ownership; there is no separate teacher attendance domain.
-- **One employee profile surface** (Coedula): `/profile` (self) and `/admin/employees/{id}` (admin) render the same page. Tabs: Asistencia (read history) · Horarios · General · Acceso · Permisos. Self always reads own attendance and schedules; staff needs domain permissions. Schedule edit requires `employee_attendance.manage`. Form Día/Desde/Hasta; exact duplicate slots rejected by UNIQUE + Action. Tab-scoped data load (`?tab=`) for performance.
-- Scan resolves the schedule window that contains now (entrance-operated, DNI). Outside all windows is rejected with the nearest range. Repeat scan is idempotent per schedule+date.
+- **One employee profile surface** (Coedula): `/profile` (self) and `/admin/employees/{id}` (admin) render the same page. Tabs: Asistencia · Horarios · General · Acceso (including permissions). Self always reads own attendance and schedules; staff needs domain permissions. `employee_attendance.view` is sufficient for the minimum identity plus current-branch attendance/schedule tabs; `employees.view` still controls general administration. The loader queries only the active tab's relationships and catalogs.
+- Schedule edit requires `employee_attendance.manage`. The form remains Día/Desde/Hasta; validity is server-owned infrastructure. New rows start on the Aeduca business date. A historically relevant edit closes the old row and creates a prospective replacement; removal closes historical rows and physically deletes only rows that never contributed expectations or facts. User and branch ownership are immutable.
+- Employee scan admits one institutional early-arrival margin of 60 minutes: the acceptance window is `entry_time − 60 minutes` through `to_time`, bounded at 00:00. `entry_time` remains the expected arrival and alone classifies an accepted scan as present (at or before it) or late (after it); `to_time` remains the closing boundary, not a duration or radius.
+- Simultaneously valid acceptance windows for one employee, branch, and weekday cannot overlap. The schedule Action serializes writes by employee, and the scanner independently rejects ambiguous legacy windows.
+- Scan resolves the valid acceptance window that contains now (entrance-operated, DNI). Outside all windows is rejected with the nearest acceptance and work ranges. Repeat scan is idempotent per schedule+date. The concrete schedule row lock coordinates scan/manual facts with schedule lifecycle changes; the unique fact key remains the database duplicate barrier.
 - Daily **Control horario** lists expected slots for the weekday of the selected date; history expands expected slots across a bounded date range with `DateRangeFilter`.
+- Attendance facts reference only their schedule for employee/branch context. Present/late require an entry time; permission/justified require no entry time, enforced by PostgreSQL. Manual create/update/delete always uses the server business date and cannot mutate a historical fact through client input.
+- Removing an employee's branch membership is rejected while a schedule is still valid there. Deactivation is rejected while a schedule remains open; employee administration never closes attendance schedules implicitly.
 - Permissions: `employee_attendance.view` / `employee_attendance.manage` (manage expands view; manage owns schedules + scan + manual create/update/delete).
 - Employee CR80 card shares `cr80-card-core` with student cards; QR is plain DNI; requires DNI + photo.
 - Out of scope: leave workflows, non-working calendar, payroll, multi-exit.

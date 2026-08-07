@@ -44,6 +44,8 @@ final class LoadEmployeeProfile
         abort_unless($actor, 403);
 
         $canManage = Gate::check('employees.manage');
+        $canReadEmployee = Gate::check('employees.view');
+        $canReadGeneral = $canReadEmployee || $isSelf;
         $canEditPhoto = $canManage || $isSelf;
         $canManageSchedules = Gate::check('employee_attendance.manage');
         // Coedula: self always sees own schedules/attendance; staff needs domain view.
@@ -55,19 +57,28 @@ final class LoadEmployeeProfile
         $activeTab = $this->resolveTab(
             $request->query('tab'),
             $isSelf,
+            $canReadEmployee,
             $canManage,
             $canReadAttendance,
             $canReadSchedules,
         );
 
-        $subject->loadMissing([
-            'employeeRole.permissionScopes:code,name,description',
-            'branches:code,name',
-            'authAccount:code,user_code,login,is_active,last_login_at',
-            'permissions:code,name,description',
-        ]);
-
         $currentBranch = $branchContext->currentBranch($actorAccount);
+        $subject->loadMissing('employeeRole:code,name');
+
+        if ($activeTab === 'general') {
+            $subject->loadMissing([
+                'branches:code,name',
+                'authAccount:code,user_code,login,is_active,last_login_at',
+            ]);
+        }
+        if ($activeTab === 'access') {
+            $subject->loadMissing([
+                'employeeRole.permissionScopes:code,name,description',
+                'authAccount:code,user_code,login,is_active,last_login_at',
+                'permissions:code,name,description',
+            ]);
+        }
 
         $schedules = [];
         if ($activeTab === 'schedules' && $canReadSchedules && $currentBranch) {
@@ -84,21 +95,31 @@ final class LoadEmployeeProfile
         }
 
         $missingCard = [];
-        if (! is_string($subject->dni) || preg_match('/^\d{8}$/', $subject->dni) !== 1) {
-            $missingCard[] = 'DNI de ocho dígitos';
-        }
-        if (! is_string($subject->photo_path) || $subject->photo_path === '') {
-            $missingCard[] = 'foto de perfil';
+        if ($canReadGeneral) {
+            if (! is_string($subject->dni) || preg_match('/^\d{8}$/', $subject->dni) !== 1) {
+                $missingCard[] = 'DNI de ocho dígitos';
+            }
+            if (! is_string($subject->photo_path) || $subject->photo_path === '') {
+                $missingCard[] = 'foto de perfil';
+            }
         }
 
-        $scopePermissions = $subject->employeeRole?->permissionScopes
-            ->map(fn (Permission $permission): array => [
-                'code' => $permission->code,
-                'name' => $permission->name,
-                'description' => $permission->description,
-            ])
-            ->values()
-            ->all() ?? [];
+        $profileBranches = $subject->relationLoaded('branches')
+            ? $subject->branches
+            : collect($currentBranch ? [$currentBranch] : []);
+        $accountLoaded = $subject->relationLoaded('authAccount')
+            ? $subject->authAccount
+            : null;
+        $scopePermissions = $activeTab === 'access'
+            ? $subject->employeeRole?->permissionScopes
+                ?->map(fn (Permission $permission): array => [
+                    'code' => $permission->code,
+                    'name' => $permission->name,
+                    'description' => $permission->description,
+                ])
+                ->values()
+                ->all() ?? []
+            : [];
 
         return [
             'is_self' => $isSelf,
@@ -107,37 +128,51 @@ final class LoadEmployeeProfile
                 'code' => $subject->code,
                 'first_name' => $subject->first_name,
                 'last_name' => $subject->last_name,
-                'email' => $subject->email,
-                'phone' => $subject->phone,
+                'email' => $canReadGeneral ? $subject->email : null,
+                'phone' => $canReadGeneral ? $subject->phone : null,
                 'dni' => $subject->dni,
                 'employee_role_code' => $subject->employee_role_code,
                 'role_name' => $subject->employeeRole?->name,
                 'is_active' => $subject->is_active,
-                'is_super_admin' => $subject->is_super_admin,
-                'branch_codes' => $subject->branches->pluck('code')->all(),
-                'branches' => $subject->branches
+                'is_super_admin' => $canReadGeneral && $subject->is_super_admin,
+                'branch_codes' => $profileBranches->pluck('code')->all(),
+                'branches' => $profileBranches
                     ->map(fn (Branch $branch): array => [
                         'code' => $branch->code,
                         'name' => $branch->name,
                     ])
                     ->values()
                     ->all(),
-                'login' => $subject->authAccount?->login,
-                'access_active' => (bool) $subject->authAccount?->is_active,
-                'last_login_at' => $subject->authAccount?->last_login_at?->toIso8601String(),
-                'photo_url' => PrivateProfilePhoto::versionedUrl(
-                    $subject->photo_path,
-                    'admin.employees.photo',
-                    ['employee' => $subject->code],
-                ),
+                'login' => $accountLoaded?->login,
+                'access_active' => (bool) $accountLoaded?->is_active,
+                'last_login_at' => $accountLoaded?->last_login_at?->toIso8601String(),
+                'photo_url' => ($isSelf || $canReadEmployee || $canManageSchedules)
+                    ? PrivateProfilePhoto::versionedUrl(
+                        $subject->photo_path,
+                        'admin.employees.photo',
+                        ['employee' => $subject->code],
+                    )
+                    : null,
             ],
             'role_permission_scope' => $scopePermissions,
-            'permission_codes' => $subject->is_super_admin
+            'permission_codes' => $activeTab !== 'access' || $subject->is_super_admin
                 ? []
                 : $subject->permissions->pluck('code')->values()->all(),
-            'roles' => $this->roleOptions(),
-            'branches' => $this->branchOptions(),
+            'roles' => $activeTab === 'general'
+                ? ($canManage ? $this->roleOptions() : [[
+                    'code' => $subject->employee_role_code,
+                    'name' => $subject->employeeRole?->name ?? 'Sin rol',
+                ]])
+                : [],
+            'branches' => $activeTab === 'general'
+                ? ($canManage ? $this->branchOptions() : $profileBranches
+                    ->map(fn (Branch $branch): array => [
+                        'code' => $branch->code,
+                        'name' => $branch->name,
+                    ])->values()->all())
+                : [],
             'can_manage' => $canManage,
+            'can_read_general' => $canReadGeneral,
             'can_edit_photo' => $canEditPhoto,
             'can_manage_schedules' => $canManageSchedules,
             'can_read_schedules' => $canReadSchedules,
@@ -146,7 +181,7 @@ final class LoadEmployeeProfile
                 ? ['code' => $currentBranch->code, 'name' => $currentBranch->name]
                 : null,
             'schedules' => $schedules,
-            'weekday_options' => EmployeeWeekday::options(),
+            'weekday_options' => $activeTab === 'schedules' ? EmployeeWeekday::options() : [],
             'attendance' => $attendance,
             'card_missing_requirements' => $missingCard,
             'profile_path' => $isSelf
@@ -158,6 +193,7 @@ final class LoadEmployeeProfile
     private function resolveTab(
         mixed $requested,
         bool $isSelf,
+        bool $canReadEmployee,
         bool $canManage,
         bool $canReadAttendance,
         bool $canReadSchedules,
@@ -174,7 +210,7 @@ final class LoadEmployeeProfile
         $allowed = match ($tab) {
             'attendance' => $canReadAttendance,
             'schedules' => $canReadSchedules,
-            'general' => $canManage || $isSelf,
+            'general' => $canReadEmployee || $isSelf,
             'access' => $canManage,
             default => false,
         };

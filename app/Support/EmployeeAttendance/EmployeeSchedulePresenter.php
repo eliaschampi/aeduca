@@ -25,6 +25,7 @@ final class EmployeeSchedulePresenter
             EmployeeSchedule::query()
                 ->where('user_code', $employee->code)
                 ->where('branch_code', $branchCode)
+                ->whereNull('ends_on')
                 ->orderBy('weekday')
                 ->orderBy('entry_time')
                 ->get(),

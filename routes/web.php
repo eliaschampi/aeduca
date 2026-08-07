@@ -181,7 +181,6 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
             ->middleware('can:employees.manage')
             ->name('employees.store');
         Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show'])
-            ->middleware('can:employees.view')
             ->name('employees.show');
         Route::get('/employees/{employee}/photo', [AdminEmployeeController::class, 'photo'])
             ->whereUuid('employee')

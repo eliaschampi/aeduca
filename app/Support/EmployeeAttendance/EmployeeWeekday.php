@@ -16,25 +16,9 @@ final class EmployeeWeekday
         7 => 'Domingo',
     ];
 
-    /** @var array<int, string> */
-    public const SHORT = [
-        1 => 'Lun',
-        2 => 'Mar',
-        3 => 'Mié',
-        4 => 'Jue',
-        5 => 'Vie',
-        6 => 'Sáb',
-        7 => 'Dom',
-    ];
-
     public static function label(int $weekday): string
     {
         return self::LABELS[$weekday] ?? (string) $weekday;
-    }
-
-    public static function short(int $weekday): string
-    {
-        return self::SHORT[$weekday] ?? (string) $weekday;
     }
 
     /** @return list<array{value: string, label: string}> */

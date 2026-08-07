@@ -59,6 +59,7 @@
     let processing = $state(false);
 
     const isToday = $derived(filters.date === today);
+    const recordsArrival = $derived(formState === 'present' || formState === 'late');
     const registeredCount = $derived(rows.filter((row) => row.attendance_code).length);
     const stateOptions = $derived<SelectOption[]>(
         EMPLOYEE_ATTENDANCE_STATE_OPTIONS.map((option) => ({
@@ -138,11 +139,10 @@
             '/employee-attendance/manual',
             {
                 operation: isUpdate ? 'update' : 'create',
-                attendance_date: filters.date,
                 attendance_code: isUpdate ? formAttendanceCode : null,
                 schedule_code: isUpdate ? null : formScheduleCode,
                 state: formState,
-                entry_time: formEntryTime,
+                entry_time: recordsArrival ? formEntryTime : null,
                 observation: formObservation || null,
             },
             {
@@ -156,7 +156,6 @@
                         errors.operation ??
                         errors.state ??
                         errors.entry_time ??
-                        errors.attendance_date ??
                         Object.values(errors)[0] ??
                         'No se pudo guardar.';
                 },
@@ -183,7 +182,6 @@
             '/employee-attendance/manual',
             {
                 operation: 'delete',
-                attendance_date: filters.date,
                 attendance_code: deleteTarget.attendance_code,
             },
             {
@@ -397,7 +395,9 @@
                 options={stateOptions}
                 clearable={false}
             />
-            <Input bind:value={formEntryTime} type="time" label="Hora de ingreso" required />
+            {#if recordsArrival}
+                <Input bind:value={formEntryTime} type="time" label="Hora de ingreso" required />
+            {/if}
             <Textarea
                 bind:value={formObservation}
                 label="Observación"

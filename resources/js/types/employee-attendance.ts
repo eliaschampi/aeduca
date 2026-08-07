@@ -18,7 +18,6 @@ export interface EmployeeAttendanceRow {
     attendance_state: 'present' | 'late' | 'permission' | 'justified' | null;
     attendance_entry_time: string | null;
     attendance_observation: string | null;
-    attendance_created_at: string | null;
     effective_state: EmployeeAttendanceEffectiveState;
     state_label: string;
 }

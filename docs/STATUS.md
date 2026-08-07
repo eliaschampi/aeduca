@@ -4,7 +4,7 @@
 
 **Implementation inventory reviewed:** August 7, 2026.
 
-**Last complete verification:** August 7, 2026 (employee control horario Coedula-style).
+**Last complete verification:** August 7, 2026 (employee control horario stabilization).
 
 ## 1. Completed implementation
 
@@ -152,17 +152,19 @@ student_attendances
 ### Employee control horario
 
 ```text
-employee_schedules (user, branch, weekday ISO 1–7, entry_time, to_time)
+employee_schedules (user, branch, weekday ISO 1–7, entry_time, to_time, starts_on, ends_on)
 employee_attendances UNIQUE(schedule_code, date)
   present | late | permission | justified · pending/absent derived
 ```
 
-- **One profile page** `Employees/Profile`: self (`/profile`) and admin (`/admin/employees/{id}`). Tabs Asistencia + Horarios + General/Acceso/Permisos. Self reads own attendance/schedules without admin permission.
-- Schedule UI (Coedula): Día·Desde·Hasta + list; UNIQUE slot + Action. Attendance history is a profile tab (history route redirects there).
+- **One profile page** `Employees/Profile`: self (`/profile`) and admin (`/admin/employees/{id}`). Tabs Asistencia + Horarios + General/Acceso. Self reads own attendance/schedules without admin permission; attendance-only staff can open minimum identity and current-branch history without `employees.view`.
+- The profile loader resolves authorization per tab and loads only the active tab's relationships/catalogs.
+- Schedule UI remains Día·Desde·Hasta + list; there is no per-schedule early-arrival field. `SaveEmployeeSchedule` owns business-date validity, prospective replacement/closure, immutable employee/branch ownership, acceptance-window non-overlap, and employee-row serialization.
 - Module `/employee-attendance` daily list + scan; deep-link “historial” → profile tab.
-- Multiple distinct schedule rows per person; one fact per schedule per day.
+- Daily, scan, and history reads honor schedule validity. Scan admits the configured institutional 60-minute early-arrival margin, keeps expected entry as the present/late threshold and `to_time` as the close, rejects legacy ambiguity, and locks the chosen schedule; one fact remains protected per schedule/day.
+- Attendance facts derive user and branch through `schedule_code`. PostgreSQL requires entry time for present/late and forbids it for permission/justified.
+- Manual writes use the server business date and authorize existing facts by their stored date plus schedule branch. Employee membership removal/deactivation is rejected while relevant schedules remain; no implicit schedule mutation occurs.
 - Permissions: `employee_attendance.view` / `employee_attendance.manage`.
-- Reference of rejected weekly-version attempt: branch `archive/employee-attendance-weekly-versions`.
 
 ## 5. Application UI
 
@@ -212,7 +214,6 @@ views                  = Mi unidad · Recientes · Archivos pesados · Papelera
 ## 7. Not implemented
 
 - payments, cashbox, or payment reporting;
-- employee/teacher attendance;
 - evaluations, OMR, or score reports;
 - attentions;
 - student access to shared files (Drive recipients are employees only);
@@ -224,7 +225,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 207 PHPUnit tests / 1358 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 227 PHPUnit tests / 1496 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
 - `AttendanceIntegrityTest::test_shift_clock_cannot_change_after_facts_exist` was intermittently failing before Drive: it seeded a fact on the cycle factory's random `start_date`, which violates `student_attendances_instructional_day_check` whenever that date is a Sunday. The fact date now moves off Sunday; verified over eight consecutive runs.
 - A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.

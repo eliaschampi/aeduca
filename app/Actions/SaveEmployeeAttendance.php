@@ -31,6 +31,7 @@ final class SaveEmployeeAttendance
                 ]);
             }
 
+            $this->lockActiveEmployeeInBranch((string) $employee->code, $branch->code);
             $slots = $this->todaySlots($employee->code, $branch->code, $date);
             if ($slots === []) {
                 throw ValidationException::withMessages([
@@ -39,7 +40,6 @@ final class SaveEmployeeAttendance
             }
 
             $slot = $this->resolveSlot($slots, $now, enforceWindow: true);
-            $this->lockScheduleDay($slot->code, $date);
 
             $existing = EmployeeAttendance::query()
                 ->where('schedule_code', $slot->code)
@@ -55,8 +55,6 @@ final class SaveEmployeeAttendance
             $state = $this->autoState($entryClock, (string) $slot->entry_time);
 
             $fact = EmployeeAttendance::query()->create([
-                'user_code' => $employee->code,
-                'branch_code' => $branch->code,
                 'schedule_code' => $slot->code,
                 'attendance_date' => $date,
                 'state' => $state,
@@ -75,7 +73,6 @@ final class SaveEmployeeAttendance
      *     operation: string,
      *     schedule_code?: string|null,
      *     attendance_code?: string|null,
-     *     attendance_date: string,
      *     state?: string|null,
      *     entry_time?: string|null,
      *     observation?: string|null
@@ -84,14 +81,13 @@ final class SaveEmployeeAttendance
     public function manual(Branch $branch, User $actor, array $payload): EmployeeAttendance
     {
         $operation = (string) $payload['operation'];
-        $date = (string) $payload['attendance_date'];
-        $now = $this->now();
+        $date = $this->now()->toDateString();
 
-        return DB::transaction(function () use ($branch, $actor, $payload, $operation, $date, $now): EmployeeAttendance {
+        return DB::transaction(function () use ($branch, $actor, $payload, $operation, $date): EmployeeAttendance {
             return match ($operation) {
-                'create' => $this->manualCreate($branch, $actor, $payload, $date, $now),
-                'update' => $this->manualUpdate($branch, $actor, $payload, $date, $now),
-                'delete' => $this->manualDelete($branch, $payload),
+                'create' => $this->manualCreate($branch, $actor, $payload, $date),
+                'update' => $this->manualUpdate($branch, $actor, $payload, $date),
+                'delete' => $this->manualDelete($branch, $payload, $date),
                 default => throw ValidationException::withMessages([
                     'operation' => 'Operación no válida.',
                 ]),
@@ -107,26 +103,13 @@ final class SaveEmployeeAttendance
         User $actor,
         array $payload,
         string $date,
-        CarbonImmutable $now,
     ): EmployeeAttendance {
-        if ($date !== $now->toDateString()) {
-            throw ValidationException::withMessages([
-                'attendance_date' => 'Solo se puede registrar asistencia manual del día actual.',
-            ]);
-        }
+        $schedule = $this->lockScheduleForToday(
+            $branch,
+            $payload['schedule_code'] ?? null,
+            $date,
+        );
 
-        $schedule = EmployeeSchedule::query()
-            ->whereKey($payload['schedule_code'] ?? null)
-            ->where('branch_code', $branch->code)
-            ->lockForUpdate()
-            ->first();
-        if (! $schedule) {
-            throw ValidationException::withMessages([
-                'schedule_code' => 'El horario no existe en la sede actual.',
-            ]);
-        }
-
-        $this->lockScheduleDay($schedule->code, $date);
         if (EmployeeAttendance::query()
             ->where('schedule_code', $schedule->code)
             ->whereDate('attendance_date', $date)
@@ -137,11 +120,9 @@ final class SaveEmployeeAttendance
         }
 
         $state = EmployeeAttendanceState::from((string) ($payload['state'] ?? ''));
-        $entry = $this->normalizeClock((string) ($payload['entry_time'] ?? ''), 'entry_time');
+        $entry = $this->entryForState($state, $payload['entry_time'] ?? null);
 
         return EmployeeAttendance::query()->create([
-            'user_code' => $schedule->user_code,
-            'branch_code' => $branch->code,
             'schedule_code' => $schedule->code,
             'attendance_date' => $date,
             'state' => $state,
@@ -161,27 +142,11 @@ final class SaveEmployeeAttendance
         User $actor,
         array $payload,
         string $date,
-        CarbonImmutable $now,
     ): EmployeeAttendance {
-        if ($date !== $now->toDateString()) {
-            throw ValidationException::withMessages([
-                'attendance_date' => 'Solo se puede editar asistencia del día actual.',
-            ]);
-        }
-
-        $fact = EmployeeAttendance::query()
-            ->whereKey($payload['attendance_code'] ?? null)
-            ->where('branch_code', $branch->code)
-            ->lockForUpdate()
-            ->first();
-        if (! $fact) {
-            throw ValidationException::withMessages([
-                'attendance_code' => 'El registro no existe.',
-            ]);
-        }
+        $fact = $this->lockFactForToday($branch, $payload['attendance_code'] ?? null, $date);
 
         $state = EmployeeAttendanceState::from((string) ($payload['state'] ?? ''));
-        $entry = $this->normalizeClock((string) ($payload['entry_time'] ?? ''), 'entry_time');
+        $entry = $this->entryForState($state, $payload['entry_time'] ?? null);
 
         $fact->update([
             'state' => $state,
@@ -197,23 +162,90 @@ final class SaveEmployeeAttendance
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function manualDelete(Branch $branch, array $payload): EmployeeAttendance
+    private function manualDelete(Branch $branch, array $payload, string $date): EmployeeAttendance
     {
-        $fact = EmployeeAttendance::query()
-            ->whereKey($payload['attendance_code'] ?? null)
-            ->where('branch_code', $branch->code)
-            ->lockForUpdate()
-            ->first();
-        if (! $fact) {
-            throw ValidationException::withMessages([
-                'attendance_code' => 'El registro no existe.',
-            ]);
-        }
+        $fact = $this->lockFactForToday($branch, $payload['attendance_code'] ?? null, $date);
 
         $snapshot = $fact;
         $fact->delete();
 
         return $snapshot;
+    }
+
+    private function lockActiveEmployeeInBranch(string $userCode, string $branchCode): User
+    {
+        $employee = User::query()
+            ->whereKey($userCode)
+            ->where('is_active', true)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $employee || ! $employee->branches()->where('branches.code', $branchCode)->exists()) {
+            throw ValidationException::withMessages([
+                'schedule_code' => 'El usuario no está activo o ya no pertenece a la sede actual.',
+            ]);
+        }
+
+        return $employee;
+    }
+
+    private function lockScheduleForToday(Branch $branch, mixed $scheduleCode, string $date): EmployeeSchedule
+    {
+        $candidate = EmployeeSchedule::query()
+            ->whereKey($scheduleCode)
+            ->first(['code', 'user_code']);
+        if (! $candidate) {
+            throw ValidationException::withMessages([
+                'schedule_code' => 'El horario no existe en la sede actual.',
+            ]);
+        }
+
+        $this->lockActiveEmployeeInBranch($candidate->user_code, $branch->code);
+
+        $schedule = EmployeeSchedule::query()
+            ->whereKey($candidate->code)
+            ->where('branch_code', $branch->code)
+            ->where('weekday', CarbonImmutable::parse($date)->isoWeekday())
+            ->whereDate('starts_on', '<=', $date)
+            ->where(function ($validity) use ($date): void {
+                $validity->whereNull('ends_on')->orWhereDate('ends_on', '>=', $date);
+            })
+            ->lockForUpdate()
+            ->first();
+        if (! $schedule) {
+            throw ValidationException::withMessages([
+                'schedule_code' => 'El horario no está vigente hoy en la sede actual.',
+            ]);
+        }
+
+        return $schedule;
+    }
+
+    private function lockFactForToday(Branch $branch, mixed $attendanceCode, string $date): EmployeeAttendance
+    {
+        $candidate = EmployeeAttendance::query()
+            ->whereKey($attendanceCode)
+            ->first(['code', 'schedule_code', 'attendance_date']);
+        if (! $candidate || $candidate->attendance_date->toDateString() !== $date) {
+            throw ValidationException::withMessages([
+                'attendance_code' => 'Solo se puede modificar asistencia del día actual.',
+            ]);
+        }
+
+        $schedule = $this->lockScheduleForToday($branch, $candidate->schedule_code, $date);
+        $fact = EmployeeAttendance::query()
+            ->whereKey($candidate->code)
+            ->where('schedule_code', $schedule->code)
+            ->whereDate('attendance_date', $date)
+            ->lockForUpdate()
+            ->first();
+        if (! $fact) {
+            throw ValidationException::withMessages([
+                'attendance_code' => 'El registro no existe en la sede actual.',
+            ]);
+        }
+
+        return $fact;
     }
 
     /** @return list<stdClass> */
@@ -226,9 +258,12 @@ final class SaveEmployeeAttendance
                 WHERE user_code = ?
                     AND branch_code = ?
                     AND weekday = EXTRACT(ISODOW FROM ?::date)::integer
+                    AND starts_on <= ?::date
+                    AND (ends_on IS NULL OR ends_on >= ?::date)
                 ORDER BY entry_time ASC
+                FOR UPDATE
                 SQL,
-            [$userCode, $branchCode, $date],
+            [$userCode, $branchCode, $date, $date, $date],
         );
     }
 
@@ -244,15 +279,22 @@ final class SaveEmployeeAttendance
         ));
 
         if ($eligible !== []) {
-            return $this->closestSlot($eligible, $minutes);
+            if (count($eligible) > 1) {
+                throw ValidationException::withMessages([
+                    'dni' => 'Hay más de un horario válido para este momento. Corrige la configuración antes de registrar.',
+                ]);
+            }
+
+            return $eligible[0];
         }
 
         if ($enforceWindow) {
             $closest = $this->closestSlot($slots, $minutes);
+            $scanFrom = $this->formatMinutes($this->windowStart($closest));
             $from = substr((string) $closest->entry_time, 0, 5);
             $to = substr((string) $closest->to_time, 0, 5);
             throw ValidationException::withMessages([
-                'dni' => "Fuera del rango permitido. Ventana más cercana: {$from}–{$to}.",
+                'dni' => "Fuera del rango permitido. Marcación más cercana: {$scanFrom}–{$to} (horario {$from}–{$to}).",
             ]);
         }
 
@@ -261,7 +303,7 @@ final class SaveEmployeeAttendance
 
     private function withinWindow(stdClass $slot, int $minutes): bool
     {
-        $start = $this->minutesOfDay((string) $slot->entry_time);
+        $start = $this->windowStart($slot);
         $end = $this->minutesOfDay((string) $slot->to_time);
 
         return $minutes >= $start && $minutes <= $end;
@@ -285,7 +327,7 @@ final class SaveEmployeeAttendance
 
     private function distance(stdClass $slot, int $minutes): int
     {
-        $start = $this->minutesOfDay((string) $slot->entry_time);
+        $start = $this->windowStart($slot);
         $end = $this->minutesOfDay((string) $slot->to_time);
         if ($minutes < $start) {
             return $start - $minutes;
@@ -295,6 +337,20 @@ final class SaveEmployeeAttendance
         }
 
         return 0;
+    }
+
+    private function windowStart(stdClass $slot): int
+    {
+        return max(
+            0,
+            $this->minutesOfDay((string) $slot->entry_time)
+                - max(0, (int) config('aeduca.employee_attendance.early_arrival_minutes', 60)),
+        );
+    }
+
+    private function formatMinutes(int $minutes): string
+    {
+        return sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
     }
 
     private function minutesOfDay(string $time): int
@@ -382,14 +438,6 @@ final class SaveEmployeeAttendance
         return substr($raw, 0, 5);
     }
 
-    private function lockScheduleDay(string $scheduleCode, string $date): void
-    {
-        DB::selectOne(
-            'SELECT pg_advisory_xact_lock(hashtext(?))',
-            ["employee-attendance:{$scheduleCode}:{$date}"],
-        );
-    }
-
     private function normalizeDni(string $dni): string
     {
         $dni = trim($dni);
@@ -411,6 +459,15 @@ final class SaveEmployeeAttendance
         }
 
         throw ValidationException::withMessages([$field => 'La hora no es válida.']);
+    }
+
+    private function entryForState(EmployeeAttendanceState $state, mixed $value): ?string
+    {
+        if (! $state->recordsArrival()) {
+            return null;
+        }
+
+        return $this->normalizeClock((string) $value, 'entry_time');
     }
 
     private function nullableText(mixed $value): ?string

@@ -82,6 +82,7 @@
         role_permission_scope?: ScopePermission[];
         permission_codes?: string[];
         can_manage?: boolean;
+        can_read_general?: boolean;
         can_edit_photo?: boolean;
         can_manage_schedules?: boolean;
         can_read_schedules?: boolean;
@@ -103,6 +104,7 @@
         role_permission_scope = [],
         permission_codes = [],
         can_manage = false,
+        can_read_general = false,
         can_edit_photo = false,
         can_manage_schedules = false,
         can_read_schedules = false,
@@ -122,7 +124,7 @@
         employee.branches.map((branch) => branch.name).join(' · ') || 'Sin sedes',
     );
     const showActionsMenu = $derived(
-        canEditPhoto || (employee.is_active && (canManage || is_self)) || !is_self,
+        canEditPhoto || (employee.is_active && (canManage || is_self)) || can_read_general,
     );
 
     function formFrom(source: Employee): EmployeeForm {
@@ -158,7 +160,9 @@
     /** General first; operational and admin tabs follow. */
     const tabs = $derived(
         [
-            { value: 'general' as const, label: 'General', icon: 'user' as const },
+            can_read_general
+                ? { value: 'general' as const, label: 'General', icon: 'user' as const }
+                : null,
             can_read_attendance
                 ? {
                       value: 'attendance' as const,
@@ -349,7 +353,7 @@
                                 Generar carnet
                             </DropdownItem>
                         {/if}
-                        {#if !is_self}
+                        {#if !is_self && can_read_general}
                             <DropdownItem
                                 icon="arrowLeft"
                                 onclick={() => router.visit('/admin/employees')}
