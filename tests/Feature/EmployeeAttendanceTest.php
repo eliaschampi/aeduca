@@ -219,6 +219,29 @@ final class EmployeeAttendanceTest extends TestCase
         $this->assertDatabaseCount('employee_attendances', 0);
     }
 
+    public function test_historical_daily_row_remains_visible_after_employee_deactivation(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-02 08:00:00', 'America/Lima'));
+        $account = $this->createEmployeeAccount();
+        $branch = $account->user->branches->sole();
+        $employee = $this->employeeIn($branch, '34567891');
+        $schedule = $this->schedule($account->user, $employee, $branch, 1, '07:00', '09:00');
+        $schedule->update(['ends_on' => '2026-03-02']);
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-03 08:00:00', 'America/Lima'));
+        $employee->update(['is_active' => false]);
+
+        $rows = app(EmployeeAttendanceQueries::class)->daily(
+            $branch->code,
+            '2026-03-02',
+            CarbonImmutable::now('America/Lima'),
+        );
+
+        $this->assertCount(1, $rows);
+        $this->assertSame($employee->code, $rows[0]->user_code);
+        $this->assertSame($schedule->code, $rows[0]->schedule_code);
+    }
+
     public function test_manual_create_update_and_delete_today(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-02 10:00:00', 'America/Lima'));
@@ -525,14 +548,15 @@ final class EmployeeAttendanceTest extends TestCase
         ]);
     }
 
-    public function test_employee_deactivation_requires_open_schedules_to_be_removed_first(): void
+    public function test_employee_deactivation_requires_current_schedules_to_be_removed_first(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-03-02 08:00:00', 'America/Lima'));
         $account = $this->createEmployeeAccount();
         $this->grantPermissions($account, ['employees.manage']);
         $branch = Branch::factory()->create();
         $employee = $this->employeeIn($branch, '60668800');
-        $this->schedule($account->user, $employee, $branch, 1, '07:00', '09:00');
+        $schedule = $this->schedule($account->user, $employee, $branch, 1, '07:00', '09:00');
+        $schedule->update(['ends_on' => '2026-03-02']);
 
         $this->actingAs($account)
             ->put(route('admin.employees.update', $employee), [

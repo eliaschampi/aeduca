@@ -36,7 +36,7 @@ final class EmployeeAttendanceQueries
                         ?::timestamptz
                     ) AS effective_state
                 FROM employee_schedules es
-                INNER JOIN users ON users.code = es.user_code AND users.is_active = true
+                INNER JOIN users ON users.code = es.user_code
                 INNER JOIN employee_roles roles ON roles.code = users.employee_role_code
                 LEFT JOIN employee_attendances ea
                     ON ea.schedule_code = es.code

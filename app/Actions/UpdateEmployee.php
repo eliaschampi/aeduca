@@ -53,7 +53,7 @@ final class UpdateEmployee
                 $hasOpenSchedule = EmployeeSchedule::query()
                     ->where('user_code', $locked->code)
                     ->where(function ($validity) use ($today): void {
-                        $validity->whereNull('ends_on')->orWhereDate('ends_on', '>', $today);
+                        $validity->whereNull('ends_on')->orWhereDate('ends_on', '>=', $today);
                     })
                     ->exists();
 

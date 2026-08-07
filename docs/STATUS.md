@@ -161,9 +161,9 @@ employee_attendances UNIQUE(schedule_code, date)
 - The profile loader resolves authorization per tab and loads only the active tab's relationships/catalogs.
 - Schedule UI remains Día·Desde·Hasta + list; there is no per-schedule early-arrival field. `SaveEmployeeSchedule` owns business-date validity, prospective replacement/closure, immutable employee/branch ownership, acceptance-window non-overlap, and employee-row serialization.
 - Module `/employee-attendance` daily list + scan; deep-link “historial” → profile tab.
-- Daily, scan, and history reads honor schedule validity. Scan admits the configured institutional 60-minute early-arrival margin, keeps expected entry as the present/late threshold and `to_time` as the close, rejects legacy ambiguity, and locks the chosen schedule; one fact remains protected per schedule/day.
+- Daily and history reads honor schedule validity for the requested date and retain rows after later employee deactivation. Scan still requires an active employee, admits the configured institutional 60-minute early-arrival margin, keeps expected entry as the present/late threshold and `to_time` as the close, rejects legacy ambiguity, and locks the chosen schedule; one fact remains protected per schedule/day.
 - Attendance facts derive user and branch through `schedule_code`. PostgreSQL requires entry time for present/late and forbids it for permission/justified.
-- Manual writes use the server business date and authorize existing facts by their stored date plus schedule branch. Employee membership removal/deactivation is rejected while relevant schedules remain; no implicit schedule mutation occurs.
+- Manual writes use the server business date and authorize existing facts by their stored date plus schedule branch. Employee membership removal/deactivation is rejected while schedules remain valid through today; no implicit schedule mutation occurs.
 - Permissions: `employee_attendance.view` / `employee_attendance.manage`.
 
 ## 5. Application UI
@@ -225,7 +225,7 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 227 PHPUnit tests / 1496 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 228 PHPUnit tests / 1499 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
 - `AttendanceIntegrityTest::test_shift_clock_cannot_change_after_facts_exist` was intermittently failing before Drive: it seeded a fact on the cycle factory's random `start_date`, which violates `student_attendances_instructional_day_check` whenever that date is a Sunday. The fact date now moves off Sunday; verified over eight consecutive runs.
 - A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.
