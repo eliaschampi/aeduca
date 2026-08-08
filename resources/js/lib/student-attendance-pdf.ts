@@ -1,4 +1,9 @@
 import { openPdfInWindow } from './browser-pdf';
+import {
+    fitPdfText as fitText,
+    normalizePdfText as normalizeText,
+    wrapPdfText as wrapText,
+} from './pdf-text';
 import type {
     AttendanceEffectiveState,
     StudentAttendanceReport,
@@ -62,46 +67,6 @@ function palette(rgb: PdfRgb): Palette {
         warning: rgb(0.78, 0.47, 0.06),
         white: rgb(1, 1, 1),
     };
-}
-
-function normalizeText(value: string | null | undefined, fallback = '-'): string {
-    const normalized = value?.trim().replace(/\s+/g, ' ') ?? '';
-    return normalized || fallback;
-}
-
-function fitText(text: string, font: PDFFont, size: number, maxWidth: number): string {
-    if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
-
-    const suffix = '...';
-    let fitted = text;
-    while (fitted.length > 0 && font.widthOfTextAtSize(`${fitted}${suffix}`, size) > maxWidth) {
-        fitted = fitted.slice(0, -1);
-    }
-
-    return fitted ? `${fitted}${suffix}` : suffix;
-}
-
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-    const words = normalizeText(text).split(' ');
-    const lines: string[] = [];
-    let line = '';
-
-    for (const word of words) {
-        const candidate = line ? `${line} ${word}` : word;
-        if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-            line = candidate;
-            continue;
-        }
-
-        if (line) lines.push(line);
-        line =
-            font.widthOfTextAtSize(word, size) <= maxWidth
-                ? word
-                : fitText(word, font, size, maxWidth);
-    }
-
-    if (line) lines.push(line);
-    return lines.length > 0 ? lines : ['-'];
 }
 
 function limitedLines(text: string, font: PDFFont, size: number, maxWidth: number): string[] {

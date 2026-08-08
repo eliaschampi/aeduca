@@ -569,7 +569,7 @@
         {/if}
         <p class="lumi-margin--none">
             Se eliminará definitivamente a <strong>{fullName}</strong>, sus contactos y su acceso al
-            sistema. Sólo es posible si no tiene matrículas registradas.
+            sistema. Sólo es posible si no tiene historial académico ni atenciones registradas.
         </p>
         <div class="lumi-flex lumi-justify--end lumi-flex--gap-sm">
             <Button

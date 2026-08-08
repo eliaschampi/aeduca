@@ -2,4 +2,4 @@
 
 No active temporary task.
 
-Employee control horario stabilization is documented in `docs/SPEC.md` and `docs/STATUS.md`.
+Student attentions are documented in `docs/SPEC.md` and `docs/STATUS.md`.

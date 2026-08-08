@@ -51,6 +51,13 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
         activePrefixes: ['/enrollments/'],
     },
     {
+        label: 'Atenciones',
+        href: '/student-attentions',
+        icon: 'clipboardPenLine',
+        permission: 'attentions.view',
+        requiresBranch: true,
+    },
+    {
         label: 'Asistencia',
         href: '/attendance',
         icon: 'clipboardCheck',

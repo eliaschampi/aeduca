@@ -189,6 +189,8 @@ enrollments.manage
 enrollments.delete
 attendance.view
 attendance.manage
+attentions.view
+attentions.manage
 ```
 
 New staff domains normally use `domain.view` and `domain.manage`. A permission represents a stable capability, not a field, button, tab, or routine action. Add a narrower permission only when a distinct employee responsibility is confirmed.
@@ -416,6 +418,23 @@ The profile is the institutional hub, not an enlarged CRUD form. It composes bou
 Specialized history pages load their own data. The profile must not become a service god or one unbounded aggregate query.
 
 The staff profile uses one compact identity card with cover, photo, personal details, and observations. That card keeps its own height beside the content column; primary record actions use one compact header menu.
+
+### Student attentions
+
+```text
+student_attentions
+  one student, historical branch, type, reason, development, conclusion,
+  occurred_at, one nullable drive_file_code, creator, optional last editor
+```
+
+- An attention belongs to exactly one student and the session's current branch. Creation requires any current or historical enrollment of that student in the branch; student, branch, and creator remain immutable afterward.
+- The operational entry point is one branch-scoped, month-bounded, server-paginated list. It shows the student, date, type, reason, author, edit/delete controls, and an on-demand **constancia de atención**. The constancy is generated lazily in the browser from one authorized JSON payload; it is neither stored nor included in the list payload.
+- Confirmed types are `medical`, `conduct`, `attention`, `search` (legacy _Requisa_), `attendance_permission`, and `other`. An attendance permission is documentary; Student Attendance remains the sole owner of attendance facts.
+- `attentions.view` reads the current branch's history. `attentions.manage` creates, edits, and deletes rows; deletion removes only the attention and never its personal Drive file. Students have no attention self-service until a separate visibility rule is confirmed.
+- An attention has at most one attachment through its nullable `drive_file_code`; there is no pivot collection, generic attachment framework, or secondary blob path. Linking a new file requires `drive.manage`, actor ownership, a live non-folder file, and attention management.
+- The same form chooses an existing own Drive file or uploads one. A direct upload reuses Drive's MIME allow-list, 50 MB limit, quota, storage owner, and sibling-name invariant, creating or reusing the owner's root `Atenciones` folder. A canceled form may leave a normal user-owned Drive file, never an orphan blob.
+- The attention-scoped download remains authorized after the file enters Drive trash. PostgreSQL `RESTRICT` blocks permanent file/folder deletion while linked; replacing, detaching, or deleting the attention leaves the Drive file intact.
+- Legacy migration maps the v7 incidence type, reason/title, development, conclusion/agreement, occurrence, student, branch, author, and optional attachment explicitly. It never recreates polymorphic participants or replays legacy attendance side effects.
 
 ## 6. Enrollment, academic roster, and payments
 

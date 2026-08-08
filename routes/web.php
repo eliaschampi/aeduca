@@ -16,6 +16,8 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentAccessController;
 use App\Http\Controllers\StudentAttendanceHistoryController;
+use App\Http\Controllers\StudentAttentionAttachmentController;
+use App\Http\Controllers\StudentAttentionController;
 use App\Http\Controllers\StudentContactController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Support\Facades\Route;
@@ -110,6 +112,41 @@ Route::middleware(['auth', 'account.active', 'employee.actor'])->group(function 
     Route::get('/students/lookup', [StudentController::class, 'lookup'])
         ->middleware('can:students.view')
         ->name('students.lookup');
+    Route::prefix('student-attentions')->name('student-attentions.')->group(function () {
+        Route::get('/', [StudentAttentionController::class, 'index'])
+            ->middleware('can:attentions.view')
+            ->name('index');
+        Route::get('/students', [StudentAttentionController::class, 'students'])
+            ->middleware('can:attentions.manage')
+            ->name('students');
+        Route::get('/create', [StudentAttentionController::class, 'create'])
+            ->middleware('can:attentions.manage')
+            ->name('create');
+        Route::post('/', [StudentAttentionController::class, 'store'])
+            ->middleware('can:attentions.manage')
+            ->name('store');
+        Route::post('/attachment', [StudentAttentionAttachmentController::class, 'store'])
+            ->middleware(['can:attentions.manage', 'can:drive.manage'])
+            ->name('attachment.store');
+
+        Route::prefix('{attention}')->whereUuid('attention')->group(function () {
+            Route::get('/edit', [StudentAttentionController::class, 'edit'])
+                ->middleware('can:attentions.manage')
+                ->name('edit');
+            Route::get('/certificate', [StudentAttentionController::class, 'certificate'])
+                ->middleware('can:attentions.view')
+                ->name('certificate');
+            Route::get('/attachment', [StudentAttentionAttachmentController::class, 'show'])
+                ->middleware('can:attentions.view')
+                ->name('attachment.show');
+            Route::put('/', [StudentAttentionController::class, 'update'])
+                ->middleware('can:attentions.manage')
+                ->name('update');
+            Route::delete('/', [StudentAttentionController::class, 'destroy'])
+                ->middleware('can:attentions.manage')
+                ->name('destroy');
+        });
+    });
     Route::get('/students/create', [StudentController::class, 'create'])
         ->middleware('can:students.manage')
         ->name('students.create');

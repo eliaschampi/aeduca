@@ -20,6 +20,12 @@ final class DeleteStudent
                 ]);
             }
 
+            if ($student->attentions()->exists()) {
+                throw ValidationException::withMessages([
+                    'student' => 'No se puede eliminar un alumno con atenciones registradas.',
+                ]);
+            }
+
             $photoPath = $student->photo_path;
             $student->delete();
 

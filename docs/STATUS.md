@@ -2,9 +2,9 @@
 
 > Current implementation facts only. Permanent decisions: [`SPEC.md`](SPEC.md). Temporary execution: root `TASK.md`, when present.
 
-**Implementation inventory reviewed:** August 7, 2026.
+**Implementation inventory reviewed:** August 8, 2026.
 
-**Last complete verification:** August 7, 2026 (employee control horario stabilization).
+**Last complete verification:** August 8, 2026 (student attentions).
 
 ## 1. Completed implementation
 
@@ -19,6 +19,7 @@
 | Students           | Institutional/shell search, composed profile, versioned private photo via shared helper + cropper, contacts                                                      |
 | Enrollment         | One row per student/cycle, atomic per-cycle roll reservation, derived history and active section roster                                                          |
 | Attendance         | Student: DNI scan/list/manual/history/PDF. Employee control horario: Coedula-style schedule rows, DNI scan, daily list, history, profile Horarios tab, CR80 card |
+| Attentions         | Branch/month list, create/edit/delete, one Drive-backed attachment, and on-demand browser constancy                                                              |
 
 | Drive | Private per-employee file graph with folders, trash, quota, and read-only subtree sharing between employees |
 | Quality | Pint, PHPUnit, TypeScript, Oxlint, Prettier y build verificados |
@@ -166,6 +167,21 @@ employee_attendances UNIQUE(schedule_code, date)
 - Manual writes use the server business date and authorize existing facts by their stored date plus schedule branch. Employee membership removal/deactivation is rejected while schedules remain valid through today; no implicit schedule mutation occurs.
 - Permissions: `employee_attendance.view` / `employee_attendance.manage`.
 
+### Student attentions
+
+```text
+student_attentions
+  student + historical branch + type + occurred_at + one nullable drive_file_code
+```
+
+- `/student-attentions` is the single current-branch entry point. It normalizes a `YYYY-MM` filter, paginates 20 rows on the server, and selects only the displayed student, reason, type, date, author, and attachment presence.
+- `SaveStudentAttention` owns create/update. Creation locks the student, requires enrollment history in the current branch, and derives branch/creator; update preserves those owners and records the last editor. `attentions.view` / `attentions.manage` are employee-only.
+- The list exposes the requested edit and delete icon actions plus a textual Constancia action. Deletion keeps the Drive file. The constancy fetches one authorized full record on click and uses the shared browser PDF/text utilities to render the v7-confirmed content and signature areas without a stored artifact.
+- One form and one card compose Alumno y contexto, Detalle y acuerdos, and Adjunto opcional with public Lumi components. There is no detail page or post-save attachment flow.
+- `drive_file_code` is the complete attachment representation. Existing selection and direct upload happen in the same form dialog; the latter reuses Drive storage/quota/MIME rules and places the file under the owner's `Atenciones` folder.
+- Attention download stays available when the file is in Drive trash; its named restrictive FK blocks permanent Drive deletion while linked. Replacing/removing the link and deleting the attention never delete the personal file.
+- Seven focused feature tests cover permission and branch isolation, month filtering, student selection, CRUD ownership, one-file replacement, upload folder/storage, protected trash history, constancy, and student deletion.
+
 ## 5. Application UI
 
 - One authenticated dashboard shell.
@@ -186,6 +202,7 @@ employee_attendances UNIQUE(schedule_code, date)
 - Student self-service reuses the authenticated shell with only **Mi perfil** navigation.
 - No physical employee deletion, fake card action, or empty future tabs.
 - Student and enrollment destructive actions use compact Lumi dropdowns and explicit confirmation dialogs; management permissions do not expose them.
+- Atenciones follows the same Lumi page-sidebar/list composition as Matriculados and Asistencia. Its month filter, responsive table, confirmation, single-card form, and one-file dialog add no local styles or second UI system.
 
 ## 6. Drive implementation
 
@@ -208,6 +225,7 @@ views                  = Mi unidad · Recientes · Archivos pesados · Papelera
 - Uploads are capped at 50 MB against Lumi's allow-list, charged to a 2 GB per-owner quota, and roll back their blob when the row fails.
 - Blobs live on the private `local` disk under `drive/`; `PrivateProfilePhoto` keeps owning profile photos.
 - Serving is authorized per request for the owner or a recipient reached through the share, sends `nosniff`, and forces attachment disposition for SVG.
+- A file linked to an attention has an attention-scoped download; Drive permanent deletion reports a validation error until the link is removed.
 - Trash, restore, permanent delete, and empty-trash settle the list locally from the response instead of refetching, and every acting button carries its pending state.
 - Drive tags and image variants are deliberately absent; the `variant` query parameter Lumi appends is ignored and the original is served.
 
@@ -215,7 +233,6 @@ views                  = Mi unidad · Recientes · Archivos pesados · Papelera
 
 - payments, cashbox, or payment reporting;
 - evaluations, OMR, or score reports;
-- attentions;
 - student access to shared files (Drive recipients are employees only);
 - v7 attendance data import runner (schema is migration-ready).
 
@@ -225,8 +242,9 @@ Current implementation verification:
 
 - `php artisan migrate:fresh --seed --env=testing`: passed against `aeduca_test`.
 - `composer run format`: passed.
-- `composer run check`: passed, including Pint, 228 PHPUnit tests / 1499 assertions, TypeScript, Oxlint and Prettier.
+- `composer run check`: passed, including Pint, 235 PHPUnit tests / 1578 assertions, TypeScript, Oxlint and Prettier.
 - `pnpm run build`: passed.
+- Browser QA against `aeduca_test`: desktop and mobile list, create form, single-attachment Drive/upload dialog, and lazy constancy PDF opening passed without console errors.
 - `AttendanceIntegrityTest::test_shift_clock_cannot_change_after_facts_exist` was intermittently failing before Drive: it seeded a fact on the cycle factory's random `start_date`, which violates `student_attendances_instructional_day_check` whenever that date is a Sunday. The fact date now moves off Sunday; verified over eight consecutive runs.
 - A representative 93-date, one-shift attendance-history plan against 5,000 fact rows returned 80 rows in 0.240 ms through `student_attendances_history_index` with no attendance full scan. The existing indexes were sufficient; no index was added.
 

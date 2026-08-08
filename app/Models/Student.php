@@ -43,6 +43,11 @@ class Student extends Model
         return $this->hasMany(Enrollment::class, 'student_code', 'code');
     }
 
+    public function attentions(): HasMany
+    {
+        return $this->hasMany(StudentAttention::class, 'student_code', 'code');
+    }
+
     protected function casts(): array
     {
         return [
